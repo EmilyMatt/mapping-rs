@@ -1,0 +1,12 @@
+[package]
+name = "mapping-suites-rs"
+version = "0.0.1"
+authors = ["Emily Matheys <emilymatt96@gmail.com>"]
+description = "A collection of SLAM suites, for use with mapping-algorithms-rs"
+edition = "2021"
+rust-version = "1.67"
+license = "MIT"
+readme = "../../README.md"
+categories = ["slam", "robotics", "algorithms"]
+keywords = ["algorithms", "mathematics", "science"]
+include = ["../LICENSE", "**/*.rs", "Cargo.toml"]

@@ -1,0 +1,32 @@
+[package]
+name = "mapping-algorithms-rs"
+version = "0.0.1"
+authors = ["Emily Matheys <emilymatt96@gmail.com>"]
+description = "A collection of pure-rust algorithms in popular use for SLAM purposes"
+edition = "2021"
+rust-version = "1.67"
+license = "MIT"
+readme = "../../README.md"
+categories = ["slam", "robotics", "algorithms"]
+keywords = ["algorithms", "mathematics", "science"]
+include = ["../LICENSE", "**/*.rs", "Cargo.toml"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+
+[features]
+default = ["std"]
+std = ["nalgebra/std"]
+cuda = ["nalgebra/cuda", "bindgen", "cc"]
+
+[dependencies]
+nalgebra = { version = "0.32.3", default-features = false }
+
+[dev-dependencies]
+rand = "0.8.5"
+
+[build-dependencies]
+bindgen = { version = "0.66.1", optional = true }
+cc = { version = "1.0.79", optional = true }

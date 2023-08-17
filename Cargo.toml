@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/algorithms", "crates/suites"]
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 2
