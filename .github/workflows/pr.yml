@@ -1,8 +1,11 @@
-name: Build
+name: Mandatory Pull Request Checks
+
 on: [pull_request]
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-Dwarnings"
+
 jobs:
   checks:
     runs-on: ubuntu-latest
