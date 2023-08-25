@@ -11,6 +11,11 @@ categories = ["slam", "robotics", "algorithms"]
 keywords = ["algorithms", "mathematics", "science"]
 include = ["../LICENSE", "**/*.rs", "Cargo.toml"]
 
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+
 [features]
 default = ["std"]
 std = ["nalgebra/std"]
