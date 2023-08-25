@@ -12,3 +12,5 @@ jobs:
         run: cargo clippy --all-targets --all-features
       - name: Check Rustfmt
         run: cargo fmt --check
+      - name: Check Deny
+        run: cargo deny check
