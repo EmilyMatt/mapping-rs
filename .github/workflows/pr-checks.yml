@@ -31,3 +31,52 @@ jobs:
         run: cargo install cargo-deny
       - name: Check Deny
         run: cargo deny --all-features check
+
+  check-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Doc
+        run: cargo doc --all-features
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --all-features
+
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Test
+        run: cargo test --all-features
+
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --all-features
+
+  test-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Test
+        run: cargo test --all-features
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --all-features
+
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Test
+        run: cargo test --all-features
