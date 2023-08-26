@@ -1,6 +1,6 @@
 #[cfg(any(feature = "2d", feature = "3d"))]
 use {
-    crate::ICPSuccess,
+    crate::types::ICPSuccess,
     helpers::{calculate_mse, find_closest_point, transform_using_centeroids},
     nalgebra::{Isometry, Point},
 };
@@ -14,8 +14,20 @@ mod helpers;
 // TODO: see how much of this code can be reused, I think only the SVD part actually requires a specific struct
 // Maybe move mse calculation upwards? IDK, requires more design
 
+/// An ICP function in 2D space.
+/// # Arguments
+/// * `points_a`: A slice of [`Point<f32, 2>`], representing the source point cloud.
+/// * `points_b`: A slice of [`Point<f32, 2>`], representing the target point cloud.
+/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
+/// * `mse_threshold`: an [`f32`], if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
+///
+/// # Returns
+/// An [`ICPSuccess`] struct with a 2D isometric matrix.
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
+///
 #[cfg(feature = "2d")]
-pub fn scan_match_2d(
+pub fn icp_2d(
     points_a: &[Point<f32, 2>],
     points_b: &[Point<f32, 2>],
     max_iterations: usize,
@@ -67,8 +79,20 @@ pub fn scan_match_2d(
     Err("Could not converge".to_string())
 }
 
+/// An ICP function in 3D space.
+/// # Arguments
+/// * `points_a`: A slice of [`Point<f32, 3>`], representing the source point cloud.
+/// * `points_b`: A slice of [`Point<f32, 3>`], representing the target point cloud.
+/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
+/// * `mse_threshold`: an [`f32`], if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
+///
+/// # Returns
+/// An [`ICPSuccess`] struct with a 3D isometric matrix.
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
+///
 #[cfg(feature = "3d")]
-pub fn scan_match_3d(
+pub fn icp_3d(
     points_a: &[Point<f32, 3>],
     points_b: &[Point<f32, 3>],
     max_iterations: usize,
@@ -121,14 +145,17 @@ pub fn scan_match_3d(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "2d", feature = "3d"))]
+    use crate::utils;
+
     #[test]
     #[cfg(feature = "2d")]
     fn test_csm_2d() {
         let translation = nalgebra::Vector2::new(-0.8, 1.3);
         let isom = nalgebra::Isometry2::new(translation, 0.1);
-        let (points, points_transformed) = crate::utils::generate_points(isom);
+        let (points, points_transformed) = utils::tests::generate_points(isom);
 
-        assert!(super::scan_match_2d(
+        assert!(super::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
@@ -143,9 +170,9 @@ mod tests {
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
         let isom = nalgebra::Isometry3::new(translation, rotation);
-        let (points, points_transformed) = crate::utils::generate_points(isom);
+        let (points, points_transformed) = utils::tests::generate_points(isom);
 
-        assert!(super::scan_match_3d(
+        assert!(super::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,

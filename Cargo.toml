@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "1" # Prevent duplicate crates
 members = ["crates/algorithms", "crates/suites"]
 
 [profile.dev]
