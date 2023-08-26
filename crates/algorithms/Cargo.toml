@@ -19,6 +19,7 @@ all-features = true
 [features]
 default = ["std"]
 std = ["nalgebra/std"]
+tracing = ["dep:tracing"]
 2d = []
 3d = []
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
@@ -26,7 +27,8 @@ cuda = ["nalgebra/cuda", "bindgen", "cc"]
 [dependencies]
 log = "0.4.19"
 nalgebra = { version = "0.32.3", default-features = false }
-tracing = "0.1.37"
+num-traits = "0.2.16"
+tracing = { version = "0.1.37", optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"
