@@ -1,8 +1,12 @@
+#[cfg(feature = "tracing")]
+use tracing::instrument;
 #[cfg(any(feature = "2d", feature = "3d"))]
 use {
-    crate::types::ICPSuccess,
+    crate::types::{ICPSuccess, SameSizeMat},
     helpers::{calculate_mse, find_closest_point, transform_using_centeroids},
-    nalgebra::{Isometry, Point},
+    nalgebra::{ComplexField, Isometry, Point, RealField},
+    num_traits::AsPrimitive,
+    std::{iter::Sum, ops::Add},
 };
 
 mod helpers;
@@ -27,19 +31,26 @@ mod helpers;
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 ///
 #[cfg(feature = "2d")]
-pub fn icp_2d(
-    points_a: &[Point<f32, 2>],
-    points_b: &[Point<f32, 2>],
+#[cfg_attr(feature = "tracing", instrument("Full 2D ICP Algorithm", skip_all))]
+pub fn icp_2d<T>(
+    points_a: &[Point<T, 2>],
+    points_b: &[Point<T, 2>],
     max_iterations: usize,
-    mse_threshold: f32,
-) -> Result<ICPSuccess<2, nalgebra::UnitComplex<f32>>, String> {
+    mse_threshold: T,
+) -> Result<ICPSuccess<T, 2, nalgebra::UnitComplex<T>>, String>
+where
+    T: ComplexField + Copy + Default + RealField + Sum,
+    usize: AsPrimitive<T>,
+    SameSizeMat<T, 2>: Add<Output = SameSizeMat<T, 2>>,
+{
     let mut current_transform = Isometry::identity();
-    let mut current_mse = f32::MAX;
+    let mut current_mse = T::max_value().expect("Must have MAX");
 
     let mut transformed_points = points_a
         .iter()
         .map(|point_a| current_transform.transform_point(point_a))
         .collect::<Vec<_>>();
+
     for iteration_num in 0..max_iterations {
         let closest_points = transformed_points
             .iter()
@@ -92,19 +103,26 @@ pub fn icp_2d(
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 ///
 #[cfg(feature = "3d")]
-pub fn icp_3d(
-    points_a: &[Point<f32, 3>],
-    points_b: &[Point<f32, 3>],
+#[cfg_attr(feature = "tracing", instrument("Full 3D ICP Algorithm", skip_all))]
+pub fn icp_3d<T>(
+    points_a: &[Point<T, 3>],
+    points_b: &[Point<T, 3>],
     max_iterations: usize,
-    mse_threshold: f32,
-) -> Result<ICPSuccess<3, nalgebra::UnitQuaternion<f32>>, String> {
+    mse_threshold: T,
+) -> Result<ICPSuccess<T, 3, nalgebra::UnitQuaternion<T>>, String>
+where
+    T: ComplexField + Copy + Default + RealField + Sum,
+    usize: AsPrimitive<T>,
+    SameSizeMat<T, 3>: Add<Output = SameSizeMat<T, 3>>,
+{
     let mut current_transform = Isometry::identity();
-    let mut current_mse = f32::MAX;
+    let mut current_mse = T::max_value().expect("Must have MAX");
 
     let mut transformed_points = points_a
         .iter()
         .map(|point_a| current_transform.transform_point(point_a))
         .collect::<Vec<_>>();
+
     for iteration_num in 0..max_iterations {
         let closest_points = transformed_points
             .iter()
@@ -118,15 +136,16 @@ pub fn icp_3d(
         let rotation = svd.v_t.unwrap().transpose() * svd.u.unwrap().transpose();
         let translation = mean_b.coords - (rotation * mean_a.coords);
 
-        current_transform = Isometry::from_parts(
+        let estimated_transform = Isometry::from_parts(
             translation.into(),
             nalgebra::UnitQuaternion::from_matrix(&rotation),
-        ) * current_transform;
+        );
+
+        current_transform = estimated_transform * current_transform;
 
         for (idx, point_a) in points_a.iter().enumerate() {
             transformed_points[idx] = current_transform.transform_point(point_a)
         }
-
         let new_mse = calculate_mse(transformed_points.as_slice(), closest_points.as_slice());
 
         if (current_mse - new_mse).abs() < mse_threshold {

@@ -235,6 +235,7 @@ dependencies = [
  "cc",
  "log",
  "nalgebra",
+ "num-traits",
  "rand",
  "tracing",
 ]
