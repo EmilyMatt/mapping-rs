@@ -7,13 +7,32 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  checks:
+  check-clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Check Clippy
         run: cargo clippy --all-targets --all-features
+
+  check-fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       - name: Check Rustfmt
-        run: cargo fmt --check
+        run: cargo fmt --all --check
+
+  check-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Deny
+        run: cargo install cargo-deny
       - name: Check Deny
-        run: cargo deny check
+        run: cargo deny --all-features check
+
+  check-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check Docs
+        run: cargo doc --all-features
