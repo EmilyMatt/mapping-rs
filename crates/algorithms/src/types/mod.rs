@@ -1,6 +1,6 @@
 use nalgebra::{
-    ArrayStorage, ComplexField, Const, Isometry, Matrix, OMatrix, Point, RealField,
-    SimdComplexField, SimdRealField, UnitComplex, UnitQuaternion, U1,
+    ComplexField, Const, Isometry, OMatrix, Point, RealField, SimdComplexField, SimdRealField,
+    UnitComplex, UnitQuaternion,
 };
 use std::fmt::Debug;
 
@@ -25,22 +25,30 @@ where
     pub iteration_num: usize,
 }
 
+/// This trait acts as an abstraction of the [`Isometry`] matrix from [`nalgebra`]
+/// Since that crate does not contain a generic version, that will allow algorithms to be used easily between 2D and 3D
 pub trait IsometryAbstration<T, const N: usize>
 where
     T: ComplexField + Copy + Default + RealField,
 {
+    /// This is the type of the isometry matrix itself, allowing us to specify it for 2D and 3D
     type Isom;
-    fn from_parts(
-        translation: Matrix<T, Const<N>, U1, ArrayStorage<T, N, 1>>,
-        mat: &SameSizeMat<T, N>,
-    ) -> Self::Isom;
-    fn svd(mat: &SameSizeMat<T, N>) -> (SameSizeMat<T, N>, SameSizeMat<T, N>);
+
+    /// This creates an Identity Isometry Matrix.
     fn identity() -> Self::Isom;
+
+    /// This function acts as a wrapper for the isometry's transform_point function
     fn transform_point(isom: &Self::Isom, point: &Point<T, N>) -> Point<T, N>;
+
+    /// This function receives the old transform, the centeroids of both point clouds, and the covariance rotation mat
+    /// It then performs SVD on the covariance matrix, and uses the resulting matrics
+    /// and the translation between the two points to construct a new transform.
+    /// This transform is multiplied by the old transform, and the result is returned
     fn update_transform(
         old_transform: &Self::Isom,
-        translation: Matrix<T, Const<N>, U1, ArrayStorage<T, N, 1>>,
-        mat: &SameSizeMat<T, N>,
+        mean_b: Point<T, N>,
+        mean_a: Point<T, N>,
+        rot_mat: &SameSizeMat<T, N>,
     ) -> Self::Isom;
 }
 
@@ -49,18 +57,6 @@ where
     T: ComplexField + Copy + Default + RealField,
 {
     type Isom = Isometry<T, UnitComplex<T>, 2>;
-    fn from_parts(
-        translation: Matrix<T, Const<2>, U1, ArrayStorage<T, 2, 1>>,
-        mat: &SameSizeMat<T, 2>,
-    ) -> Self::Isom {
-        Self::Isom::from_parts(translation.into(), UnitComplex::from_matrix(mat))
-    }
-
-    #[inline]
-    fn svd(mat: &SameSizeMat<T, 2>) -> (SameSizeMat<T, 2>, SameSizeMat<T, 2>) {
-        let svd = mat.svd(true, true);
-        (svd.u.unwrap(), svd.v_t.unwrap())
-    }
 
     #[inline]
     fn identity() -> Self::Isom {
@@ -75,10 +71,15 @@ where
     #[inline]
     fn update_transform(
         old_transform: &Self::Isom,
-        translation: Matrix<T, Const<2>, U1, ArrayStorage<T, 2, 1>>,
-        mat: &SameSizeMat<T, 2>,
+        mean_b: Point<T, 2>,
+        mean_a: Point<T, 2>,
+        rot_mat: &SameSizeMat<T, 2>,
     ) -> Self::Isom {
-        Self::Isom::from_parts(translation.into(), UnitComplex::from_matrix(mat)) * old_transform
+        let svd = rot_mat.svd(true, true);
+        let rotation = svd.v_t.unwrap().transpose() * svd.u.unwrap().transpose();
+        let translation = mean_b.coords - (rotation * mean_a.coords);
+        Self::Isom::from_parts(translation.into(), UnitComplex::from_matrix(&rotation))
+            * old_transform
     }
 }
 
@@ -87,20 +88,6 @@ where
     T: ComplexField + Copy + Default + RealField,
 {
     type Isom = Isometry<T, UnitQuaternion<T>, 3>;
-
-    #[inline]
-    fn from_parts(
-        translation: Matrix<T, Const<3>, U1, ArrayStorage<T, 3, 1>>,
-        mat: &SameSizeMat<T, 3>,
-    ) -> Self::Isom {
-        Self::Isom::from_parts(translation.into(), UnitQuaternion::from_matrix(mat))
-    }
-
-    #[inline]
-    fn svd(mat: &SameSizeMat<T, 3>) -> (SameSizeMat<T, 3>, SameSizeMat<T, 3>) {
-        let svd = mat.svd(true, true);
-        (svd.u.unwrap(), svd.v_t.unwrap())
-    }
 
     #[inline]
     fn identity() -> Self::Isom {
@@ -115,9 +102,14 @@ where
     #[inline]
     fn update_transform(
         old_transform: &Self::Isom,
-        translation: Matrix<T, Const<3>, U1, ArrayStorage<T, 3, 1>>,
-        mat: &SameSizeMat<T, 3>,
+        mean_b: Point<T, 3>,
+        mean_a: Point<T, 3>,
+        rot_mat: &SameSizeMat<T, 3>,
     ) -> Self::Isom {
-        Self::Isom::from_parts(translation.into(), UnitQuaternion::from_matrix(mat)) * old_transform
+        let svd = rot_mat.svd(true, true);
+        let rotation = svd.v_t.unwrap().transpose() * svd.u.unwrap().transpose();
+        let translation = mean_b.coords - (rotation * mean_a.coords);
+        Self::Isom::from_parts(translation.into(), UnitQuaternion::from_matrix(&rotation))
+            * old_transform
     }
 }

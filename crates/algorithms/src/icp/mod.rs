@@ -1,7 +1,7 @@
 #[cfg(feature = "tracing")]
 use tracing::instrument;
 
-use crate::types::{ICPSuccess, IsometryAbstration, SameSizeMat};
+use crate::types::{ICPSuccess, IsometryAbstration};
 use helpers::{calculate_mse, find_closest_point, transform_using_centeroids};
 use nalgebra::{ComplexField, Point, RealField};
 use num_traits::AsPrimitive;
@@ -22,7 +22,7 @@ mod helpers;
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 ///
 #[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
-fn icp<T, const N: usize, O>(
+pub fn icp<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     max_iterations: usize,
@@ -50,11 +50,7 @@ where
         let (rot_mat, mean_a, mean_b) =
             transform_using_centeroids(transformed_points.as_slice(), closest_points.as_slice());
 
-        let (u, v_t): (SameSizeMat<T, N>, SameSizeMat<T, N>) = O::svd(&rot_mat);
-        let rotation = v_t.transpose() * u.transpose();
-        let translation = mean_b.coords - (rotation * mean_a.coords);
-
-        current_transform = O::update_transform(&current_transform, translation, &rotation);
+        current_transform = O::update_transform(&current_transform, mean_b, mean_a, &rot_mat);
 
         for (idx, point_a) in points_a.iter().enumerate() {
             transformed_points[idx] = O::transform_point(&current_transform, point_a)
@@ -78,12 +74,10 @@ where
 #[cfg(test)]
 mod tests {
     use crate::types::ICPSuccess;
-    #[cfg(any(feature = "2d", feature = "3d"))]
     use crate::utils;
     use nalgebra::Const;
 
     #[test]
-    #[cfg(feature = "2d")]
     fn test_csm_2d() {
         let translation = nalgebra::Vector2::new(-0.8, 1.3);
         let isom = nalgebra::Isometry2::new(translation, 0.1);
@@ -99,7 +93,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "3d")]
     fn test_sm_3d() {
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
