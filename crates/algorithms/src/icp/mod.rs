@@ -1,54 +1,44 @@
 #[cfg(feature = "tracing")]
 use tracing::instrument;
-#[cfg(any(feature = "2d", feature = "3d"))]
-use {
-    crate::types::{ICPSuccess, SameSizeMat},
-    helpers::{calculate_mse, find_closest_point, transform_using_centeroids},
-    nalgebra::{ComplexField, Isometry, Point, RealField},
-    num_traits::AsPrimitive,
-    std::{iter::Sum, ops::Add},
-};
+
+use crate::types::{ICPSuccess, IsometryAbstration, SameSizeMat};
+use helpers::{calculate_mse, find_closest_point, transform_using_centeroids};
+use nalgebra::{ComplexField, Point, RealField};
+use num_traits::AsPrimitive;
+use std::iter::Sum;
 
 mod helpers;
 
-// TODO: implement using trait, that will only be implemented for these two combos:
-// 1. <2usize, UnitComplex>
-// 2. <3usize, UnitQuaternion>
-
-// TODO: see how much of this code can be reused, I think only the SVD part actually requires a specific struct
-// Maybe move mse calculation upwards? IDK, requires more design
-
-/// An ICP function in 2D space.
+/// An ICP function in 2D space or 3D space.
 /// # Arguments
-/// * `points_a`: A slice of [`Point<f32, 2>`], representing the source point cloud.
-/// * `points_b`: A slice of [`Point<f32, 2>`], representing the target point cloud.
+/// * `points_a`: A slice of [`Point<f32, N>`], representing the source point cloud.
+/// * `points_b`: A slice of [`Point<f32, N>`], representing the target point cloud.
 /// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
-/// * `mse_threshold`: an [`f32`], if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
+/// * `mse_threshold`: an [`f32`] of [`f64`], if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
 ///
 /// # Returns
-/// An [`ICPSuccess`] struct with a 2D isometric matrix.
+/// An [`ICPSuccess`] struct with a 2D or 3D isometric matrix.
 ///
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 ///
-#[cfg(feature = "2d")]
-#[cfg_attr(feature = "tracing", instrument("Full 2D ICP Algorithm", skip_all))]
-pub fn icp_2d<T>(
-    points_a: &[Point<T, 2>],
-    points_b: &[Point<T, 2>],
+#[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
+fn icp<T, const N: usize, O>(
+    points_a: &[Point<T, N>],
+    points_b: &[Point<T, N>],
     max_iterations: usize,
     mse_threshold: T,
-) -> Result<ICPSuccess<T, 2, nalgebra::UnitComplex<T>>, String>
+) -> Result<ICPSuccess<T, N, O>, String>
 where
     T: ComplexField + Copy + Default + RealField + Sum,
     usize: AsPrimitive<T>,
-    SameSizeMat<T, 2>: Add<Output = SameSizeMat<T, 2>>,
+    O: IsometryAbstration<T, N>,
 {
-    let mut current_transform = Isometry::identity();
+    let mut current_transform: O::Isom = O::identity();
     let mut current_mse = T::max_value().expect("Must have MAX");
 
     let mut transformed_points = points_a
         .iter()
-        .map(|point_a| current_transform.transform_point(point_a))
+        .map(|point_a| O::transform_point(&current_transform, point_a))
         .collect::<Vec<_>>();
 
     for iteration_num in 0..max_iterations {
@@ -60,91 +50,14 @@ where
         let (rot_mat, mean_a, mean_b) =
             transform_using_centeroids(transformed_points.as_slice(), closest_points.as_slice());
 
-        let svd = rot_mat.svd(true, true);
-        let rotation = svd.v_t.unwrap().transpose() * svd.u.unwrap().transpose();
+        let (u, v_t): (SameSizeMat<T, N>, SameSizeMat<T, N>) = O::svd(&rot_mat);
+        let rotation = v_t.transpose() * u.transpose();
         let translation = mean_b.coords - (rotation * mean_a.coords);
 
-        let estimated_transform = Isometry::from_parts(
-            translation.into(),
-            nalgebra::UnitComplex::from_matrix(&rotation),
-        );
-
-        current_transform = estimated_transform * current_transform;
+        current_transform = O::update_transform(&current_transform, translation, &rotation);
 
         for (idx, point_a) in points_a.iter().enumerate() {
-            transformed_points[idx] = current_transform.transform_point(point_a)
-        }
-        let new_mse = calculate_mse(transformed_points.as_slice(), closest_points.as_slice());
-
-        if (current_mse - new_mse).abs() < mse_threshold {
-            return Ok(ICPSuccess {
-                transform: current_transform,
-                mse: new_mse,
-                iteration_num,
-            });
-        }
-
-        current_mse = new_mse;
-    }
-
-    Err("Could not converge".to_string())
-}
-
-/// An ICP function in 3D space.
-/// # Arguments
-/// * `points_a`: A slice of [`Point<f32, 3>`], representing the source point cloud.
-/// * `points_b`: A slice of [`Point<f32, 3>`], representing the target point cloud.
-/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
-/// * `mse_threshold`: an [`f32`], if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
-///
-/// # Returns
-/// An [`ICPSuccess`] struct with a 3D isometric matrix.
-///
-/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
-///
-#[cfg(feature = "3d")]
-#[cfg_attr(feature = "tracing", instrument("Full 3D ICP Algorithm", skip_all))]
-pub fn icp_3d<T>(
-    points_a: &[Point<T, 3>],
-    points_b: &[Point<T, 3>],
-    max_iterations: usize,
-    mse_threshold: T,
-) -> Result<ICPSuccess<T, 3, nalgebra::UnitQuaternion<T>>, String>
-where
-    T: ComplexField + Copy + Default + RealField + Sum,
-    usize: AsPrimitive<T>,
-    SameSizeMat<T, 3>: Add<Output = SameSizeMat<T, 3>>,
-{
-    let mut current_transform = Isometry::identity();
-    let mut current_mse = T::max_value().expect("Must have MAX");
-
-    let mut transformed_points = points_a
-        .iter()
-        .map(|point_a| current_transform.transform_point(point_a))
-        .collect::<Vec<_>>();
-
-    for iteration_num in 0..max_iterations {
-        let closest_points = transformed_points
-            .iter()
-            .map(|transformed_point_a| find_closest_point(transformed_point_a, points_b))
-            .collect::<Vec<_>>();
-
-        let (rot_mat, mean_a, mean_b) =
-            transform_using_centeroids(transformed_points.as_slice(), closest_points.as_slice());
-
-        let svd = rot_mat.svd(true, true);
-        let rotation = svd.v_t.unwrap().transpose() * svd.u.unwrap().transpose();
-        let translation = mean_b.coords - (rotation * mean_a.coords);
-
-        let estimated_transform = Isometry::from_parts(
-            translation.into(),
-            nalgebra::UnitQuaternion::from_matrix(&rotation),
-        );
-
-        current_transform = estimated_transform * current_transform;
-
-        for (idx, point_a) in points_a.iter().enumerate() {
-            transformed_points[idx] = current_transform.transform_point(point_a)
+            transformed_points[idx] = O::transform_point(&current_transform, point_a)
         }
         let new_mse = calculate_mse(transformed_points.as_slice(), closest_points.as_slice());
 
@@ -164,8 +77,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::types::ICPSuccess;
     #[cfg(any(feature = "2d", feature = "3d"))]
     use crate::utils;
+    use nalgebra::Const;
 
     #[test]
     #[cfg(feature = "2d")]
@@ -174,13 +89,13 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let (points, points_transformed) = utils::tests::generate_points(isom);
 
-        assert!(super::icp_2d(
+        let icp_res: Result<ICPSuccess<f32, 2, Const<2>>, String> = super::icp(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
-            0.0001
-        )
-        .is_ok());
+            0.0001,
+        );
+        assert!(icp_res.is_ok());
     }
 
     #[test]
@@ -191,12 +106,12 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let (points, points_transformed) = utils::tests::generate_points(isom);
 
-        assert!(super::icp_3d(
+        let icp_res: Result<ICPSuccess<f32, 3, Const<3>>, String> = super::icp(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
-            0.0001
-        )
-        .is_ok());
+            0.0001,
+        );
+        assert!(icp_res.is_ok());
     }
 }
