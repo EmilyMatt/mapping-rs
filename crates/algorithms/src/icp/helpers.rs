@@ -32,13 +32,15 @@ where
 }
 
 /// Calculates the Mean Squared Error between two point clouds.
+/// # Generics
+/// * T: either an [`f32`] or [`f64`]
 ///
 /// # Arguments
-/// * `transformed_points_a`: a slice of [`Point`], representing the source point cloud, transformed by the current [`Isometry`] matrix.
+/// * `transformed_points_a`: a slice of [`Point`], representing the source point cloud, transformed by the current [`Isometry`](nalgebra::Isometry) matrix.
 /// * `points_b`: a slice of [`Point`], representing the point cloud to match against.
 ///
 /// # Returns
-/// An [`f32`], representing the sum of all squared distances between each point in `transformed_points_a` and its corresponding point in `points_b`.
+/// A [`T`], representing the sum of all squared distances between each point in `transformed_points_a` and its corresponding point in `points_b`.
 #[inline]
 #[cfg_attr(feature = "tracing", instrument("Calculate MSE", skip_all))]
 pub(crate) fn calculate_mse<T, const N: usize>(
@@ -113,7 +115,6 @@ where
     let mut current_idx = 0;
     for (idx, target_point) in target_points.iter().enumerate() {
         let distance = (transformed_point - target_point).norm();
-        log::info!("{distance}");
 
         if distance < current_distance {
             current_distance = distance;
