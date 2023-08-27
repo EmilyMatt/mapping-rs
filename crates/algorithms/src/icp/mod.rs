@@ -9,20 +9,8 @@ use std::iter::Sum;
 
 mod helpers;
 
-/// An ICP function in 2D space or 3D space.
-/// # Arguments
-/// * `points_a`: A slice of [`Point<f32, N>`], representing the source point cloud.
-/// * `points_b`: A slice of [`Point<f32, N>`], representing the target point cloud.
-/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
-/// * `mse_threshold`: an [`f32`] of [`f64`], if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
-///
-/// # Returns
-/// An [`ICPSuccess`] struct with a 2D or 3D isometric matrix.
-///
-/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
-///
 #[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
-pub fn icp<T, const N: usize, O>(
+fn icp<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     max_iterations: usize,
@@ -71,8 +59,22 @@ where
     Err("Could not converge".to_string())
 }
 
-/// Maybe make the abstract version private and move the docs, to help the users?
-#[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
+/// An ICP algorithm in 2D space.
+/// # Generics
+/// * `T`: either an [`f32`] or [`f64`]
+///
+/// # Arguments
+/// * `points_a`: A slice of [`Point<T, 2>`], representing the source point cloud.
+/// * `points_b`: A slice of [`Point<T, 2>`], representing the target point cloud.
+/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
+/// * `mse_threshold`: a `T`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
+///
+/// # Returns
+/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) of [`UnitComplex`](nalgebra::UnitComplex) with `T` precision.
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
+///
+#[cfg_attr(feature = "tracing", instrument("2D ICP ALgorithm", skip_all))]
 pub fn icp_2d<T>(
     points_a: &[Point<T, 2>],
     points_b: &[Point<T, 2>],
@@ -86,8 +88,22 @@ where
     icp(points_a, points_b, max_iterations, mse_threshold)
 }
 
-/// Maybe make the abstract version private and move the docs, to help the users?
-#[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
+/// An ICP algorithm in 3D space.
+/// # Generics
+/// * `T`: either an [`f32`] or [`f64`]
+///
+/// # Arguments
+/// * `points_a`: A slice of [`Point<T, 3>`], representing the source point cloud.
+/// * `points_b`: A slice of [`Point<T, 3>`], representing the target point cloud.
+/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
+/// * `mse_threshold`: a `T`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
+///
+/// # Returns
+/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) of [`UnitQuaternion`](nalgebra::UnitQuaternion) with `T` precision.
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
+///
+#[cfg_attr(feature = "tracing", instrument("3D ICP ALgorithm", skip_all))]
 pub fn icp_3d<T>(
     points_a: &[Point<T, 3>],
     points_b: &[Point<T, 3>],
