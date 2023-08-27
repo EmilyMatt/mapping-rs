@@ -12,5 +12,14 @@ pub mod icp;
 ///A module containing common and interfacing structs and types.
 pub mod types;
 
+/// Implementation of an Ackerman vehicle steering model.
+pub mod ackerman;
+
+/// Implementations of Bresenham line algorithms.
+pub mod bresenham;
+
+/// Implementations of various Point-In-Polygon algorithms.
+pub mod point_in_polygon;
+
 /// Various utility functions that are commonly used by these algorithms.
 pub mod utils;
