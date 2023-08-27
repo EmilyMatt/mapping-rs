@@ -3,7 +3,7 @@ use tracing::instrument;
 
 use crate::types::{ICPSuccess, IsometryAbstration};
 use helpers::{calculate_mse, find_closest_point, transform_using_centeroids};
-use nalgebra::{ComplexField, Point, RealField};
+use nalgebra::{ComplexField, Const, Point, RealField};
 use num_traits::AsPrimitive;
 use std::iter::Sum;
 
@@ -71,11 +71,39 @@ where
     Err("Could not converge".to_string())
 }
 
+/// Maybe make the abstract version private and move the docs, to help the users?
+#[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
+pub fn icp_2d<T>(
+    points_a: &[Point<T, 2>],
+    points_b: &[Point<T, 2>],
+    max_iterations: usize,
+    mse_threshold: T,
+) -> Result<ICPSuccess<T, 2, Const<2>>, String>
+where
+    T: ComplexField + Copy + Default + RealField + Sum,
+    usize: AsPrimitive<T>,
+{
+    icp(points_a, points_b, max_iterations, mse_threshold)
+}
+
+/// Maybe make the abstract version private and move the docs, to help the users?
+#[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
+pub fn icp_3d<T>(
+    points_a: &[Point<T, 3>],
+    points_b: &[Point<T, 3>],
+    max_iterations: usize,
+    mse_threshold: T,
+) -> Result<ICPSuccess<T, 3, Const<3>>, String>
+where
+    T: ComplexField + Copy + Default + RealField + Sum,
+    usize: AsPrimitive<T>,
+{
+    icp(points_a, points_b, max_iterations, mse_threshold)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::types::ICPSuccess;
     use crate::utils;
-    use nalgebra::Const;
 
     #[test]
     fn test_csm_2d() {
@@ -83,7 +111,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let (points, points_transformed) = utils::tests::generate_points(isom);
 
-        let icp_res: Result<ICPSuccess<f32, 2, Const<2>>, String> = super::icp(
+        let icp_res = super::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
@@ -99,7 +127,7 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let (points, points_transformed) = utils::tests::generate_points(isom);
 
-        let icp_res: Result<ICPSuccess<f32, 3, Const<3>>, String> = super::icp(
+        let icp_res = super::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
