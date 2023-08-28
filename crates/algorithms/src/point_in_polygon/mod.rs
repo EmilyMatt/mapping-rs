@@ -99,8 +99,8 @@ where
     /// This function will run the [`Self::is_single_point_in_polygon`] for each on of the points given, and the provided polygon,
     /// But containing some further optimizations to reduce workloads for larger datasets.
     /// # Arguments
-    /// `points`: A slice of [`Point`].
-    /// `polygon`: A slice of [`Point`]s, representing the vertices.
+    /// * `points`: A slice of [`Point`].
+    /// * `polygon`: A slice of [`Point`]s, representing the vertices.
     ///
     /// # Returns
     /// A [`Vec`] of [`bool`], with the same size as `points`, containing the result for each point.
