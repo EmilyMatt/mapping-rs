@@ -155,39 +155,6 @@ where
     }
 }
 
-fn get_point_polygon_intersections_num<T, const N: usize, O>(
-    point: &Point<T, N>,
-    polygon: &[Point<T, N>],
-) -> usize
-where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
-    O: HasPointInPolygonAlgorithm<T, N>,
-{
-    O::get_point_polygon_intersections_num(point, polygon)
-}
-
-fn is_single_point_in_polygon<T, const N: usize, O>(
-    point: &Point<T, N>,
-    polygon: &[Point<T, N>],
-) -> bool
-where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
-    O: HasPointInPolygonAlgorithm<T, N>,
-{
-    O::is_single_point_in_polygon(point, polygon)
-}
-
-fn are_multiple_points_in_polygon<T, const N: usize, O>(
-    points: &[Point<T, N>],
-    polygon: &[Point<T, N>],
-) -> Vec<bool>
-where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
-    O: HasPointInPolygonAlgorithm<T, N>,
-{
-    O::are_multiple_points_in_polygon(points, polygon)
-}
-
 /// See [`HasPointInPolygonAlgorithm::get_point_polygon_intersections_num`]
 pub fn get_point_polygon_intersections_num_2d<T>(
     point: &Point<T, 2>,
