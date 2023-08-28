@@ -111,8 +111,8 @@ where
 /// This function will run the [`is_single_point_in_polygon`] for each on of the points given, and the provided polygon,
 /// But containing pre-calculates tje polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case.
 /// # Arguments
-/// `points`: A slice of [`Point`].
-/// `polygon`: A slice of [`Point`]s, representing the vertices.
+/// * `points`: A slice of [`Point`].
+/// * `polygon`: A slice of [`Point`]s, representing the vertices.
 ///
 /// # Returns
 /// A [`Vec`] of booleans, with the same size as `points`, containing the result for each point.
