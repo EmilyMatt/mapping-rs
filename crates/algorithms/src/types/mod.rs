@@ -2,7 +2,7 @@ use nalgebra::{
     ComplexField, Const, Isometry, OMatrix, Point, RealField, SimdComplexField, SimdRealField,
     UnitComplex, UnitQuaternion,
 };
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::RangeInclusive};
 
 /// A shorthand way of specifying a symmetrical [`Matrix`](nalgebra::Matrix) of `N` size.
 /// Most common usage of this is a matrix that [`SVD`](nalgebra::SVD) can be run on.
@@ -113,3 +113,6 @@ where
             * old_transform
     }
 }
+
+/// A type which is simply an `N` length array of [`RangeInclusive`]s, representing the minimum and maximum coordinates for each dimension.
+pub type PolygonExtents<T, const N: usize> = [RangeInclusive<T>; N];
