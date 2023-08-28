@@ -18,8 +18,11 @@ pub mod ackerman;
 /// Implementations of Bresenham line algorithms.
 pub mod bresenham;
 
-/// Implementations of various Point-In-Polygon algorithms.
+/// Implementations of a Point-In-Polygon algorithm for both the singular and plural cases.
 pub mod point_in_polygon;
+
+/// Implementation of a Point-In-Convex-Hull algorithm, for both the singular and plural cases.
+pub mod point_in_convex_hull;
 
 /// Various utility functions that are commonly used by these algorithms.
 pub mod utils;
