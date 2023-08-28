@@ -9,6 +9,9 @@
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/EmilyMatt/mapping-rs/blob/master/LICENSE)
 ![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)
 
+## Unstable API
+Note that this crate is in early development, breaking API changes are to be expected.
+
 ## Usage
 
 Add this to your `Cargo.toml`:
@@ -16,7 +19,6 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 mapping-algorithms-rs = "0.0.1"
-mapping-suites-rs = "0.0.1"
 ```
 
 ## Features
