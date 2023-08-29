@@ -140,7 +140,7 @@ where
         self.root.as_ref().and_then(|root| root.nearest(target, 0))
     }
 
-    /// Allows traversal of the entire tree structure, calling [`func`] on each branch's data.
+    /// Allows traversal of the entire tree structure, calling the `func` closure on each branch's data.
     ///
     /// # Arguments
     /// * `func`: a closure of type [`Fn`], it's only parameter is a reference of the branch's [`Point`].
@@ -150,7 +150,7 @@ where
         }
     }
 
-    /// Allows traversal of the entire tree structure, calling [`func`] on each branch's data, possible mutating the data.
+    /// Allows traversal of the entire tree structure, calling the `func` closure on each branch's data, possible mutating the data.
     ///
     /// # Arguments
     /// * func: a closure of type [`FnMut`], it's only parameter is a reference of the branch's [`Point`].
