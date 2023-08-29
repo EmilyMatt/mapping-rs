@@ -10,7 +10,9 @@ skip = [
     { name = "cc" },
     { name = "bindgen" },
     { name = "syn" },
-    { name = "bitflags" }
+    { name = "bitflags" },
+    { name = "regex-automata" },
+    { name = "regex-syntax" }
 ]
 
 [sources]
