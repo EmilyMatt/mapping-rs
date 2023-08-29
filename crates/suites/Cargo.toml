@@ -20,13 +20,15 @@ all-features = true
 default = ["std"]
 std = ["nalgebra/std"]
 tracing = ["dep:tracing"]
-cuda = ["nalgebra/cuda", "bindgen", "cc"]
+tracy = ["dep:tracy-client"]
+cuda = ["mapping-algorithms-rs/cuda", "nalgebra/cuda", "bindgen", "cc"]
 
 [dependencies]
 mapping-algorithms-rs = { path = "../algorithms" }
 log = "0.4.19"
 nalgebra = { version = "0.32.3", default-features = false }
 tracing = { version = "0.1.37", optional = true }
+tracy-client = { version = "0.16.1", optional = true }
 
 [build-dependencies]
 bindgen = { version = "0.66.1", optional = true }
