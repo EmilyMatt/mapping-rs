@@ -1,6 +1,9 @@
 use nalgebra::{distance_squared, ComplexField, Point, RealField};
 use std::iter::Sum;
 
+#[cfg(feature = "tracing")]
+use tracing::instrument;
+
 struct KDNode<T, const N: usize>
 where
     T: ComplexField + Copy + Default + RealField + Sum,
@@ -40,6 +43,7 @@ where
         }
     }
 
+    #[cfg_attr(feature = "tracing", instrument("Branch Nearest Neighbour", skip_all))]
     fn nearest(&self, target: &Point<T, N>, depth: usize) -> Option<Point<T, N>> {
         let dimension_to_check = depth % N;
         let (next_branch, opposite_branch) =
@@ -122,6 +126,7 @@ where
     ///
     /// # Arguments
     /// * `data`: a [`Point`], to be inserted into the tree.
+    #[cfg_attr(feature = "tracing", instrument("Insert To Tree", skip_all))]
     pub fn insert(&mut self, data: Point<T, N>) {
         if let Some(root) = self.root.as_mut() {
             root.insert(data, 0);
@@ -136,6 +141,7 @@ where
     ///
     /// # Returns
     /// [`None`] if the tree is empty, otherwise returns the closest [`Point`].
+    #[cfg_attr(feature = "tracing", instrument("Find Nearest Neighbour", skip_all))]
     pub fn nearest(&self, target: &Point<T, N>) -> Option<Point<T, N>> {
         self.root.as_ref().and_then(|root| root.nearest(target, 0))
     }
@@ -144,6 +150,10 @@ where
     ///
     /// # Arguments
     /// * `func`: a closure of type [`Fn`], it's only parameter is a reference of the branch's [`Point`].
+    #[cfg_attr(
+        feature = "tracing",
+        instrument("Traverse Tree With Closure", skip_all)
+    )]
     pub fn traverse_tree<F: FnMut(&Point<T, N>)>(&self, mut func: F) {
         if let Some(root) = self.root.as_ref() {
             root.traverse_branch(&mut func);
@@ -154,6 +164,10 @@ where
     ///
     /// # Arguments
     /// * func: a closure of type [`FnMut`], it's only parameter is a reference of the branch's [`Point`].
+    #[cfg_attr(
+        feature = "tracing",
+        instrument("Traverse Tree With Mutable Closure", skip_all)
+    )]
     pub fn traverse_tree_mut<F: FnMut(&mut Point<T, N>)>(&mut self, mut func: F) {
         if let Some(root) = self.root.as_mut() {
             root.traverse_branch_mut(&mut func);
@@ -191,6 +205,7 @@ mod tests {
         ];
         KDTree::from(points.as_slice())
     }
+
     #[test]
     fn test_insert() {
         // Test an empty tree

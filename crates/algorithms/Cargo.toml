@@ -20,6 +20,7 @@ all-features = true
 default = ["std"]
 std = ["nalgebra/std"]
 tracing = ["dep:tracing"]
+tracy = ["dep:tracy-client"]
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
 
 [dependencies]
@@ -27,9 +28,11 @@ log = "0.4.19"
 nalgebra = { version = "0.32.3", default-features = false }
 num-traits = "0.2.16"
 tracing = { version = "0.1.37", optional = true }
+tracy-client = { version = "0.16.1", optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"
+tracing-tracy = "0.10.3"
 
 [build-dependencies]
 bindgen = { version = "0.66.1", optional = true }

@@ -20,8 +20,6 @@ all-features = true
 default = ["std"]
 std = ["nalgebra/std"]
 tracing = ["dep:tracing"]
-2d = []
-3d = []
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
 
 [dependencies]
