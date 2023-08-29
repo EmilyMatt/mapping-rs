@@ -125,7 +125,7 @@ where
 ///
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 ///
-#[cfg_attr(feature = "tracing", instrument("3D ICP ALgorithm", skip_all))]
+#[cfg_attr(feature = "tracing", instrument("3D ICP Algorithm", skip_all))]
 pub fn icp_3d<T>(
     points_a: &[Point<T, 3>],
     points_b: &[Point<T, 3>],
@@ -158,6 +158,13 @@ mod tests {
             false
         )
         .is_ok());
+    }
+
+    #[test]
+    fn test_icp_2d_with_kd() {
+        let translation = nalgebra::Vector2::new(-0.8, 1.3);
+        let isom = nalgebra::Isometry2::new(translation, 0.1);
+        let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
         assert!(super::icp_2d(
             points.as_slice(),
@@ -184,6 +191,23 @@ mod tests {
             false
         )
         .is_ok());
+
+        assert!(super::icp_3d(
+            points.as_slice(),
+            points_transformed.as_slice(),
+            100,
+            0.0001,
+            true
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_sm_3d_with_kd() {
+        let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
+        let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
+        let isom = nalgebra::Isometry3::new(translation, rotation);
+        let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
         assert!(super::icp_3d(
             points.as_slice(),

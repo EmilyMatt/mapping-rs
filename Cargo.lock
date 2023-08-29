@@ -264,8 +264,6 @@ dependencies = [
  "num-traits",
  "rand",
  "tracing",
- "tracing-tracy",
- "tracy-client",
 ]
 
 [[package]]
@@ -278,6 +276,7 @@ dependencies = [
  "mapping-algorithms-rs",
  "nalgebra",
  "tracing",
+ "tracy-client",
 ]
 
 [[package]]
@@ -707,17 +706,6 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
-]
-
-[[package]]
-name = "tracing-tracy"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f3edd27f53bc0e55aefa9223f68eb44354060103d3e34635f6e27627fe0227f"
-dependencies = [
- "tracing-core",
- "tracing-subscriber",
- "tracy-client",
 ]
 
 [[package]]
