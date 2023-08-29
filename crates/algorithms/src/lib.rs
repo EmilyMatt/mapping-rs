@@ -24,5 +24,8 @@ pub mod point_in_polygon;
 /// Implementation of a Point-In-Convex-Hull algorithm, for both the singular and plural cases.
 pub mod point_in_convex_hull;
 
+/// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
+pub mod kd_tree;
+
 /// Various utility functions that are commonly used by these algorithms.
 pub mod utils;
