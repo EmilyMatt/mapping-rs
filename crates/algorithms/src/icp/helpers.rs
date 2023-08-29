@@ -1,5 +1,5 @@
 use crate::types::SameSizeMat;
-use nalgebra::{ArrayStorage, ComplexField, Const, Matrix, OPoint, Point, RealField, Vector};
+use nalgebra::{ArrayStorage, ComplexField, Const, Matrix, Point, RealField, Vector};
 use num_traits::AsPrimitive;
 use std::{iter::Sum, ops::Add};
 
@@ -87,43 +87,6 @@ where
     Matrix::from_data(ArrayStorage(std::array::from_fn(|b_idx| {
         std::array::from_fn(|a_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
     })))
-}
-
-/// Finds the closest matching target point to the passed source point.
-///
-/// # Arguments
-/// * `transformed_point`: a [`Point`], for which to find the closest point.
-/// * `target_points`: a slice of [`Point`], representing the target point cloud.
-///
-/// # Returns
-/// A [`Point`], representing said closest point.
-///
-/// # Panics
-/// In debug builds, this function will panic if the `target_points` is an empty slice.
-#[inline]
-#[cfg_attr(feature = "tracing", instrument("Find Closest Points", skip_all))]
-pub(crate) fn find_closest_point<'a, T, const N: usize>(
-    transformed_point: &'a OPoint<T, Const<N>>,
-    target_points: &'a [OPoint<T, Const<N>>],
-) -> Point<T, N>
-where
-    T: ComplexField + RealField + Copy,
-{
-    debug_assert!(!target_points.is_empty());
-
-    let mut current_distance = T::max_value().expect("Number Must Have a MAX value");
-    let mut current_idx = 0;
-    for (idx, target_point) in target_points.iter().enumerate() {
-        let distance = (transformed_point - target_point).norm();
-
-        if distance < current_distance {
-            current_distance = distance;
-            current_idx = idx;
-        }
-    }
-
-    // Guaranteed to exist, so direct access is valid
-    target_points[current_idx]
 }
 
 /// Calculates the estimated transformation matrix between the two point clouds.
