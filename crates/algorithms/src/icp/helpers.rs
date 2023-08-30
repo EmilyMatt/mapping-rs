@@ -1,7 +1,11 @@
 use crate::types::SameSizeMat;
 use nalgebra::{ArrayStorage, ComplexField, Const, Matrix, Point, RealField, Vector};
 use num_traits::AsPrimitive;
-use std::{iter::Sum, ops::Add};
+
+#[cfg(not(feature = "std"))]
+use core::{array, iter::Sum, ops::Add};
+#[cfg(feature = "std")]
+use std::{array, iter::Sum, ops::Add};
 
 #[cfg(feature = "tracing")]
 use tracing::instrument;
@@ -25,7 +29,7 @@ where
 {
     debug_assert!(!points.is_empty());
 
-    let zeros: [T; N] = std::array::from_fn(|_| T::default());
+    let zeros: [T; N] = array::from_fn(|_| T::default());
     points.iter().fold(Point::<T, N>::from(zeros), |acc, it| {
         Point::from(acc.coords + it.coords)
     }) / points.len().as_()
@@ -84,8 +88,8 @@ pub(crate) fn outer_product<T, const N: usize>(
 where
     T: ComplexField + Copy,
 {
-    Matrix::from_data(ArrayStorage(std::array::from_fn(|b_idx| {
-        std::array::from_fn(|a_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
+    Matrix::from_data(ArrayStorage(array::from_fn(|b_idx| {
+        array::from_fn(|a_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
     })))
 }
 

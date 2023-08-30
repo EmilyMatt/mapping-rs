@@ -1,5 +1,11 @@
 use nalgebra::{distance_squared, ComplexField, Point, RealField};
-use std::iter::Sum;
+
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use core::iter::Sum;
+#[cfg(feature = "std")]
+use std::{boxed::Box, iter::Sum};
 
 #[cfg(feature = "tracing")]
 use tracing::instrument;

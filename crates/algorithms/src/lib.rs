@@ -2,8 +2,12 @@
 #![deny(rustdoc::missing_crate_level_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! A collection of mapping algorithms, for use either independently, or using the mapping-suites-rs crate.
+
+#![cfg(not(feature = "std"))]
+extern crate alloc;
 
 /// An Iterative Closest Point algorithm, useful in matching Point Clouds.
 /// Contains a 2D implementation when using the `2d` feature, and a 3D implementation when using the `3d` feature.

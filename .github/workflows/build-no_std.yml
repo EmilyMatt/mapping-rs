@@ -1,0 +1,18 @@
+name: Build no_std + Tests
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --no-default-features
+      - name: Test
+        run: cargo test --no-default-features -- --nocapture

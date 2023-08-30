@@ -62,7 +62,7 @@ pub(crate) mod tests {
 
         (0..num_points)
             .map(|_| {
-                let storage: [f32; N] = std::array::from_fn(|_| rng.gen_range(-15.0f32..=15.0f32));
+                let storage: [f32; N] = array::from_fn(|_| rng.gen_range(-15.0f32..=15.0f32));
                 let orig = nalgebra::Point::from(storage);
                 let transformed = isometry_matrix.transform_point(&orig);
 

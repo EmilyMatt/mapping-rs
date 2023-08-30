@@ -6,6 +6,12 @@ use crate::{
 use helpers::{calculate_mse, transform_using_centeroids};
 use nalgebra::{ComplexField, Const, Point, RealField};
 use num_traits::AsPrimitive;
+
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, vec::Vec};
+#[cfg(not(feature = "std"))]
+use core::iter::Sum;
+#[cfg(feature = "std")]
 use std::iter::Sum;
 
 #[cfg(feature = "tracing")]
@@ -27,11 +33,11 @@ where
     O: IsometryAbstration<T, N>,
 {
     if points_a.is_empty() {
-        return Err("Source point cloud is empty".to_string());
+        return Err(String::from("Source point cloud is empty"));
     }
 
     if points_b.is_empty() {
-        return Err("Target point cloud is empty".to_string());
+        return Err(String::from("Target point cloud is empty"));
     }
 
     let mut current_transform: O::Isom = O::identity();
@@ -75,7 +81,7 @@ where
         current_mse = new_mse;
     }
 
-    Err("Could not converge".to_string())
+    Err(String::from("Could not converge"))
 }
 
 /// An ICP algorithm in 2D space.
