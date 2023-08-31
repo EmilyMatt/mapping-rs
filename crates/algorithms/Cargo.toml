@@ -17,19 +17,20 @@ all-features = true
 [lib]
 
 [features]
-default = ["std"]
-std = ["nalgebra/std", "tracing?/std", "rand/std", "rand/std_rng"]
+default = []
+std = ["nalgebra/std", "tracing?/std", "num-traits/std"]
 tracing = ["dep:tracing"]
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
+libm = ["nalgebra/libm-force"]
 
 [dependencies]
 log = { version = "0.4.19", default-features = false }
 nalgebra = { version = "0.32.3", default-features = false }
 num-traits = { version = "0.2.16", default-features = false }
-tracing = { version = "0.1.37", default-features = false, optional = true }
+tracing = { version = "0.1.37", default-features = false, features = ["attributes"], optional = true }
 
 [dev-dependencies]
-rand = { version = "0.8.5", default-features = false }
+rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 
 [build-dependencies]
 bindgen = { version = "0.66.1", default-features = false, optional = true }

@@ -173,7 +173,7 @@ mod tests {
         let result = are_multiple_points_in_polygon(points, polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, vec![true, false]);
+        assert_eq!(result, Vec::from([true, false]));
     }
 
     #[test]
@@ -195,6 +195,6 @@ mod tests {
         let result = are_multiple_points_in_polygon(points, polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, vec![true, false]);
+        assert_eq!(result, Vec::from([true, false]));
     }
 }

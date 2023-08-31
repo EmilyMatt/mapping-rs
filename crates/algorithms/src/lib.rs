@@ -6,8 +6,13 @@
 
 //! A collection of mapping algorithms, for use either independently, or using the mapping-suites-rs crate.
 
-#![cfg(not(feature = "std"))]
+#[cfg(not(any(feature = "std", feature = "libm")))]
+compile_error!("Either `std` or `libm` features must be enabled");
+
+#[cfg(not(feature = "std"))]
 extern crate alloc;
+#[cfg(not(feature = "std"))]
+extern crate core;
 
 /// An Iterative Closest Point algorithm, useful in matching Point Clouds.
 /// Contains a 2D implementation when using the `2d` feature, and a 3D implementation when using the `3d` feature.

@@ -1,18 +1,25 @@
-use nalgebra::{distance_squared, ComplexField, Point, RealField};
+use nalgebra::{ComplexField, Point, RealField};
 
 #[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
-use core::iter::Sum;
+use {
+    crate::utils::distance_squared,
+    alloc::boxed::Box,
+    core::{fmt::Debug, ops::SubAssign},
+    num_traits::float::FloatCore as Float,
+};
 #[cfg(feature = "std")]
-use std::{boxed::Box, iter::Sum};
+use {
+    nalgebra::distance_squared,
+    num_traits::Float,
+    std::{boxed::Box, fmt::Debug, ops::SubAssign},
+};
 
 #[cfg(feature = "tracing")]
 use tracing::instrument;
 
 struct KDNode<T, const N: usize>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: 'static + Float + Debug,
 {
     internal_data: Point<T, N>,
     right: Option<Box<KDNode<T, N>>>,
@@ -21,7 +28,7 @@ where
 
 impl<T, const N: usize> KDNode<T, N>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: Float + Debug + SubAssign + ComplexField<RealField = T>,
 {
     fn new(data: Point<T, N>) -> Self {
         Self {
@@ -64,15 +71,14 @@ where
             .and_then(|branch| branch.nearest(target, depth + 1))
             .unwrap_or(self.internal_data);
 
-        let axis_distance = (target.coords[dimension_to_check]
-            - self.internal_data.coords[dimension_to_check])
-            .powi(2);
+        let axis_distance =
+            target.coords[dimension_to_check] - self.internal_data.coords[dimension_to_check];
 
         if distance_squared(&self.internal_data, target) < distance_squared(&best, target) {
             best = self.internal_data;
         }
 
-        if axis_distance < distance_squared(&best, target) {
+        if (axis_distance * axis_distance) < distance_squared(&best, target) {
             if let Some(opposite_best) =
                 opposite_branch.and_then(|branch| branch.nearest(target, depth + 1))
             {
@@ -111,21 +117,20 @@ where
 /// # Generics
 /// `T`: Either an [`f32`] or [`f64`]
 /// `N`: a constant usize specifying how many dimensions should each point have.
-#[derive(Default)]
 pub struct KDTree<T, const N: usize>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: Float + Debug + RealField,
 {
     root: Option<KDNode<T, N>>,
 }
 
 impl<T, const N: usize> KDTree<T, N>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: Float + Debug + SubAssign + RealField,
 {
     /// Returns an empty instance of this tree structure
     pub fn new() -> Self {
-        Default::default()
+        Self { root: None }
     }
 
     /// Inserts a new data points into the tree, taking into consideration it's position.
@@ -181,15 +186,24 @@ where
     }
 }
 
+impl<T, const N: usize> Default for KDTree<T, N>
+where
+    T: Float + Debug + RealField,
+{
+    fn default() -> Self {
+        Self { root: None }
+    }
+}
+
 impl<T, const N: usize> From<&[Point<T, N>]> for KDTree<T, N>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: 'static + Float + Debug + SubAssign + RealField,
 {
     fn from(point_cloud: &[Point<T, N>]) -> Self {
         point_cloud
             .iter()
             .copied()
-            .fold(Self::default(), |mut tree, current_point| {
+            .fold(Self::new(), |mut tree, current_point| {
                 tree.insert(current_point);
                 tree
             })
@@ -202,13 +216,18 @@ mod tests {
     use crate::utils::find_closest_point;
     use nalgebra::{Point2, Point3};
 
+    #[cfg(not(feature = "std"))]
+    extern crate std;
+    #[cfg(not(feature = "std"))]
+    use std::vec::Vec;
+
     fn generate_tree() -> KDTree<f32, 3> {
-        let points = vec![
+        let points = Vec::from([
             Point3::new(0.0, 2.0, 1.0),
             Point3::new(-1.0, 4.0, 2.5),
             Point3::new(1.3, 2.5, 0.5),
             Point3::new(-2.1, 0.2, -0.2),
-        ];
+        ]);
         KDTree::from(points.as_slice())
     }
 

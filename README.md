@@ -24,14 +24,19 @@ mapping-algorithms-rs = "0.0.1"
 
 ## Features
 
-This crate can be used without the standard library, given that a memory allocator is configured(this crate __does__ use the `alloc` crate).
+This crate can be used without the standard library, given that:
 
-this can be easily achieved by disabling the default `std` feature. Like so:
+a. memory allocator is configured(this crate __does__ use the `alloc` crate).
+
+b. the `libm` feature is enabled.
+
+this can be easily achieved like so:
 
 ```toml
 [dependencies.mapping-algorithms-rs]
 version = "0.0.1"
 default-features = false
+features = ["libm"]
 ```
 
 This crate is designed to be able to take advantage of CUDA for parallel processing, 

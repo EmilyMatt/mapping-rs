@@ -1,7 +1,22 @@
 use nalgebra::{ComplexField, Point, RealField};
 
+#[cfg(not(feature = "std"))]
+use {
+    core::{fmt::Debug, ops::SubAssign},
+    num_traits::float::FloatCore as Float,
+};
+
 #[cfg(feature = "tracing")]
 use tracing::instrument;
+
+#[cfg(not(feature = "std"))]
+pub(crate) fn distance_squared<T, const N: usize>(point_a: &Point<T, N>, point_b: &Point<T, N>) -> T
+where
+    T: 'static + Float + Debug + SubAssign + ComplexField<RealField = T>,
+{
+    let distance = (point_a - point_b).norm();
+    distance * distance
+}
 
 /// Finds the closest matching target point to the passed source point.
 ///
@@ -42,6 +57,11 @@ where
 
 #[cfg(test)]
 pub(crate) mod tests {
+    #[cfg(feature = "std")]
+    use std::array;
+    #[cfg(not(feature = "std"))]
+    use {alloc::vec::Vec, core::array};
+
     use nalgebra::{Isometry, Point};
 
     /// Generates a points cloud, and a corresponding points cloud, transformed by `isometry_matrix`
