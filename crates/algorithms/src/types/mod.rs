@@ -2,6 +2,10 @@ use nalgebra::{
     ComplexField, Const, Isometry, OMatrix, Point, RealField, SimdComplexField, SimdRealField,
     UnitComplex, UnitQuaternion,
 };
+
+#[cfg(not(feature = "std"))]
+use core::{fmt::Debug, ops::RangeInclusive};
+#[cfg(feature = "std")]
 use std::{fmt::Debug, ops::RangeInclusive};
 
 /// A shorthand way of specifying a symmetrical [`Matrix`](nalgebra::Matrix) of `N` size.

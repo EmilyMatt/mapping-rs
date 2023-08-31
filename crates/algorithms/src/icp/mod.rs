@@ -4,9 +4,20 @@ use crate::{
     utils::find_closest_point,
 };
 use helpers::{calculate_mse, transform_using_centeroids};
-use nalgebra::{ComplexField, Const, Point, RealField};
+use nalgebra::{Const, Point, RealField};
 use num_traits::AsPrimitive;
-use std::iter::Sum;
+
+#[cfg(not(feature = "std"))]
+use {
+    alloc::{string::String, vec::Vec},
+    core::{default::Default, fmt::Debug, iter::Sum, ops::SubAssign},
+    num_traits::float::FloatCore as Float,
+};
+#[cfg(feature = "std")]
+use {
+    num_traits::Float,
+    std::{fmt::Debug, iter::Sum, ops::SubAssign},
+};
 
 #[cfg(feature = "tracing")]
 use tracing::instrument;
@@ -22,20 +33,20 @@ fn icp<T, const N: usize, O>(
     with_kd: bool,
 ) -> Result<ICPSuccess<T, N, O>, String>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: 'static + Float + Debug + SubAssign + Default + RealField + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstration<T, N>,
 {
     if points_a.is_empty() {
-        return Err("Source point cloud is empty".to_string());
+        return Err(String::from("Source point cloud is empty"));
     }
 
     if points_b.is_empty() {
-        return Err("Target point cloud is empty".to_string());
+        return Err(String::from("Target point cloud is empty"));
     }
 
     let mut current_transform: O::Isom = O::identity();
-    let mut current_mse = T::max_value().expect("Must have MAX");
+    let mut current_mse = <T as RealField>::max_value().expect("Must have MAX");
 
     let mut transformed_points = points_a
         .iter()
@@ -64,7 +75,7 @@ where
         }
         let new_mse = calculate_mse(transformed_points.as_slice(), closest_points.as_slice());
 
-        if (current_mse - new_mse).abs() < mse_threshold {
+        if Float::abs(current_mse - new_mse) < mse_threshold {
             return Ok(ICPSuccess {
                 transform: current_transform,
                 mse: new_mse,
@@ -75,7 +86,7 @@ where
         current_mse = new_mse;
     }
 
-    Err("Could not converge".to_string())
+    Err(String::from("Could not converge"))
 }
 
 /// An ICP algorithm in 2D space.
@@ -103,7 +114,7 @@ pub fn icp_2d<T>(
     with_kd: bool,
 ) -> Result<ICPSuccess<T, 2, Const<2>>, String>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: 'static + Float + Debug + SubAssign + Default + RealField + Sum,
     usize: AsPrimitive<T>,
 {
     icp(points_a, points_b, max_iterations, mse_threshold, with_kd)
@@ -134,7 +145,7 @@ pub fn icp_3d<T>(
     with_kd: bool,
 ) -> Result<ICPSuccess<T, 3, Const<3>>, String>
 where
-    T: ComplexField + Copy + Default + RealField + Sum,
+    T: 'static + Float + Debug + SubAssign + Default + RealField + Sum,
     usize: AsPrimitive<T>,
 {
     icp(points_a, points_b, max_iterations, mse_threshold, with_kd)

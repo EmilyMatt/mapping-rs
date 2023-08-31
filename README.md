@@ -7,6 +7,7 @@
 ![GitHub Forks](https://img.shields.io/github/forks/EmilyMatt/mapping-rs)
 [![GitHub Issues](https://img.shields.io/github/issues/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/issues)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/EmilyMatt/mapping-rs/blob/master/LICENSE)
+
 ![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)
 
 ## Unstable API
@@ -23,13 +24,19 @@ mapping-algorithms-rs = "0.0.1"
 
 ## Features
 
-This crate can be used without the standard library, this can be easily achieved by disabling
-the default `std` feature. Like so:
+This crate can be used without the standard library, given that:
+
+a. memory allocator is configured(this crate __does__ use the `alloc` crate).
+
+b. the `libm` feature is enabled.
+
+this can be easily achieved like so:
 
 ```toml
 [dependencies.mapping-algorithms-rs]
 version = "0.0.1"
 default-features = false
+features = ["libm"]
 ```
 
 This crate is designed to be able to take advantage of CUDA for parallel processing, 

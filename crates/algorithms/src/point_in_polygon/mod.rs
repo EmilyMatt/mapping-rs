@@ -1,6 +1,12 @@
 use crate::types::PolygonExtents;
 use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRealField};
-use std::ops::RangeInclusive;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use core::{array, mem, ops::RangeInclusive};
+#[cfg(feature = "std")]
+use std::{array, mem, ops::RangeInclusive};
 
 #[inline]
 fn does_ray_intersect<T>(point: &Point2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool
@@ -9,7 +15,7 @@ where
 {
     // Reverse direction
     if vertex1.y > vertex2.y {
-        std::mem::swap(&mut vertex1, &mut vertex2);
+        mem::swap(&mut vertex1, &mut vertex2);
     }
 
     // Handle case where difference is too small and will cause issues
@@ -73,7 +79,8 @@ pub fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
 {
-    get_point_intersections_with_polygon(point, polygon).len() % 2 == 1
+    let len: usize = get_point_intersections_with_polygon(point, polygon).len();
+    len % 2 == 1
 }
 
 /// This function calculates the extents of the polygon, i.e., the minimum and maximum values for each coordinate dimension.
@@ -91,7 +98,7 @@ pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> 
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
 {
-    let mut extents_accumulator: [RangeInclusive<T>; N] = std::array::from_fn(|_| {
+    let mut extents_accumulator: [RangeInclusive<T>; N] = array::from_fn(|_| {
         T::max_value().expect("Must have a maximum value")
             ..=T::min_value().expect("Must have a minimum value")
     });
@@ -166,7 +173,7 @@ mod tests {
         let result = are_multiple_points_in_polygon(points, polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, vec![true, false]);
+        assert_eq!(result, Vec::from([true, false]));
     }
 
     #[test]
@@ -188,6 +195,6 @@ mod tests {
         let result = are_multiple_points_in_polygon(points, polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, vec![true, false]);
+        assert_eq!(result, Vec::from([true, false]));
     }
 }
