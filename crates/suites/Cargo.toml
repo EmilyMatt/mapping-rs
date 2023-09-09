@@ -29,5 +29,5 @@ nalgebra = { version = "0.32.3", default-features = false }
 tracing = { version = "0.1.37", default-features = false, optional = true }
 
 [build-dependencies]
-bindgen = { version = "0.66.1", default-features = false, optional = true }
+bindgen = { version = "0.68.1", default-features = false, optional = true }
 cc = { version = "1.0.83", default-features = false, optional = true }
