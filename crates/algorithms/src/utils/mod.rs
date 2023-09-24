@@ -135,12 +135,12 @@ pub(crate) mod tests {
     fn test_find_closest_point() {
         // Given:
         // A set of target points
-        let target_points = vec![
+        let target_points = Vec::from([
             Point2::new(1.0, 1.0),
             Point2::new(2.0, 2.0),
             Point2::new(5.0, 5.0),
             Point2::new(8.0, 8.0),
-        ];
+        ]);
 
         // A transformed point
         let transformed_point = Point2::new(4.0, 4.0);
@@ -171,12 +171,12 @@ pub(crate) mod tests {
     fn test_calculate_polygon_extents() {
         // Given:
         // A set of polygon vertices
-        let polygon = vec![
+        let polygon = Vec::from([
             Point2::new(1.0, 1.0),
             Point2::new(1.0, 4.0),
             Point2::new(5.0, 4.0),
             Point2::new(5.0, 1.0),
-        ];
+        ]);
 
         // When:
         // Calculating the extents

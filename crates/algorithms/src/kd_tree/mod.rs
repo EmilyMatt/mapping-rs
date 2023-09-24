@@ -216,9 +216,9 @@ mod tests {
     use crate::utils::find_closest_point;
     use nalgebra::{Point2, Point3};
 
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
     #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+    #[cfg(feature = "std")]
     use std::vec::Vec;
 
     fn generate_tree() -> KDTree<f32, 3> {
