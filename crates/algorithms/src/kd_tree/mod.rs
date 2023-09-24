@@ -217,8 +217,8 @@ mod tests {
     use nalgebra::{Point2, Point3};
 
     #[cfg(not(feature = "std"))]
-    extern crate std;
-    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+    #[cfg(feature = "std")]
     use std::vec::Vec;
 
     fn generate_tree() -> KDTree<f32, 3> {

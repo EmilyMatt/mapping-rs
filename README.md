@@ -22,8 +22,18 @@ Add this to your `Cargo.toml`:
 mapping-algorithms-rs = "0.0.1"
 ```
 
-## Features
+Note that in this crate relies alot upon Generics, and is therefor a bit on the slow side in `debug` profile, but _very_ fast in `release`.
 
+I'd recommend adding the following in your Cargo.toml, so you don't suffer the crate's `debug` penalty:
+```toml
+[profile.dev.package.mapping-rs]
+opt-level = 2
+```
+(I'd use level 3 only after profiling and verifying it benefits my use-case)
+
+# Features
+
+## no-std
 This crate can be used without the standard library, given that:
 
 a. memory allocator is configured(this crate __does__ use the `alloc` crate).
@@ -39,6 +49,12 @@ default-features = false
 features = ["libm"]
 ```
 
+## tracing
+This crate provides profiling and instrumentation insight 
+using the [tracing](https://github.com/tokio-rs/tracing) crate, in order to use that, 
+simply enable the `tracing` feature in your Cargo.toml, and use your choice of a subscriber.
+
+## CUDA
 This crate is designed to be able to take advantage of CUDA for parallel processing, 
 this can greatly improve algorithm performance, but requires an NVIDIA graphics card and drivers.
 To enable CUDA, use the `cuda` feature:

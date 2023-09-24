@@ -1,24 +1,22 @@
-use crate::types::PolygonExtents;
+use crate::utils::calculate_polygon_extents;
 use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRealField, Vector2};
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
-use core::{array, mem, ops::RangeInclusive};
 #[cfg(feature = "std")]
-use std::{array, mem, ops::RangeInclusive};
+use std::{mem, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {alloc::vec::Vec, core::mem};
 
 #[inline]
 fn does_ray_intersect<T>(point: &Vector2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
 {
-    // Reverse direction
+    // Reverse direction, we assume a rising line function, the simplest solution to avoid a different one is simply to reverse the order of vertices.
     if vertex1.y > vertex2.y {
         mem::swap(&mut vertex1, &mut vertex2);
     }
 
-    // Handle case where difference is too small and will cause issues
+    // Handle case where difference is too small and will cause issues, by simply adding an epsilon ;)
     if point.y == vertex1.y || point.y == vertex2.y {
         return does_ray_intersect(
             &Vector2::from([point.x, point.y + T::default_epsilon()]),
@@ -27,7 +25,7 @@ where
         );
     }
 
-    // Check if out of extents
+    // Check if out of extents, no need to continue checking then.
     if point.y > vertex2.y || point.y < vertex1.y || point.x > vertex1.x.max(vertex2.x) {
         return false;
     }
@@ -41,15 +39,7 @@ where
         < T::zero()
 }
 
-/// Get the number of intersections of this point as a vector, with this polygon.
-///
-/// # Arguments
-/// * `point`: A reference to a [`Point2`].
-/// * `polygon`: A slice of [`Point2`]s representing the vertices.
-///
-/// # Returns
-/// A usize, representing the number of intersections.
-pub fn get_point_intersections_with_polygon<T>(
+fn get_point_intersections_with_polygon<T>(
     point: &Point2<T>,
     polygon: &[Point2<T>],
 ) -> Vec<Point2<T>>
@@ -64,69 +54,18 @@ where
 
             does_ray_intersect(&point.coords, current_vertex, next_vertex).then_some(*point)
         })
-        .collect()
+        .collect() // Only returns the intersections as Some()
 }
 
-/// Check if the provided point is within the provided polygon.
-///
-/// # Arguments
-/// * `point`: A reference to a [`Point2`].
-/// * `polygon`: A slice of [`Point2`]s representing the vertices.
-///
-/// # Returns
-/// A boolean value, specifying if the point is within the polygon.
-pub fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
+fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
 {
     let len: usize = get_point_intersections_with_polygon(point, polygon).len();
-    len % 2 == 1
+    len % 2 == 1 // If the number of intersections is odd - we didn't exit the polygon, and are therefor in it.
 }
 
-/// This function calculates the extents of the polygon, i.e., the minimum and maximum values for each coordinate dimension.
-///
-/// # Generics
-/// * `T`: one of [`f32`] or [`f64`].
-/// * `N`: a constant generic of type [`usize`].
-///
-/// # Arguments
-/// * `polygon`: a slice of [`Point<T, N>`].
-///
-/// # Returns
-/// See [`PolygonExtents`]
-pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> PolygonExtents<T, N>
-where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
-{
-    let mut extents_accumulator: [RangeInclusive<T>; N] = array::from_fn(|_| {
-        T::max_value().expect("Must have a maximum value")
-            ..=T::min_value().expect("Must have a minimum value")
-    });
-
-    for vertex in polygon.iter() {
-        for (extent_for_dimension, vertex_coord) in
-            extents_accumulator.iter_mut().zip(vertex.coords.iter())
-        {
-            *extent_for_dimension = extent_for_dimension.start().min(*vertex_coord)
-                ..=extent_for_dimension.end().max(*vertex_coord);
-        }
-    }
-
-    extents_accumulator
-}
-
-/// This function will run the [`is_single_point_in_polygon`] for each on of the points given, and the provided polygon,
-/// But containing pre-calculates tje polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case.
-/// # Arguments
-/// * `points`: A slice of [`Point`].
-/// * `polygon`: A slice of [`Point`]s, representing the vertices.
-///
-/// # Returns
-/// A [`Vec`] of booleans, with the same size as `points`, containing the result for each point.
-pub fn are_multiple_points_in_polygon<T>(
-    points: &[Point<T, 2>],
-    polygon: &[Point<T, 2>],
-) -> Vec<bool>
+fn are_multiple_points_in_polygon<T>(points: &[Point<T, 2>], polygon: &[Point<T, 2>]) -> Vec<bool>
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
 {
@@ -149,6 +88,75 @@ where
         })
         .collect()
 }
+
+macro_rules! impl_p_i_p_algorithm {
+    ($prec:expr, $prec_str:tt) => {
+        ::paste::paste! {
+            #[doc = "A " $prec_str "-precision implementation of a point-in-polygon algorithm."]
+            pub mod $prec {
+                use super::*;
+
+                #[doc = "Check whether a specified ray(with origin 0) collides with another ray."]
+                #[doc = ""]
+                #[doc = "# Arguments"]
+                #[doc = "* `ray`: A reference to a [`Vector2`], representing a ray, whose origin is [0.0, 0.0]."]
+                #[doc = "* `vertex1`: A [`Point2`] representing the first vertex of the other ray."]
+                #[doc = "* `vertex2`: A [`Point2`] representing the second vertex of the other ray."]
+                #[doc = ""]
+                #[doc = "# Returns"]
+                #[doc = "A `bool`, specifying whether the rays intersect"]
+                pub fn [<does_ray_intersect_$prec>](ray: &Vector2<$prec>, vertex1: Point2<$prec>, vertex2: Point2<$prec>) -> bool {
+                    does_ray_intersect(ray, vertex1, vertex2)
+                }
+
+                #[doc = "Get the number of intersections of this point(representing a vector), with this polygon."]
+                #[doc = ""]
+                #[doc = "# Arguments"]
+                #[doc = "* `point`: A reference to a [`Point2`]"]
+                #[doc = "* `polygon`: A slice of [`Point2`]s representing the vertices."]
+                #[doc = ""]
+                #[doc = "# Returns"]
+                #[doc = "A usize, representing the number of intersections."]
+                pub fn [<get_point_intersections_with_polygon_$prec>](
+                        point: &Point2<$prec>,
+                        polygon: &[Point2<$prec>],
+                    ) -> Vec<Point2<$prec>> {
+                    get_point_intersections_with_polygon(point, polygon)
+                }
+
+                #[doc = "Check if the provided point is within the provided polygon."]
+                #[doc = ""]
+                #[doc = "# Arguments"]
+                #[doc = "* `point`: A reference to a [`Point2`]."]
+                #[doc = "* `polygon`: A slice of [`Point2`]s representing the vertices."]
+                #[doc = "# Returns"]
+                #[doc = "A boolean value, specifying if the point is within the polygon."]
+                pub fn [<is_single_point_in_polygon_$prec>](point: &Point2<$prec>, polygon: &[Point2<$prec>]) -> bool {
+                    is_single_point_in_polygon(point, polygon)
+                }
+
+                #[doc = "This function will run the [`is_single_point_in_polygon_" $prec "`] for each on of the points given, and the provided polygon,"]
+                #[doc = "But pre-calculates the polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case."]
+                #[doc = ""]
+                #[doc = "# Arguments"]
+                #[doc = "* `points`: A slice of [`Point`]."]
+                #[doc = "* `polygon`: A slice of [`Point`]s, representing the vertices."]
+                #[doc = ""]
+                #[doc = "# Returns"]
+                #[doc = "A [`Vec`] of booleans, with the same size as `points`, containing the result for each point."]
+                pub fn [<are_multiple_points_in_polygon_$prec>](
+                    points: &[Point<$prec, 2>],
+                    polygon: &[Point<$prec, 2>],
+                ) -> Vec<bool> {
+                    are_multiple_points_in_polygon(points, polygon)
+                }
+            }
+        }
+    };
+}
+
+impl_p_i_p_algorithm!(f32, single);
+impl_p_i_p_algorithm!(f64, double);
 
 #[cfg(test)]
 mod tests {
