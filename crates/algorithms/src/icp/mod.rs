@@ -4,7 +4,7 @@ use crate::{
     utils::find_closest_point,
 };
 use helpers::{calculate_mse, transform_using_centeroids};
-use nalgebra::{Const, Point, RealField};
+use nalgebra::{Point, RealField};
 use num_traits::AsPrimitive;
 
 #[cfg(not(feature = "std"))]
@@ -16,7 +16,7 @@ use {
 #[cfg(feature = "std")]
 use {
     num_traits::Float,
-    std::{fmt::Debug, iter::Sum, ops::SubAssign},
+    std::{default::Default, fmt::Debug, iter::Sum, ops::SubAssign, string::String, vec::Vec},
 };
 
 #[cfg(feature = "tracing")]
@@ -89,66 +89,44 @@ where
     Err(String::from("Could not converge"))
 }
 
-/// An ICP algorithm in 2D space.
-/// # Generics
-/// * `T`: either an [`f32`] or [`f64`]
-///
-/// # Arguments
-/// * `points_a`: a slice of [`Point<T, 2>`], representing the source point cloud.
-/// * `points_b`: a slice of [`Point<T, 2>`], representing the target point cloud.
-/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
-/// * `mse_threshold`: a `T`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
-/// * `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, this is almost always better to using a naive search
-///
-/// # Returns
-/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) of [`UnitComplex`](nalgebra::UnitComplex) with `T` precision, or an error message explaining what went wrong.
-///
-/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
-///
-#[cfg_attr(feature = "tracing", instrument("2D ICP ALgorithm", skip_all))]
-pub fn icp_2d<T>(
-    points_a: &[Point<T, 2>],
-    points_b: &[Point<T, 2>],
-    max_iterations: usize,
-    mse_threshold: T,
-    with_kd: bool,
-) -> Result<ICPSuccess<T, 2, Const<2>>, String>
-where
-    T: 'static + Float + Debug + SubAssign + Default + RealField + Sum,
-    usize: AsPrimitive<T>,
-{
-    icp(points_a, points_b, max_iterations, mse_threshold, with_kd)
+macro_rules! impl_icp_algorithm {
+    ($nd: expr, $prec:expr) => {
+        ::paste::paste! {
+            #[doc = "An ICP algorithm in " $nd "D space."]
+            #[doc = "# Arguments"]
+            #[doc = "* `points_a`: A slice of [`Point<" $prec ", " $nd ">`], representing the source point cloud."]
+            #[doc = "* `points_b`: A slice of [`Point<" $prec ", " $nd ">`], representing the target point cloud."]
+            #[doc = "* `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
+            #[doc = "* `mse_threshold`: an `" $prec "`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
+            #[doc = "* `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
+            #[doc = ""]
+            #[doc = "# Returns"]
+            #[doc = "An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $prec "` precision, or an error message explaining what went wrong."]
+            #[doc = ""]
+            #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
+            pub fn [<icp _$nd d>](points_a: &[Point<$prec, $nd>],
+                points_b: &[Point<$prec, $nd>],
+                max_iterations: usize,
+                mse_threshold: $prec,
+                with_kd: bool) -> Result<ICPSuccess<$prec, $nd, nalgebra::Const<$nd>>, String> {
+                    icp(points_a, points_b, max_iterations, mse_threshold, with_kd)
+            }
+        }
+    };
 }
 
-/// An ICP algorithm in 3D space.
-/// # Generics
-/// * `T`: either an [`f32`] or [`f64`]
-///
-/// # Arguments
-/// * `points_a`: A slice of [`Point<T, 3>`], representing the source point cloud.
-/// * `points_b`: A slice of [`Point<T, 3>`], representing the target point cloud.
-/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error.
-/// * `mse_threshold`: a `T`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note].
-/// * `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it.
-///
-/// # Returns
-/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) of [`UnitQuaternion`](nalgebra::UnitQuaternion) with `T` precision, or an error message explaining what went wrong.
-///
-/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
-///
-#[cfg_attr(feature = "tracing", instrument("3D ICP Algorithm", skip_all))]
-pub fn icp_3d<T>(
-    points_a: &[Point<T, 3>],
-    points_b: &[Point<T, 3>],
-    max_iterations: usize,
-    mse_threshold: T,
-    with_kd: bool,
-) -> Result<ICPSuccess<T, 3, Const<3>>, String>
-where
-    T: 'static + Float + Debug + SubAssign + Default + RealField + Sum,
-    usize: AsPrimitive<T>,
-{
-    icp(points_a, points_b, max_iterations, mse_threshold, with_kd)
+/// A single-precision implementation of a basic ICP algorithm.
+pub mod f32 {
+    use super::*;
+    impl_icp_algorithm!(2, f32);
+    impl_icp_algorithm!(3, f32);
+}
+
+/// A double-precision implementation of a basic ICP algorithm.
+pub mod f64 {
+    use super::*;
+    impl_icp_algorithm!(2, f64);
+    impl_icp_algorithm!(3, f64);
 }
 
 #[cfg(test)]
@@ -161,7 +139,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::icp_2d(
+        assert!(super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
@@ -177,7 +155,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::icp_2d(
+        assert!(super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
@@ -194,7 +172,7 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::icp_3d(
+        assert!(super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
@@ -203,7 +181,7 @@ mod tests {
         )
         .is_ok());
 
-        assert!(super::icp_3d(
+        assert!(super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,
@@ -220,7 +198,7 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::icp_3d(
+        assert!(super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
             100,

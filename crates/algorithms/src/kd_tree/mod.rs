@@ -216,8 +216,8 @@ mod tests {
     use crate::utils::find_closest_point;
     use nalgebra::{Point2, Point3};
 
-    #[cfg(not(feature = "std"))]
-    extern crate std;
+    #[cfg(feature = "std")]
+    use std::vec::Vec;
     #[cfg(not(feature = "std"))]
     use std::vec::Vec;
 

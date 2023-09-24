@@ -1,8 +1,15 @@
-use nalgebra::{ComplexField, Point, RealField};
+use crate::types::PolygonExtents;
+use nalgebra::{ComplexField, Point, RealField, SimdComplexField, SimdRealField};
 
+#[cfg(feature = "std")]
+use std::{array, ops::RangeInclusive};
 #[cfg(not(feature = "std"))]
 use {
-    core::{fmt::Debug, ops::SubAssign},
+    core::{
+        array,
+        fmt::Debug,
+        ops::{RangeInclusive, SubAssign},
+    },
     num_traits::float::FloatCore as Float,
 };
 
@@ -55,14 +62,47 @@ where
     target_points[current_idx]
 }
 
+/// This function calculates the extents of the polygon, i.e., the minimum and maximum values for each coordinate dimension.
+///
+/// # Generics
+/// * `T`: one of [`f32`] or [`f64`].
+/// * `N`: a constant generic of type [`usize`].
+///
+/// # Arguments
+/// * `polygon`: a slice of [`Point<T, N>`].
+///
+/// # Returns
+/// See [`PolygonExtents`]
+pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> PolygonExtents<T, N>
+where
+    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
+{
+    let mut extents_accumulator: [RangeInclusive<T>; N] = array::from_fn(|_| {
+        T::max_value().expect("System floating number must have a maximum value")
+            ..=T::min_value().expect("System floating number must have a minimum value")
+    });
+
+    for vertex in polygon.iter() {
+        for (extent_for_dimension, vertex_coord) in
+            extents_accumulator.iter_mut().zip(vertex.coords.iter())
+        {
+            *extent_for_dimension = extent_for_dimension.start().min(*vertex_coord)
+                ..=extent_for_dimension.end().max(*vertex_coord);
+        }
+    }
+
+    extents_accumulator
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
+    use super::*;
+    use nalgebra::{Isometry, Point, Point2};
+
     #[cfg(feature = "std")]
-    use std::array;
+    use std::vec::Vec;
     #[cfg(not(feature = "std"))]
     use {alloc::vec::Vec, core::array};
-
-    use nalgebra::{Isometry, Point};
 
     /// Generates a points cloud, and a corresponding points cloud, transformed by `isometry_matrix`
     /// # Arguments
@@ -89,5 +129,79 @@ pub(crate) mod tests {
                 (orig, transformed)
             })
             .unzip()
+    }
+
+    #[test]
+    fn test_find_closest_point() {
+        // Given:
+        // A set of target points
+        let target_points = vec![
+            Point2::new(1.0, 1.0),
+            Point2::new(2.0, 2.0),
+            Point2::new(5.0, 5.0),
+            Point2::new(8.0, 8.0),
+        ];
+
+        // A transformed point
+        let transformed_point = Point2::new(4.0, 4.0);
+
+        // When:
+        // Finding the closest point
+        let closest_point = find_closest_point(&transformed_point, &target_points);
+
+        // Expect the closest point to be (5.0, 5.0)
+        assert_eq!(closest_point, Point2::new(5.0, 5.0));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_find_closest_point_with_empty_target() {
+        // Given:
+        // An empty set of target points
+        let target_points: Vec<Point<f64, 2>> = Vec::new();
+
+        // A transformed point
+        let transformed_point = Point2::new(4.0, 4.0);
+
+        // This should panic as the target_points array is empty
+        let _ = find_closest_point(&transformed_point, &target_points);
+    }
+
+    #[test]
+    fn test_calculate_polygon_extents() {
+        // Given:
+        // A set of polygon vertices
+        let polygon = vec![
+            Point2::new(1.0, 1.0),
+            Point2::new(1.0, 4.0),
+            Point2::new(5.0, 4.0),
+            Point2::new(5.0, 1.0),
+        ];
+
+        // When:
+        // Calculating the extents
+        let extents = calculate_polygon_extents(&polygon);
+        assert_eq!(
+            extents,
+            [RangeInclusive::new(1.0, 5.0), RangeInclusive::new(1.0, 4.0)]
+        );
+    }
+
+    #[test]
+    fn test_calculate_polygon_extents_empty_polygon() {
+        // An empty polygon
+        let polygon: Vec<Point<f64, 2>> = Vec::new();
+
+        // Calculating the extents
+        let extents = calculate_polygon_extents(&polygon);
+
+        // Expect the extents to be [max_value..=min_value] for x and y respectively
+        assert_eq!(
+            extents,
+            [
+                RangeInclusive::new(f64::MAX, f64::MIN),
+                RangeInclusive::new(f64::MAX, f64::MIN)
+            ]
+        );
     }
 }
