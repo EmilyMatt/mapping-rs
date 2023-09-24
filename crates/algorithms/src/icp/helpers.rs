@@ -130,3 +130,108 @@ where
 
     (rot_mat, mean_a, mean_b)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::{Point3, Vector3};
+
+    #[test]
+    fn test_calculate_mean() {
+        // Define a set of points
+        let points: [Point<f64, 3>; 3] = [
+            Point::from([1.0, 2.0, 3.0]),
+            Point::from([4.0, 5.0, 6.0]),
+            Point::from([7.0, 8.0, 9.0]),
+        ];
+
+        // Calculate mean
+        let mean = calculate_mean(&points);
+        assert_eq!(
+            mean,
+            Point::from([4.0, 5.0, 6.0]),
+            "The mean point was not calculated correctly."
+        );
+    }
+
+    #[test]
+    fn test_calculate_mse() {
+        // Define two sets of points
+        let transformed_points_a: [Point<f64, 3>; 3] = [
+            Point::from([1.0, 2.0, 3.0]),
+            Point::from([4.0, 4.0, 4.0]),
+            Point::from([7.0, 7.0, 7.0]),
+        ];
+
+        let points_b: [Point<f64, 3>; 3] = [
+            Point::from([1.0, 1.0, 1.0]),
+            Point::from([4.0, 5.0, 6.0]),
+            Point::from([8.0, 8.0, 8.0]),
+        ];
+
+        // Calculate MSE
+        let mse = calculate_mse(&transformed_points_a, &points_b);
+
+        assert_eq!(
+            mse, 13.0,
+            "The calculated MSE does not match the expected value."
+        );
+    }
+
+    #[test]
+    fn test_outer_product() {
+        // Define two vectors
+        let point_a = Vector3::new(1.0, 2.0, 3.0);
+        let point_b = Vector3::new(4.0, 5.0, 6.0);
+
+        // Calculate outer product
+        let result = outer_product(&point_a, &point_b);
+        assert_eq!(
+            result,
+            SameSizeMat::from_data(ArrayStorage([
+                [4.0, 8.0, 12.0],
+                [5.0, 10.0, 15.0],
+                [6.0, 12.0, 18.0]
+            ])),
+            "The calculated outer product does not match the expected value."
+        );
+    }
+
+    #[test]
+    fn test_transform_using_centeroids() {
+        // Define two sets of points
+        let points_a: [Point<f64, 3>; 3] = [
+            Point::from([6.0, 4.0, 20.0]),
+            Point::from([100.0, 60.0, 3.0]),
+            Point::from([5.0, 20.0, 10.0]),
+        ];
+
+        let points_b: [Point<f64, 3>; 3] = [
+            Point::from([40.0, 22.0, 12.0]),
+            Point::from([10.0, 14.0, 10.0]),
+            Point::from([7.0, 30.0, 20.0]),
+        ];
+
+        // Compute transform using centroids
+        let (rot_mat, mean_a, mean_b) = transform_using_centeroids(&points_a, &points_b);
+        assert_eq!(
+            mean_a,
+            Point3::new(37.0, 28.0, 11.0),
+            "The calculated mean of points_a does not match the expected value."
+        );
+        assert_eq!(
+            mean_b,
+            Point3::new(19.0, 22.0, 14.0),
+            "The calculated mean of points_b does not match the expected value."
+        );
+        assert_eq!(
+            rot_mat,
+            Matrix::from_data(ArrayStorage([
+                [-834.0, -696.0, 273.0],
+                [-760.0, -320.0, 56.0],
+                [-382.0, -128.0, 8.0]
+            ])),
+            "The calculated rotation matrix does not match the expected value."
+        );
+    }
+}

@@ -1,5 +1,5 @@
 use crate::types::PolygonExtents;
-use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRealField};
+use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRealField, Vector2};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -9,7 +9,7 @@ use core::{array, mem, ops::RangeInclusive};
 use std::{array, mem, ops::RangeInclusive};
 
 #[inline]
-fn does_ray_intersect<T>(point: &Point2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool
+fn does_ray_intersect<T>(point: &Vector2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
 {
@@ -21,7 +21,7 @@ where
     // Handle case where difference is too small and will cause issues
     if point.y == vertex1.y || point.y == vertex2.y {
         return does_ray_intersect(
-            &Point2::from([point.x, point.y + T::default_epsilon()]),
+            &Vector2::from([point.x, point.y + T::default_epsilon()]),
             vertex1,
             vertex2,
         );
@@ -62,7 +62,7 @@ where
             let current_vertex = polygon[current_vertex_idx];
             let next_vertex = polygon[(current_vertex_idx + 1) % polygon_len];
 
-            does_ray_intersect(point, current_vertex, next_vertex).then_some(*point)
+            does_ray_intersect(&point.coords, current_vertex, next_vertex).then_some(*point)
         })
         .collect()
 }
@@ -154,6 +154,20 @@ where
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_does_ray_intersect() {
+        let point_a = Vector2::new(4.0, -3.0);
+        let vertex_a1 = Point2::new(5.0, 0.0);
+        let vertex_a2 = Point2::new(1.0, -4.0);
+        assert!(does_ray_intersect(&point_a, vertex_a1, vertex_a2));
+
+        let point_b = Vector2::new(-4.0, 4.0);
+        let vertex_b1 = Point2::new(0.0, 0.0);
+        let vertex_b2 = Point2::new(1.0, 5.0);
+        assert!(does_ray_intersect(&point_b, vertex_b1, vertex_b2));
+    }
+
+    // These following tests pretty much test all the functions:
     #[test]
     fn test_multiple_points_in_polygon_clockwise() {
         // A simple square polygon with vertices (0,0), (0,1), (1,1), (1,0)
