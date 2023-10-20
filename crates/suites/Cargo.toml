@@ -26,7 +26,7 @@ cuda = ["mapping-algorithms-rs/cuda", "nalgebra/cuda", "bindgen", "cc"]
 mapping-algorithms-rs = { default-features = false, path = "../algorithms" }
 log = { version = "0.4.19", default-features = false }
 nalgebra = { version = "0.32.3", default-features = false }
-tracing = { version = "0.1.37", default-features = false, optional = true }
+tracing = { version = "0.1.40", default-features = false, optional = true }
 
 [build-dependencies]
 bindgen = { version = "0.68.1", default-features = false, optional = true }
