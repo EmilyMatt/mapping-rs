@@ -35,4 +35,4 @@ rand = { version = "0.8.5", default-features = false, features = ["std", "std_rn
 
 [build-dependencies]
 bindgen = { version = "0.69.1", default-features = false, optional = true }
-cc = { version = "1.0.83", default-features = false, optional = true }
+cc = { version = "1.0.84", default-features = false, optional = true }
