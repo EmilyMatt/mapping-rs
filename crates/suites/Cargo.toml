@@ -30,4 +30,4 @@ tracing = { version = "0.1.40", default-features = false, optional = true }
 
 [build-dependencies]
 bindgen = { version = "0.69.1", default-features = false, optional = true }
-cc = { version = "1.0.83", default-features = false, optional = true }
+cc = { version = "1.0.84", default-features = false, optional = true }
