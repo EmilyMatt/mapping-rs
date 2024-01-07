@@ -83,7 +83,7 @@ where
         let rotation = svd.u.unwrap() * svd.v_t.unwrap();
         let complex = UnitComplex::from_matrix(&rotation);
 
-        let translation = mean_b.coords - (rotation.transform_vector(&mean_a.coords));
+        let translation = mean_b.coords - (complex.transform_vector(&mean_a.coords));
         Self::Isometry::from_parts(translation.into(), complex) * old_transform
     }
 }
