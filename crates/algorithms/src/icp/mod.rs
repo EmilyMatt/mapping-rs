@@ -68,7 +68,7 @@ where
         let (rot_mat, mean_a, mean_b) =
             transform_using_centeroids(transformed_points.as_slice(), closest_points.as_slice());
 
-        current_transform = O::update_transform(&current_transform, mean_b, mean_a, &rot_mat);
+        current_transform = O::update_transform(&current_transform, mean_a, mean_b, &rot_mat);
 
         for (idx, point_a) in points_a.iter().enumerate() {
             transformed_points[idx] = O::transform_point(&current_transform, point_a)
