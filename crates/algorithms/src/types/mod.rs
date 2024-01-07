@@ -80,7 +80,7 @@ where
         rot_mat: &SameSizeMat<T, 2>,
     ) -> Self::Isom {
         let svd = rot_mat.svd(true, true);
-        let rotation = svd.v_t.unwrap().transpose() * svd.u.unwrap().transpose();
+        let rotation = svd.u.unwrap() * svd.v_t.unwrap();
         let translation = mean_b.coords - (rotation * mean_a.coords);
         Self::Isom::from_parts(translation.into(), UnitComplex::from_matrix(&rotation))
             * old_transform
@@ -111,7 +111,7 @@ where
         rot_mat: &SameSizeMat<T, 3>,
     ) -> Self::Isom {
         let svd = rot_mat.svd(true, true);
-        let rotation = svd.v_t.unwrap().transpose() * svd.u.unwrap().transpose();
+        let rotation = svd.u.unwrap() * svd.v_t.unwrap();
         let translation = mean_b.coords - (rotation * mean_a.coords);
         Self::Isom::from_parts(translation.into(), UnitQuaternion::from_matrix(&rotation))
             * old_transform
