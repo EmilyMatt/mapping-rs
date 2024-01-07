@@ -84,8 +84,7 @@ where
         let complex = UnitComplex::from_matrix(&rotation);
 
         let translation = mean_b.coords - (rotation.transform_vector(&mean_a.coords));
-        Self::Isometry::from_parts(translation.into(), complex)
-            * old_transform
+        Self::Isometry::from_parts(translation.into(), complex) * old_transform
     }
 }
 
@@ -117,8 +116,7 @@ where
         let quaternion = UnitQuaternion::from_matrix(&rotation);
 
         let translation = mean_b.coords - (quaternion.transform_vector(&mean_a.coords));
-        Self::Isometry::from_parts(translation.into(), quaternion)
-            * old_transform
+        Self::Isometry::from_parts(translation.into(), quaternion) * old_transform
     }
 }
 

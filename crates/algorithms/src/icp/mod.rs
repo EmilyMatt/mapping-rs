@@ -1,6 +1,6 @@
 use crate::{
     kd_tree::KDTree,
-    types::{ICPSuccess, IsometryAbstration},
+    types::{ICPSuccess, IsometryAbstraction},
     utils::find_closest_point,
 };
 use helpers::{calculate_mse, transform_using_centeroids};
@@ -35,7 +35,7 @@ fn icp<T, const N: usize, O>(
 where
     T: 'static + Float + Debug + SubAssign + Default + RealField + Sum,
     usize: AsPrimitive<T>,
-    O: IsometryAbstration<T, N>,
+    O: IsometryAbstraction<T, N>,
 {
     if points_a.is_empty() {
         return Err(String::from("Source point cloud is empty"));
@@ -144,7 +144,7 @@ mod tests {
             points_transformed.as_slice(),
             50,
             0.001,
-            false
+            false,
         );
         assert!(res.is_ok());
         println!("{:?}", res.unwrap());
@@ -161,7 +161,7 @@ mod tests {
             points_transformed.as_slice(),
             50,
             0.001,
-            true
+            true,
         );
         assert!(res.is_ok());
         println!("{:?}", res.unwrap());
@@ -179,7 +179,7 @@ mod tests {
             points_transformed.as_slice(),
             50,
             0.001,
-            false
+            false,
         );
         assert!(res.is_ok());
         println!("{:?}", res.unwrap());
@@ -197,7 +197,7 @@ mod tests {
             points_transformed.as_slice(),
             50,
             0.001,
-            true
+            true,
         );
         assert!(res.is_ok());
         println!("{:?}", res.unwrap());
