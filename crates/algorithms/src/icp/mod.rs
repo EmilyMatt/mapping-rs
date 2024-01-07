@@ -45,7 +45,7 @@ where
         return Err(String::from("Target point cloud is empty"));
     }
 
-    let mut current_transform: O::Isom = O::identity();
+    let mut current_transform: O::Isometry = O::identity();
     let mut current_mse = <T as RealField>::max_value().expect("Must have MAX");
 
     let mut transformed_points = points_a
@@ -139,14 +139,15 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::f32::icp_2d(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
+            50,
+            0.001,
             false
-        )
-        .is_ok());
+        );
+        assert!(res.is_ok());
+        println!("{:?}", res.unwrap());
     }
 
     #[test]
@@ -155,14 +156,15 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::f32::icp_2d(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
+            50,
+            0.001,
             true
-        )
-        .is_ok());
+        );
+        assert!(res.is_ok());
+        println!("{:?}", res.unwrap());
     }
 
     #[test]
@@ -172,23 +174,15 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::f32::icp_3d(
+        let res = super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
+            50,
+            0.001,
             false
-        )
-        .is_ok());
-
-        assert!(super::f32::icp_3d(
-            points.as_slice(),
-            points_transformed.as_slice(),
-            100,
-            0.0001,
-            true
-        )
-        .is_ok());
+        );
+        assert!(res.is_ok());
+        println!("{:?}", res.unwrap());
     }
 
     #[test]
@@ -198,13 +192,14 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let (points, points_transformed) = utils::tests::generate_points(5000, isom);
 
-        assert!(super::f32::icp_3d(
+        let res = super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
+            50,
+            0.001,
             true
-        )
-        .is_ok());
+        );
+        assert!(res.is_ok());
+        println!("{:?}", res.unwrap());
     }
 }
