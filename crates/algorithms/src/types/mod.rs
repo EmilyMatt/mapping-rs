@@ -17,7 +17,7 @@ pub(crate) type SameSizeMat<T, const N: usize> = OMatrix<T, Const<N>, Const<N>>;
 pub struct ICPSuccess<T, const N: usize, O>
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
-    O: IsometryAbstration<T, N>,
+    O: IsometryAbstraction<T, N>,
 {
     /// An isometric matrix, containing the translation and rotation between the point sets.
     /// In 2D space, <O::Isometry> would be a [`UnitComplex<T>`](UnitComplex), in 3D space it would be a [`UnitQuaternion<T>`](UnitQuaternion)
