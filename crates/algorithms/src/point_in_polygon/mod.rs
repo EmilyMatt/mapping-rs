@@ -1,10 +1,5 @@
-use crate::utils::calculate_polygon_extents;
+use crate::{mem, utils::calculate_polygon_extents, Vec};
 use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRealField, Vector2};
-
-#[cfg(feature = "std")]
-use std::{mem, vec::Vec};
-#[cfg(not(feature = "std"))]
-use {alloc::vec::Vec, core::mem};
 
 #[inline]
 fn does_ray_intersect<T>(point: &Vector2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool

@@ -14,6 +14,18 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core;
 
+#[cfg(not(feature = "std"))]
+use {
+    alloc::{boxed::Box, string::String, vec::Vec},
+    core::{array, fmt::Debug, iter::Sum, mem, ops},
+    utils::distance_squared,
+};
+#[cfg(feature = "std")]
+use {
+    nalgebra::distance_squared,
+    std::{array, boxed::Box, fmt::Debug, iter::Sum, mem, ops, string::String, vec::Vec},
+};
+
 /// An Iterative Closest Point algorithm, useful in matching Point Clouds.
 /// Contains a 2D implementation when using the `2d` feature, and a 3D implementation when using the `3d` feature.
 pub mod icp;
@@ -36,5 +48,7 @@ pub mod point_in_convex_hull;
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
 
+/// A Collection of pathfinding algorithms
+mod pathfinding;
 /// Various utility functions that are commonly used by these algorithms.
 pub mod utils;
