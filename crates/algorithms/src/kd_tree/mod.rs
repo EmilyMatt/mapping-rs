@@ -1,25 +1,9 @@
-use nalgebra::{ComplexField, Point, RealField};
-
-#[cfg(not(feature = "std"))]
-use {
-    crate::utils::distance_squared,
-    alloc::boxed::Box,
-    core::{fmt::Debug, ops::SubAssign},
-    num_traits::float::FloatCore as Float,
-};
-#[cfg(feature = "std")]
-use {
-    nalgebra::distance_squared,
-    num_traits::Float,
-    std::{boxed::Box, fmt::Debug, ops::SubAssign},
-};
-
-#[cfg(feature = "tracing")]
-use tracing::instrument;
+use crate::{distance_squared, Box};
+use nalgebra::{Point, RealField, SimdRealField};
 
 struct KDNode<T, const N: usize>
 where
-    T: 'static + Float + Debug,
+    T: RealField + SimdRealField + Copy + Default,
 {
     internal_data: Point<T, N>,
     right: Option<Box<KDNode<T, N>>>,
@@ -28,7 +12,7 @@ where
 
 impl<T, const N: usize> KDNode<T, N>
 where
-    T: Float + Debug + SubAssign + ComplexField<RealField = T>,
+    T: RealField + SimdRealField + Copy + Default,
 {
     fn new(data: Point<T, N>) -> Self {
         Self {
@@ -56,7 +40,10 @@ where
         }
     }
 
-    #[cfg_attr(feature = "tracing", instrument("Branch Nearest Neighbour", skip_all))]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Branch Nearest Neighbour", skip_all)
+    )]
     fn nearest(&self, target: &Point<T, N>, depth: usize) -> Option<Point<T, N>> {
         let dimension_to_check = depth % N;
         let (next_branch, opposite_branch) =
@@ -117,16 +104,17 @@ where
 /// # Generics
 /// `T`: Either an [`f32`] or [`f64`]
 /// `N`: a constant usize specifying how many dimensions should each point have.
+#[derive(Default)]
 pub struct KDTree<T, const N: usize>
 where
-    T: Float + Debug + RealField,
+    T: RealField + SimdRealField + Copy + Default,
 {
     root: Option<KDNode<T, N>>,
 }
 
 impl<T, const N: usize> KDTree<T, N>
 where
-    T: Float + Debug + SubAssign + RealField,
+    T: RealField + SimdRealField + Copy + Default,
 {
     /// Returns an empty instance of this tree structure
     pub fn new() -> Self {
@@ -137,7 +125,7 @@ where
     ///
     /// # Arguments
     /// * `data`: a [`Point`], to be inserted into the tree.
-    #[cfg_attr(feature = "tracing", instrument("Insert To Tree", skip_all))]
+    #[cfg_attr(feature = "tracing", tracing::instrument("Insert To Tree", skip_all))]
     pub fn insert(&mut self, data: Point<T, N>) {
         if let Some(root) = self.root.as_mut() {
             root.insert(data, 0);
@@ -152,7 +140,10 @@ where
     ///
     /// # Returns
     /// [`None`] if the tree is empty, otherwise returns the closest [`Point`].
-    #[cfg_attr(feature = "tracing", instrument("Find Nearest Neighbour", skip_all))]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Find Nearest Neighbour", skip_all)
+    )]
     pub fn nearest(&self, target: &Point<T, N>) -> Option<Point<T, N>> {
         self.root.as_ref().and_then(|root| root.nearest(target, 0))
     }
@@ -163,7 +154,7 @@ where
     /// * `func`: a closure of type [`Fn`], it's only parameter is a reference of the branch's [`Point`].
     #[cfg_attr(
         feature = "tracing",
-        instrument("Traverse Tree With Closure", skip_all)
+        tracing::instrument("Traverse Tree With Closure", skip_all)
     )]
     pub fn traverse_tree<F: FnMut(&Point<T, N>)>(&self, mut func: F) {
         if let Some(root) = self.root.as_ref() {
@@ -177,7 +168,7 @@ where
     /// * func: a closure of type [`FnMut`], it's only parameter is a reference of the branch's [`Point`].
     #[cfg_attr(
         feature = "tracing",
-        instrument("Traverse Tree With Mutable Closure", skip_all)
+        tracing::instrument("Traverse Tree With Mutable Closure", skip_all)
     )]
     pub fn traverse_tree_mut<F: FnMut(&mut Point<T, N>)>(&mut self, mut func: F) {
         if let Some(root) = self.root.as_mut() {
@@ -186,18 +177,9 @@ where
     }
 }
 
-impl<T, const N: usize> Default for KDTree<T, N>
-where
-    T: Float + Debug + RealField,
-{
-    fn default() -> Self {
-        Self { root: None }
-    }
-}
-
 impl<T, const N: usize> From<&[Point<T, N>]> for KDTree<T, N>
 where
-    T: 'static + Float + Debug + SubAssign + RealField,
+    T: RealField + SimdRealField + Copy + Default,
 {
     fn from(point_cloud: &[Point<T, N>]) -> Self {
         point_cloud
@@ -213,13 +195,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::point_cloud::find_closest_point;
+    use crate::{utils::point_cloud::find_closest_point, Vec};
     use nalgebra::{Point2, Point3};
-
-    #[cfg(not(feature = "std"))]
-    use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
 
     fn generate_tree() -> KDTree<f32, 3> {
         let points = Vec::from([

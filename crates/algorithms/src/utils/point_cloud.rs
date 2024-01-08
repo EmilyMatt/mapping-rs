@@ -1,3 +1,4 @@
+use crate::Vec;
 use nalgebra::{AbstractRotation, Isometry, Point, RealField, SimdRealField};
 use num_traits::AsPrimitive;
 
@@ -46,18 +47,17 @@ where
     debug_assert!(!target_points.is_empty());
 
     let mut current_distance = T::max_value().expect("Number Must Have a MAX value");
-    let mut current_idx = 0;
-    for (idx, target_point) in target_points.iter().enumerate() {
-        let distance = (transformed_point - target_point).norm();
+    let mut current_point = target_points[0]; // Guaranteed to exist
 
+    for target_point in target_points.iter() {
+        let distance = nalgebra::distance_squared(transformed_point, target_point);
         if distance < current_distance {
             current_distance = distance;
-            current_idx = idx;
+            current_point = *target_point;
         }
     }
 
-    // Guaranteed to exist, so direct access is valid
-    target_points[current_idx]
+    current_point
 }
 
 /// Downsample a points cloud, returning a new point cloud, with minimum intervals between each point.
@@ -100,14 +100,14 @@ where
 /// Generates a points cloud, and a corresponding points cloud, transformed by `isometry_matrix`
 /// # Arguments
 /// * `num_points`: a [`usize`], specifying the amount of points to generate
-/// * `range`: a [`RangeInclusive<T>`] specifying the normal distribution of points.
+/// * `range`: a [`crate::ops::RangeInclusive<T>`] specifying the normal distribution of points.
 ///
 /// # Returns
 /// A [`Vec`] of [`Point<f32, N>`] representing the point cloud.
 #[cfg(any(all(feature = "std", feature = "rand"), test))]
 pub fn generate_point_cloud<T, const N: usize>(
     num_points: usize,
-    range: std::ops::RangeInclusive<T>,
+    range: crate::ops::RangeInclusive<T>,
 ) -> Vec<Point<T, N>>
 where
     T: RealField + SimdRealField + rand::distributions::uniform::SampleUniform,
@@ -116,7 +116,7 @@ where
     let mut rng = rand::thread_rng();
 
     (0..num_points)
-        .map(|_| nalgebra::Point::from(std::array::from_fn(|_| rng.gen_range(range.clone()))))
+        .map(|_| nalgebra::Point::from(crate::array::from_fn(|_| rng.gen_range(range.clone()))))
         .collect()
 }
 
@@ -150,12 +150,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::find_closest_point;
+    use crate::Vec;
     use nalgebra::{Point, Point2};
-
-    #[cfg(not(feature = "std"))]
-    use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
 
     #[test]
     fn test_find_closest_point() {

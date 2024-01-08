@@ -1,15 +1,35 @@
 use eframe::{egui, epaint};
-use mapping_algorithms_rs::icp::icp_iteration;
-use mapping_algorithms_rs::kd_tree::KDTree;
-use mapping_algorithms_rs::utils::point_cloud::{
-    calculate_point_cloud_center, generate_point_cloud, transform_point_cloud,
+use mapping_algorithms_rs::{
+    icp::{icp_iteration, types::ICPConfiguration},
+    kd_tree::KDTree,
+    utils::point_cloud::{
+        calculate_point_cloud_center, generate_point_cloud, transform_point_cloud,
+    },
 };
 use nalgebra::{Const, Isometry2, Point2, UnitComplex, Vector2};
+use rand::Rng;
 
+#[derive(Copy, Clone)]
 struct RunConfiguartion {
+    num_points: usize,
+    offset_x: f32,
+    offset_y: f32,
+    offset_angle: f32,
     max_iterations: usize,
-    mse_threshold: f32,
+    mse_threshold: Option<f32>,
+    mse_interval_threshold: f32,
     with_kd: bool,
+}
+
+impl From<RunConfiguartion> for ICPConfiguration<f32> {
+    fn from(value: RunConfiguartion) -> Self {
+        ICPConfiguration {
+            with_kd: value.with_kd,
+            max_iterations: value.max_iterations,
+            mse_threshold: value.mse_threshold,
+            mse_interval_threshold: value.mse_interval_threshold,
+        }
+    }
 }
 
 struct VisualizerApp {
@@ -24,16 +44,17 @@ struct VisualizerApp {
     current_means: (Point2<f32>, Point2<f32>),
     config: RunConfiguartion,
     run_next_iteration: bool,
+    converged: bool,
 }
 
 impl VisualizerApp {
     fn new(config: RunConfiguartion) -> Self {
-        let points_a = generate_point_cloud(500, -1.0..=1.0);
+        let points_a = generate_point_cloud(config.num_points, -1.0..=1.0);
         let points_b = transform_point_cloud(
             &points_a,
             Isometry2::from_parts(
-                Vector2::new(0.183, 0.712).into(),
-                UnitComplex::from_angle(12.84f32.to_radians()),
+                Vector2::new(config.offset_x, config.offset_y).into(),
+                UnitComplex::from_angle(config.offset_angle),
             ),
         );
 
@@ -49,6 +70,7 @@ impl VisualizerApp {
             points_b,
             config,
             run_next_iteration: false,
+            converged: false,
         }
     }
 }
@@ -61,21 +83,26 @@ impl eframe::App for VisualizerApp {
             if self.run_next_iteration {
                 log::info!("Running iteration");
 
-                if let Err((mean_a, mean_b)) = icp_iteration::<f32, 2, Const<2>>(
+                match icp_iteration::<_, 2, Const<2>>(
                     &self.points_a,
                     &mut self.transformed_points,
                     &self.points_b,
                     self.kd_tree.as_ref(),
                     &mut self.current_transform,
                     &mut self.current_mse,
-                    self.config.mse_threshold,
+                    &self.config.into(),
                 ) {
-                    self.current_means = (mean_a, mean_b);
+                    Ok(mse) => {
+                        log::info!("Successfully converged! Last MSE: {mse}");
+                        self.converged = true;
+                    }
+                    Err(means) => {
+                        log::info!("MSE {}", self.current_mse);
+                        self.current_means = means;
+                        self.current_iteration += 1;
+                    }
                 }
 
-                log::info!("MSE {}", self.current_mse);
-
-                self.current_iteration += 1;
                 self.run_next_iteration = false;
             }
 
@@ -147,7 +174,7 @@ impl eframe::App for VisualizerApp {
                 )));
             }
 
-            if ctx.input(|read| read.key_released(egui::Key::Space)) {
+            if !self.converged && ctx.input(|read| read.key_released(egui::Key::Space)) {
                 if self.current_iteration < self.config.max_iterations {
                     self.run_next_iteration = true;
                 } else {
@@ -177,9 +204,15 @@ fn main() -> eframe::Result<()> {
         "mapping-rs 2D ICP Algorithm Visualization Tool",
         options,
         Box::new(|_cc| {
+            let mut rng = rand::rngs::OsRng;
             Box::new(VisualizerApp::new(RunConfiguartion {
-                max_iterations: 10,
-                mse_threshold: 0.001,
+                num_points: 100,
+                offset_x: rng.gen_range(-0.01..=0.01),
+                offset_y: rng.gen_range(-0.01..=0.01),
+                offset_angle: 3.0f32.to_radians(),
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.1,
                 with_kd: false,
             }))
         }),

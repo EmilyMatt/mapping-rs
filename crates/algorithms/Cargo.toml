@@ -21,7 +21,7 @@ default = []
 std = ["nalgebra/std", "tracing?/std", "num-traits/std", "rand?/std", "rand?/std_rng"]
 tracing = ["dep:tracing"]
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
-libm = ["nalgebra/libm-force"]
+libm = ["nalgebra/libm-force", "num-traits/libm"]
 rand = ["dep:rand"]
 
 [dependencies]
@@ -33,7 +33,7 @@ rand = { version = "0.8", default-features = false, optional = true }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
 [dev-dependencies]
-eframe = { version = "0.24.1", default-features = false, features = ["glow"] }
+eframe = { version = "0.25.0", default-features = false, features = ["glow"] }
 rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
 simple_logger = { version = "4.3.3", default-features = false, features = ["timestamps", "threads"]}
 

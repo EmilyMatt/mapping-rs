@@ -1,15 +1,8 @@
-use crate::types::SameSizeMat;
+use crate::{
+    array, ops::Add, types::SameSizeMat, utils::point_cloud::calculate_point_cloud_center, Sum,
+};
 use nalgebra::{ArrayStorage, Const, Matrix, Point, RealField, SimdRealField, Vector};
 use num_traits::AsPrimitive;
-
-#[cfg(not(feature = "std"))]
-use core::{array, iter::Sum, ops::Add};
-#[cfg(feature = "std")]
-use std::{array, iter::Sum, ops::Add};
-
-use crate::utils::point_cloud::calculate_point_cloud_center;
-#[cfg(feature = "tracing")]
-use tracing::instrument;
 
 /// Calculates the Mean Squared Error between two point clouds.
 /// # Generics
@@ -22,13 +15,13 @@ use tracing::instrument;
 /// # Returns
 /// A [`T`], representing the sum of all squared distances between each point in `transformed_points_a` and its corresponding point in `points_b`.
 #[inline]
-#[cfg_attr(feature = "tracing", instrument("Calculate MSE", skip_all))]
+#[cfg_attr(feature = "tracing", tracing::instrument("Calculate MSE", skip_all))]
 pub(crate) fn calculate_mse<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],
     closest_points_in_b: &[Point<T, N>],
 ) -> T::RealField
 where
-    T: RealField + SimdRealField + Copy + Sum,
+    T: RealField + SimdRealField + Copy + Default + Sum,
 {
     transformed_points_a
         .iter()
@@ -48,7 +41,10 @@ where
 /// # Returns
 /// A [`SameSizeMat`] of size `N` by `N`, containing the outer product.
 #[inline]
-#[cfg_attr(feature = "tracing", instrument("Calculate Outer Product", skip_all))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Calculate Outer Product", skip_all)
+)]
 pub(crate) fn outer_product<T, const N: usize>(
     point_a: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
     point_b: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
@@ -56,8 +52,8 @@ pub(crate) fn outer_product<T, const N: usize>(
 where
     T: RealField + SimdRealField + Copy,
 {
-    Matrix::from_data(ArrayStorage(array::from_fn(|b_idx| {
-        array::from_fn(|a_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
+    Matrix::from_data(ArrayStorage(array::from_fn(|a_idx| {
+        array::from_fn(|b_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
     })))
 }
 
@@ -65,20 +61,23 @@ where
 ///
 /// # Arguments
 /// * `points_a`: a slice of [`Point`], representing the source point cloud.
-/// * `points_b`: a slice of [`Point`], representing the target point cloud.
+/// * `closest_points`: a slice of [`Point`], representing the target nearest neighbour for each point in `points_a`.
 ///
 /// # Returns
 /// A tuple of
 /// * [`SameSizeMat<T, N>`], representing the covariance matrix of the outer products of the centered point clouds.
 /// * [`Point`], representing the `points_a` centeroid.
-/// * [`Point`], representing the `points_b` centeroid.
+/// * [`Point`], representing the `closest_points` centeroid.
 ///
 /// # Panics
 /// See [`calculate_mean`]
 #[inline]
-#[cfg_attr(feature = "tracing", instrument("Estimate Transform", skip_all))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Estimate Transform", skip_all)
+)]
 pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
-    points_a: &[Point<T, N>],
+    transformed_points_a: &[Point<T, N>],
     closest_points: &[Point<T, N>],
 ) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
 where
@@ -86,21 +85,25 @@ where
     usize: AsPrimitive<T>,
     SameSizeMat<T, N>: Add<Output = SameSizeMat<T, N>>,
 {
-    let (mean_a, mean_b) = (
-        calculate_point_cloud_center(points_a),
+    let (mean_transformed_a, mean_closest) = (
+        calculate_point_cloud_center(transformed_points_a),
         calculate_point_cloud_center(closest_points),
     );
 
-    let rot_mat = points_a.iter().zip(closest_points.iter()).fold(
+    let rot_mat = transformed_points_a.iter().zip(closest_points.iter()).fold(
         Matrix::from_array_storage(ArrayStorage([[T::zero(); N]; N])),
-        |rot_mat, (point_a, point_b)| {
-            let a_distance_from_centeroid = point_a - mean_a;
-            let b_distance_from_centeroid = point_b - mean_b;
-            rot_mat + outer_product(&a_distance_from_centeroid, &b_distance_from_centeroid)
+        |rot_mat, (transformed_point_a, closest_point)| {
+            let a_distance_from_centeroid = transformed_point_a - mean_transformed_a;
+            let closest_point_distance_from_centeroid = closest_point - mean_closest;
+            rot_mat
+                + outer_product(
+                    &a_distance_from_centeroid,
+                    &closest_point_distance_from_centeroid,
+                )
         },
     );
 
-    (rot_mat, mean_a, mean_b)
+    (rot_mat, mean_transformed_a, mean_closest)
 }
 
 #[cfg(test)]
@@ -161,9 +164,9 @@ mod tests {
         assert_eq!(
             result,
             SameSizeMat::from_data(ArrayStorage([
-                [4.0, 8.0, 12.0],
-                [5.0, 10.0, 15.0],
-                [6.0, 12.0, 18.0]
+                [4.0, 5.0, 6.0],
+                [8.0, 10.0, 12.0],
+                [12.0, 15.0, 18.0]
             ])),
             "The calculated outer product does not match the expected value."
         );
@@ -199,9 +202,9 @@ mod tests {
         assert_eq!(
             rot_mat,
             Matrix::from_data(ArrayStorage([
-                [-834.0, -696.0, 273.0],
-                [-760.0, -320.0, 56.0],
-                [-382.0, -128.0, 8.0]
+                [-834.0, -760.0, -382.0],
+                [-696.0, -320.0, -128.0],
+                [273.0, 56.0, 8.0]
             ])),
             "The calculated rotation matrix does not match the expected value."
         );

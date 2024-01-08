@@ -1,25 +1,17 @@
+use crate::{
+    array,
+    ops::RangeInclusive,
+    types::{PolygonExtents, SameSizeMat},
+};
+use nalgebra::{Const, DimMin, Point, RealField, SimdRealField};
+
 /// Various utility functions regarding point clouds of 2 or 3 dimensions.
 pub mod point_cloud;
-
-use crate::types::PolygonExtents;
-use nalgebra::{Point, RealField, SimdRealField};
-
-#[cfg(feature = "std")]
-use std::{array, ops::RangeInclusive};
-#[cfg(not(feature = "std"))]
-use {
-    core::{
-        array,
-        fmt::Debug,
-        ops::{RangeInclusive, SubAssign},
-    },
-    num_traits::float::FloatCore as Float,
-};
 
 #[cfg(not(feature = "std"))]
 pub(crate) fn distance_squared<T, const N: usize>(point_a: &Point<T, N>, point_b: &Point<T, N>) -> T
 where
-    T: 'static + Float + Debug + SubAssign + ComplexField<RealField = T>,
+    T: RealField + SimdRealField + Copy + Default,
 {
     let distance = (point_a - point_b).norm();
     distance * distance
@@ -69,15 +61,27 @@ where
     extents_accumulator
 }
 
+pub(crate) fn verify_rotation_matrix_determinant<T, const N: usize>(
+    mut u: SameSizeMat<T, N>,
+    v_t: SameSizeMat<T, N>,
+) -> SameSizeMat<T, N>
+where
+    T: Copy + RealField + SimdRealField,
+    Const<N>: DimMin<Const<N>, Output = Const<N>>,
+{
+    if (u * v_t).determinant() < T::zero() {
+        u.column_mut(N - 1)
+            .iter_mut()
+            .for_each(|element| *element *= T::one().neg()); // Reverse the last column
+    }
+    u * v_t
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::Vec;
     use nalgebra::{Point, Point2};
-
-    #[cfg(not(feature = "std"))]
-    use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
 
     #[test]
     fn test_calculate_polygon_extents() {

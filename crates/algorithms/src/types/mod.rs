@@ -1,33 +1,13 @@
+use crate::{ops::RangeInclusive, utils::verify_rotation_matrix_determinant};
 use nalgebra::{
-    ArrayStorage, Const, Isometry, OMatrix, Point, RealField, SimdRealField, UnitComplex,
+    ArrayStorage, Const, Isometry, Matrix, Point, RealField, SimdRealField, UnitComplex,
     UnitQuaternion, Vector,
 };
 
-#[cfg(not(feature = "std"))]
-use core::{fmt::Debug, ops::RangeInclusive};
-#[cfg(feature = "std")]
-use std::{fmt::Debug, ops::RangeInclusive};
-
-/// A shorthand way of specifying a symmetrical [`Matrix`](nalgebra::Matrix) of `N` size.
-/// Most common usage of this is a matrix that [`SVD`](nalgebra::SVD) can be run on.
-pub(crate) type SameSizeMat<T, const N: usize> = OMatrix<T, Const<N>, Const<N>>;
-
-/// Contains the resulting transform, the resulting Mean Squared Error, and the number of iterations taken for a successful ICP convergence.
-#[derive(Debug)]
-pub struct ICPSuccess<T, const N: usize, O>
-where
-    T: RealField + SimdRealField + Default + Copy,
-    O: IsometryAbstraction<T, N>,
-{
-    /// An isometric matrix, containing the translation and rotation between the point sets.
-    /// In 2D space, <O::Isometry> would be a [`UnitComplex<T>`](UnitComplex), in 3D space it would be a [`UnitQuaternion<T>`](UnitQuaternion)
-    pub transform: O::IsometryType,
-    /// Mean Squared Error, this is the distances between each point in `points_a` and its corresponding point in `points_b`,
-    /// This can be used to determine whether the ICP converged correctly, or simply on its local minimum.
-    pub mse: T,
-    /// The amount of iterations passed until convergence.
-    pub iteration_num: usize,
-}
+/// A shorthand way of specifying a symmetrical [`Matrix`](Matrix) of `N` size.
+/// Kind of similiar to nalgebra's [`nalgebra::SquareMatrix`] but simpler for our usecase
+pub(crate) type SameSizeMat<T, const N: usize> =
+    Matrix<T, Const<N>, Const<N>, ArrayStorage<T, N, N>>;
 
 /// This trait acts as an abstraction of the [`Isometry`] matrix.
 /// Since that crate does not contain a generic version, that will allow algorithms to be used easily between 2D and 3D.
@@ -94,9 +74,9 @@ where
         rot_mat: &SameSizeMat<T, 2>,
     ) -> Self::IsometryType {
         let svd = rot_mat.svd(true, true);
-        let rotation = svd.u.unwrap() * svd.v_t.unwrap();
-
+        let rotation = verify_rotation_matrix_determinant(svd.u.unwrap(), svd.v_t.unwrap());
         let translation = mean_b.coords - (rotation * mean_a.coords);
+
         Isometry::from_parts(translation.into(), UnitComplex::from_matrix(&rotation))
             * old_transform
     }
@@ -134,9 +114,9 @@ where
         rot_mat: &SameSizeMat<T, 3>,
     ) -> Self::IsometryType {
         let svd = rot_mat.svd(true, true);
-        let rotation = svd.u.unwrap() * svd.v_t.unwrap();
-
+        let rotation = verify_rotation_matrix_determinant(svd.u.unwrap(), svd.v_t.unwrap());
         let translation = mean_b.coords - (rotation * mean_a.coords);
+
         Isometry::from_parts(translation.into(), UnitQuaternion::from_matrix(&rotation))
             * old_transform
     }
