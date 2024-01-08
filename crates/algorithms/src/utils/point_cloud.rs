@@ -63,7 +63,7 @@ where
 /// Downsample a points cloud, returning a new point cloud, with minimum intervals between each point.
 /// # Arguments
 /// * `points`: a slice of [`Point<T, N>`], representing the point cloud.
-/// * `min_distance`: a [`T`], specifying the minimum interval between points.
+/// * `min_distance`: a floating point number, specifying the minimum interval between points.
 ///
 /// # Returns
 /// A [`Vec`] of [`Point<f32, N>`] representing the downsampled point cloud.
