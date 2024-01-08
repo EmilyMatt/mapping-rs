@@ -213,7 +213,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::find_closest_point;
+    use crate::utils::point_cloud::find_closest_point;
     use nalgebra::{Point2, Point3};
 
     #[cfg(not(feature = "std"))]
