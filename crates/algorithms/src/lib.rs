@@ -13,7 +13,6 @@ compile_error!("Either `std` or `libm` features must be enabled");
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core;
-extern crate core;
 
 #[cfg(not(feature = "std"))]
 use {
