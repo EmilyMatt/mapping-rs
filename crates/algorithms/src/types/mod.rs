@@ -16,7 +16,7 @@ where
     T: Copy + Default + RealField + SimdRealField,
 {
     /// This is the type of the isometry matrix itself, allowing us to specify it for 2D and 3D
-    type IsometryType: Clone;
+    type IsometryType: Copy;
 
     /// This creates an identity [`Isometry`] Matrix.
     fn identity() -> Self::IsometryType;
@@ -36,8 +36,8 @@ where
     /// This transform is multiplied by the old transform, and the result is returned
     fn update_transform(
         old_transform: &Self::IsometryType,
-        mean_b: Point<T, N>,
         mean_a: Point<T, N>,
+        mean_b: Point<T, N>,
         rot_mat: &SameSizeMat<T, N>,
     ) -> Self::IsometryType;
 }
@@ -69,8 +69,8 @@ where
     #[inline]
     fn update_transform(
         old_transform: &Self::IsometryType,
-        mean_b: Point<T, 2>,
         mean_a: Point<T, 2>,
+        mean_b: Point<T, 2>,
         rot_mat: &SameSizeMat<T, 2>,
     ) -> Self::IsometryType {
         let svd = rot_mat.svd(true, true);
@@ -109,8 +109,8 @@ where
     #[inline]
     fn update_transform(
         old_transform: &Self::IsometryType,
-        mean_b: Point<T, 3>,
         mean_a: Point<T, 3>,
+        mean_b: Point<T, 3>,
         rot_mat: &SameSizeMat<T, 3>,
     ) -> Self::IsometryType {
         let svd = rot_mat.svd(true, true);

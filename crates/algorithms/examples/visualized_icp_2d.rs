@@ -54,7 +54,7 @@ impl VisualizerApp {
             &points_a,
             Isometry2::from_parts(
                 Vector2::new(config.offset_x, config.offset_y).into(),
-                UnitComplex::from_angle(config.offset_angle),
+                UnitComplex::from_angle(config.offset_angle.to_radians()),
             ),
         );
 
@@ -83,6 +83,7 @@ impl eframe::App for VisualizerApp {
             if self.run_next_iteration {
                 log::info!("Running iteration");
 
+                self.current_iteration += 1;
                 match icp_iteration::<_, 2, Const<2>>(
                     &self.points_a,
                     &mut self.transformed_points,
@@ -93,13 +94,15 @@ impl eframe::App for VisualizerApp {
                     &self.config.into(),
                 ) {
                     Ok(mse) => {
-                        log::info!("Successfully converged! Last MSE: {mse}");
+                        log::info!(
+                            "Successfully converged after {} iterations! Last MSE: {mse}",
+                            self.current_iteration
+                        );
                         self.converged = true;
                     }
                     Err(means) => {
                         log::info!("MSE {}", self.current_mse);
                         self.current_means = means;
-                        self.current_iteration += 1;
                     }
                 }
 
@@ -206,13 +209,13 @@ fn main() -> eframe::Result<()> {
         Box::new(|_cc| {
             let mut rng = rand::rngs::OsRng;
             Box::new(VisualizerApp::new(RunConfiguartion {
-                num_points: 100,
-                offset_x: rng.gen_range(-0.01..=0.01),
-                offset_y: rng.gen_range(-0.01..=0.01),
-                offset_angle: 3.0f32.to_radians(),
+                num_points: 500,
+                offset_x: rng.gen_range(-0.1..=0.1),
+                offset_y: rng.gen_range(-0.1..=0.1),
+                offset_angle: rng.gen_range(-10.0..=10.0),
                 max_iterations: 50,
                 mse_threshold: None,
-                mse_interval_threshold: 0.1,
+                mse_interval_threshold: 0.01,
                 with_kd: false,
             }))
         }),

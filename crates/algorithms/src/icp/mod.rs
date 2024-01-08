@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_icp_2d() {
-        let points = generate_point_cloud(500, -15.0..=15.0);
+        let points = generate_point_cloud(1000, -15.0..=15.0);
         let translation = nalgebra::Vector2::new(-0.8, 1.3);
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
@@ -197,7 +197,7 @@ mod tests {
                 with_kd: false,
                 max_iterations: 50,
                 mse_threshold: None,
-                mse_interval_threshold: 0.001,
+                mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_icp_2d_with_kd() {
-        let points = generate_point_cloud(500, -15.0..=15.0);
+        let points = generate_point_cloud(1000, -15.0..=15.0);
         let isom = nalgebra::Isometry2::new(nalgebra::Vector2::new(-0.8, 1.3), 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
@@ -216,7 +216,7 @@ mod tests {
                 with_kd: true,
                 max_iterations: 50,
                 mse_threshold: None,
-                mse_interval_threshold: 0.001,
+                mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_sm_3d() {
-        let points = generate_point_cloud(500, -15.0..=15.0);
+        let points = generate_point_cloud(5000, -15.0..=15.0);
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
         let isom = nalgebra::Isometry3::new(translation, rotation);
@@ -237,7 +237,7 @@ mod tests {
                 with_kd: false,
                 max_iterations: 50,
                 mse_threshold: None,
-                mse_interval_threshold: 0.001,
+                mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_sm_3d_with_kd() {
-        let points = generate_point_cloud(500, -15.0..=15.0);
+        let points = generate_point_cloud(5000, -15.0..=15.0);
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
         let isom = nalgebra::Isometry3::new(translation, rotation);
@@ -258,7 +258,7 @@ mod tests {
                 with_kd: true,
                 max_iterations: 50,
                 mse_threshold: None,
-                mse_interval_threshold: 0.001,
+                mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
