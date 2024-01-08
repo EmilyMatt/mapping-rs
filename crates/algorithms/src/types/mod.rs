@@ -1,6 +1,6 @@
 use nalgebra::{
-    ComplexField, Const, Isometry, OMatrix, Point, RealField, SimdComplexField, SimdRealField,
-    UnitComplex, UnitQuaternion,
+    ArrayStorage, Const, Isometry, OMatrix, Point, RealField, SimdRealField, UnitComplex,
+    UnitQuaternion, Vector,
 };
 
 #[cfg(not(feature = "std"))]
@@ -16,12 +16,12 @@ pub(crate) type SameSizeMat<T, const N: usize> = OMatrix<T, Const<N>, Const<N>>;
 #[derive(Debug)]
 pub struct ICPSuccess<T, const N: usize, O>
 where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
+    T: RealField + SimdRealField + Default + Copy,
     O: IsometryAbstraction<T, N>,
 {
     /// An isometric matrix, containing the translation and rotation between the point sets.
     /// In 2D space, <O::Isometry> would be a [`UnitComplex<T>`](UnitComplex), in 3D space it would be a [`UnitQuaternion<T>`](UnitQuaternion)
-    pub transform: O::Isometry,
+    pub transform: O::IsometryType,
     /// Mean Squared Error, this is the distances between each point in `points_a` and its corresponding point in `points_b`,
     /// This can be used to determine whether the ICP converged correctly, or simply on its local minimum.
     pub mse: T,
@@ -33,90 +33,112 @@ where
 /// Since that crate does not contain a generic version, that will allow algorithms to be used easily between 2D and 3D.
 pub trait IsometryAbstraction<T, const N: usize>
 where
-    T: ComplexField + Copy + Default + RealField,
+    T: Copy + Default + RealField + SimdRealField,
 {
     /// This is the type of the isometry matrix itself, allowing us to specify it for 2D and 3D
-    type Isometry;
+    type IsometryType: Clone;
 
     /// This creates an identity [`Isometry`] Matrix.
-    fn identity() -> Self::Isometry;
+    fn identity() -> Self::IsometryType;
 
     /// This function acts as a wrapper for the isometry's transform_point function
-    fn transform_point(isom: &Self::Isometry, point: &Point<T, N>) -> Point<T, N>;
+    fn transform_point(isom: &Self::IsometryType, point: &Point<T, N>) -> Point<T, N>;
+
+    /// This function acts as a wrapper for the isometry's transform_vector function
+    fn transform_vector(
+        isom: &Self::IsometryType,
+        vector: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
+    ) -> Vector<T, Const<N>, ArrayStorage<T, N, 1>>;
 
     /// This function receives the old transform, the centeroids of both point clouds, and the covariance rotation mat
     /// It then performs [`SVD`](nalgebra::SVD) on the covariance matrix, and uses the resulting matrics
     /// and the translation between the two points to construct a new transform.
     /// This transform is multiplied by the old transform, and the result is returned
     fn update_transform(
-        old_transform: &Self::Isometry,
+        old_transform: &Self::IsometryType,
         mean_b: Point<T, N>,
         mean_a: Point<T, N>,
         rot_mat: &SameSizeMat<T, N>,
-    ) -> Self::Isometry;
+    ) -> Self::IsometryType;
 }
 
 impl<T> IsometryAbstraction<T, 2> for Const<2>
 where
-    T: ComplexField + Copy + Default + RealField,
+    T: Copy + Default + RealField + SimdRealField,
 {
-    type Isometry = Isometry<T, UnitComplex<T>, 2>;
+    type IsometryType = Isometry<T, UnitComplex<T>, 2>;
 
     #[inline]
-    fn identity() -> Self::Isometry {
-        Self::Isometry::identity()
+    fn identity() -> Self::IsometryType {
+        Isometry::identity()
     }
 
     #[inline]
-    fn transform_point(isom: &Self::Isometry, point: &Point<T, 2>) -> Point<T, 2> {
+    fn transform_point(isom: &Self::IsometryType, point: &Point<T, 2>) -> Point<T, 2> {
         isom.transform_point(point)
     }
 
     #[inline]
+    fn transform_vector(
+        isom: &Self::IsometryType,
+        vector: &Vector<T, Self, ArrayStorage<T, 2, 1>>,
+    ) -> Vector<T, Self, ArrayStorage<T, 2, 1>> {
+        isom.transform_vector(vector)
+    }
+
+    #[inline]
     fn update_transform(
-        old_transform: &Self::Isometry,
+        old_transform: &Self::IsometryType,
         mean_b: Point<T, 2>,
         mean_a: Point<T, 2>,
         rot_mat: &SameSizeMat<T, 2>,
-    ) -> Self::Isometry {
+    ) -> Self::IsometryType {
         let svd = rot_mat.svd(true, true);
         let rotation = svd.u.unwrap() * svd.v_t.unwrap();
-        let complex = UnitComplex::from_matrix(&rotation);
 
-        let translation = mean_b.coords - (complex.transform_vector(&mean_a.coords));
-        Self::Isometry::from_parts(translation.into(), complex) * old_transform
+        let translation = mean_b.coords - (rotation * mean_a.coords);
+        Isometry::from_parts(translation.into(), UnitComplex::from_matrix(&rotation))
+            * old_transform
     }
 }
 
 impl<T> IsometryAbstraction<T, 3> for Const<3>
 where
-    T: ComplexField + Copy + Default + RealField,
+    T: Copy + Default + RealField + SimdRealField,
 {
-    type Isometry = Isometry<T, UnitQuaternion<T>, 3>;
+    type IsometryType = Isometry<T, UnitQuaternion<T>, 3>;
 
     #[inline]
-    fn identity() -> Self::Isometry {
-        Self::Isometry::identity()
+    fn identity() -> Self::IsometryType {
+        Isometry::identity()
     }
 
     #[inline]
-    fn transform_point(isom: &Self::Isometry, point: &Point<T, 3>) -> Point<T, 3> {
+    fn transform_point(isom: &Self::IsometryType, point: &Point<T, 3>) -> Point<T, 3> {
         isom.transform_point(point)
     }
 
     #[inline]
+    fn transform_vector(
+        isom: &Self::IsometryType,
+        vector: &Vector<T, Self, ArrayStorage<T, 3, 1>>,
+    ) -> Vector<T, Self, ArrayStorage<T, 3, 1>> {
+        isom.transform_vector(vector)
+    }
+
+    #[inline]
     fn update_transform(
-        old_transform: &Self::Isometry,
+        old_transform: &Self::IsometryType,
         mean_b: Point<T, 3>,
         mean_a: Point<T, 3>,
         rot_mat: &SameSizeMat<T, 3>,
-    ) -> Self::Isometry {
+    ) -> Self::IsometryType {
         let svd = rot_mat.svd(true, true);
         let rotation = svd.u.unwrap() * svd.v_t.unwrap();
-        let quaternion = UnitQuaternion::from_matrix(&rotation);
 
-        let translation = mean_b.coords - (quaternion.transform_vector(&mean_a.coords));
-        Self::Isometry::from_parts(translation.into(), quaternion) * old_transform
+        let translation = mean_b.coords - (rotation * mean_a.coords);
+        Isometry::from_parts(translation.into(), UnitQuaternion::from_matrix(&rotation))
+            * old_transform
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::types::SameSizeMat;
-use nalgebra::{ArrayStorage, ComplexField, Const, Matrix, Point, RealField, Vector};
+use nalgebra::{ArrayStorage, Const, Matrix, Point, RealField, SimdRealField, Vector};
 use num_traits::AsPrimitive;
 
 #[cfg(not(feature = "std"))]
@@ -7,33 +7,9 @@ use core::{array, iter::Sum, ops::Add};
 #[cfg(feature = "std")]
 use std::{array, iter::Sum, ops::Add};
 
+use crate::utils::point_cloud::calculate_point_cloud_center;
 #[cfg(feature = "tracing")]
 use tracing::instrument;
-
-/// Calculates the mean(centeroid) of the point cloud.
-///
-/// # Arguments
-/// * points: a slice of [`Point`], representing the point cloud.
-///
-/// # Returns
-/// A [`Point`], representing the point cloud centeroid.
-///
-/// # Panics
-/// In debug builds, this function will panic if `points` is an empty slice, to avoid dividing by 0.
-#[inline]
-#[cfg_attr(feature = "tracing", instrument("Calculate Mean Point", skip_all))]
-pub(crate) fn calculate_mean<T, const N: usize>(points: &[Point<T, N>]) -> Point<T, N>
-where
-    T: Copy + Default + ComplexField,
-    usize: AsPrimitive<T>,
-{
-    debug_assert!(!points.is_empty());
-
-    let zeros: [T; N] = array::from_fn(|_| T::default());
-    points.iter().fold(Point::<T, N>::from(zeros), |acc, it| {
-        Point::from(acc.coords + it.coords)
-    }) / points.len().as_()
-}
 
 /// Calculates the Mean Squared Error between two point clouds.
 /// # Generics
@@ -49,26 +25,18 @@ where
 #[cfg_attr(feature = "tracing", instrument("Calculate MSE", skip_all))]
 pub(crate) fn calculate_mse<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],
-    points_b: &[Point<T, N>],
-) -> T
+    closest_points_in_b: &[Point<T, N>],
+) -> T::RealField
 where
-    T: ComplexField + Copy + Sum,
+    T: RealField + SimdRealField + Copy + Sum,
 {
     transformed_points_a
         .iter()
-        .zip(points_b.iter())
-        .map(|(transformed_a, point_b)| {
-            // Again, there has GOT to be a distance squred function in nalgebra, just didn't dig enough to find it
-            // Also, we are doing duplicate transforming of the points, perhaps merge the two
-            (0..N)
-                .map(|access_idx| {
-                    (transformed_a.coords.data.0[0][access_idx]
-                        - point_b.coords.data.0[0][access_idx])
-                        .powi(2)
-                })
-                .sum::<T>()
+        .zip(closest_points_in_b.iter())
+        .map(|(transformed_a, closest_point_in_b)| {
+            nalgebra::distance_squared(transformed_a, closest_point_in_b)
         })
-        .sum::<T>()
+        .sum()
 }
 
 /// Calculates the outer product of two `N` length [`Vector`]s.
@@ -86,7 +54,7 @@ pub(crate) fn outer_product<T, const N: usize>(
     point_b: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
 ) -> SameSizeMat<T, N>
 where
-    T: ComplexField + Copy,
+    T: RealField + SimdRealField + Copy,
 {
     Matrix::from_data(ArrayStorage(array::from_fn(|b_idx| {
         array::from_fn(|a_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
@@ -109,22 +77,26 @@ where
 /// See [`calculate_mean`]
 #[inline]
 #[cfg_attr(feature = "tracing", instrument("Estimate Transform", skip_all))]
-pub(crate) fn transform_using_centeroids<T, const N: usize>(
+pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     points_a: &[Point<T, N>],
-    points_b: &[Point<T, N>],
+    closest_points: &[Point<T, N>],
 ) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
 where
-    T: Copy + ComplexField + RealField + Default,
+    T: Copy + RealField + SimdRealField,
     usize: AsPrimitive<T>,
     SameSizeMat<T, N>: Add<Output = SameSizeMat<T, N>>,
 {
-    let (mean_a, mean_b) = (calculate_mean(points_a), calculate_mean(points_b));
-    let rot_mat = points_a.iter().zip(points_b.iter()).fold(
-        Matrix::from_array_storage(ArrayStorage([[T::default(); N]; N])),
+    let (mean_a, mean_b) = (
+        calculate_point_cloud_center(points_a),
+        calculate_point_cloud_center(closest_points),
+    );
+
+    let rot_mat = points_a.iter().zip(closest_points.iter()).fold(
+        Matrix::from_array_storage(ArrayStorage([[T::zero(); N]; N])),
         |rot_mat, (point_a, point_b)| {
-            let a_distance_from_c = point_a - mean_a;
-            let b_distance_from_c = point_b - mean_b;
-            rot_mat + outer_product(&a_distance_from_c, &b_distance_from_c)
+            let a_distance_from_centeroid = point_a - mean_a;
+            let b_distance_from_centeroid = point_b - mean_b;
+            rot_mat + outer_product(&a_distance_from_centeroid, &b_distance_from_centeroid)
         },
     );
 
@@ -146,7 +118,7 @@ mod tests {
         ];
 
         // Calculate mean
-        let mean = calculate_mean(&points);
+        let mean = calculate_point_cloud_center(&points);
         assert_eq!(
             mean,
             Point::from([4.0, 5.0, 6.0]),
@@ -198,7 +170,7 @@ mod tests {
     }
 
     #[test]
-    fn test_transform_using_centeroids() {
+    fn test_get_rotation_matrix_and_centeroids() {
         // Define two sets of points
         let points_a: [Point<f64, 3>; 3] = [
             Point::from([6.0, 4.0, 20.0]),
@@ -213,7 +185,7 @@ mod tests {
         ];
 
         // Compute transform using centroids
-        let (rot_mat, mean_a, mean_b) = transform_using_centeroids(&points_a, &points_b);
+        let (rot_mat, mean_a, mean_b) = get_rotation_matrix_and_centeroids(&points_a, &points_b);
         assert_eq!(
             mean_a,
             Point3::new(37.0, 28.0, 11.0),
