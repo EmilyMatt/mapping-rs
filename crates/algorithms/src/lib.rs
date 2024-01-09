@@ -16,14 +16,17 @@ extern crate core;
 
 #[cfg(not(feature = "std"))]
 use {
-    alloc::{boxed::Box, string::String, vec::Vec},
-    core::{array, fmt::Debug, iter::Sum, mem, ops},
+    alloc::collections::{BTreeSet as HashSet, BinaryHeap},
+    alloc::{boxed::Box, string::String, vec, vec::Vec},
+    core::{array, cmp::Ordering, fmt::Debug, iter::Sum, mem, ops},
     utils::distance_squared,
 };
 #[cfg(feature = "std")]
 use {
     nalgebra::distance_squared,
-    std::{array, boxed::Box, fmt::Debug, iter::Sum, mem, ops, string::String, vec::Vec},
+    std::cmp::Ordering,
+    std::collections::BinaryHeap,
+    std::{array, boxed::Box, fmt::Debug, iter::Sum, mem, ops, string::String, vec, vec::Vec},
 };
 
 /// An Iterative Closest Point algorithm, useful in matching Point Clouds.
@@ -45,9 +48,10 @@ pub mod point_in_polygon;
 /// Implementation of a Point-In-Convex-Hull algorithm, for both the singular and plural cases.
 pub mod point_in_convex_hull;
 
+///A implement to A* algorithm
+pub mod astar;
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
-
 /// A Collection of pathfinding algorithms
 mod pathfinding;
 /// Various utility functions that are commonly used by these algorithms.
