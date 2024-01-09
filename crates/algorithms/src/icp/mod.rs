@@ -1,41 +1,83 @@
 use crate::{
     kd_tree::KDTree,
-    types::{ICPSuccess, IsometryAbstration},
-    utils::find_closest_point,
+    types::IsometryAbstraction,
+    utils::point_cloud::{downsample_point_cloud, find_closest_point},
+    String, Sum, Vec,
 };
-use helpers::{calculate_mse, transform_using_centeroids};
-use nalgebra::{Point, RealField};
-use num_traits::AsPrimitive;
-
-#[cfg(not(feature = "std"))]
-use {
-    alloc::{string::String, vec::Vec},
-    core::{default::Default, fmt::Debug, iter::Sum, ops::SubAssign},
-    num_traits::float::FloatCore as Float,
-};
-#[cfg(feature = "std")]
-use {
-    num_traits::Float,
-    std::{default::Default, fmt::Debug, iter::Sum, ops::SubAssign, string::String, vec::Vec},
-};
-
-#[cfg(feature = "tracing")]
-use tracing::instrument;
+use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
+use nalgebra::{Point, RealField, SimdRealField};
+use num_traits::{AsPrimitive, Float};
+use types::{ICPConfiguration, ICPSuccess};
 
 mod helpers;
+/// Structs in use as part of the public API of the ICP algorithm.
+pub mod types;
 
-#[cfg_attr(feature = "tracing", instrument("Full ICP ALgorithm", skip_all))]
+/// A single ICP iteration in `N`D space
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("ICP Algorithm Iteration", skip_all)
+)]
+pub fn icp_iteration<T, const N: usize, O>(
+    points_a: &[Point<T, N>],
+    transformed_points: &mut [Point<T, N>],
+    points_b: &[Point<T, N>],
+    target_points_tree: Option<&KDTree<T, N>>,
+    current_transform: &mut O::IsometryType,
+    current_mse: &mut T,
+    config: &ICPConfiguration<T>,
+) -> Result<T, (Point<T, N>, Point<T, N>)>
+where
+    T: RealField + SimdRealField + Copy + Default + Sum + Float,
+    usize: AsPrimitive<T>,
+    O: IsometryAbstraction<T, N>,
+{
+    let closest_points = transformed_points
+        .iter()
+        .map(|transformed_point_a| {
+            target_points_tree
+                .and_then(|kd_tree| kd_tree.nearest(transformed_point_a))
+                .unwrap_or(find_closest_point(transformed_point_a, points_b))
+        })
+        .collect::<Vec<_>>();
+
+    let (rot_mat, mean_a, mean_b) =
+        get_rotation_matrix_and_centeroids(transformed_points, &closest_points);
+
+    *current_transform = O::update_transform(current_transform, mean_a, mean_b, &rot_mat);
+
+    for (idx, point_a) in points_a.iter().enumerate() {
+        transformed_points[idx] = O::transform_point(current_transform, point_a)
+    }
+    let new_mse = calculate_mse(transformed_points, closest_points.as_slice());
+
+    // If the MSE difference is lower than the threshold, then this is as good as it gets
+    if config
+        .mse_threshold
+        .map(|thres| new_mse < thres)
+        .unwrap_or_default()
+        || Float::abs(*current_mse - new_mse) < config.mse_interval_threshold
+    {
+        return Ok(new_mse);
+    }
+
+    *current_mse = new_mse;
+    Err((mean_a, mean_b))
+}
+
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Full ICP Algorithm", skip_all)
+)]
 fn icp<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
-    max_iterations: usize,
-    mse_threshold: T,
-    with_kd: bool,
+    config: ICPConfiguration<T>,
 ) -> Result<ICPSuccess<T, N, O>, String>
 where
-    T: 'static + Float + Debug + SubAssign + Default + RealField + Sum,
+    T: RealField + SimdRealField + Copy + Default + Float + Sum,
     usize: AsPrimitive<T>,
-    O: IsometryAbstration<T, N>,
+    O: IsometryAbstraction<T, N>,
 {
     if points_a.is_empty() {
         return Err(String::from("Source point cloud is empty"));
@@ -45,45 +87,52 @@ where
         return Err(String::from("Target point cloud is empty"));
     }
 
-    let mut current_transform: O::Isom = O::identity();
+    if config.max_iterations == 0 {
+        return Err(String::from("Must have more than one iteration"));
+    }
+
+    if config
+        .mse_threshold
+        .map(|thres| thres <= T::epsilon())
+        .unwrap_or_default()
+    {
+        return Err(String::from(
+            "MSE Threshold too low, convergence impossible",
+        ));
+    }
+
+    let downsampled_points_a = downsample_point_cloud(
+        points_a,
+        T::from_f32(0.1).expect("T must be a floating point"),
+    );
+    let downsampled_points_b = downsample_point_cloud(
+        points_b,
+        T::from_f32(0.1).expect("T must be a floating point"),
+    );
+
+    let mut transformed_points = downsampled_points_a.to_vec();
+    let target_points_tree = config
+        .with_kd
+        .then_some(KDTree::from(downsampled_points_b.as_slice()));
+    let mut current_transform = O::identity();
     let mut current_mse = <T as RealField>::max_value().expect("Must have MAX");
 
-    let mut transformed_points = points_a
-        .iter()
-        .map(|point_a| O::transform_point(&current_transform, point_a))
-        .collect::<Vec<_>>();
-
-    let target_points_tree = with_kd.then_some(KDTree::from(points_b));
-    for iteration_num in 0..max_iterations {
-        let closest_points = transformed_points
-            .iter()
-            .map(|transformed_point_a| {
-                target_points_tree
-                    .as_ref()
-                    .and_then(|kd_tree| kd_tree.nearest(transformed_point_a))
-                    .unwrap_or(find_closest_point(transformed_point_a, points_b))
-            })
-            .collect::<Vec<_>>();
-
-        let (rot_mat, mean_a, mean_b) =
-            transform_using_centeroids(transformed_points.as_slice(), closest_points.as_slice());
-
-        current_transform = O::update_transform(&current_transform, mean_b, mean_a, &rot_mat);
-
-        for (idx, point_a) in points_a.iter().enumerate() {
-            transformed_points[idx] = O::transform_point(&current_transform, point_a)
-        }
-        let new_mse = calculate_mse(transformed_points.as_slice(), closest_points.as_slice());
-
-        if Float::abs(current_mse - new_mse) < mse_threshold {
+    for iteration_num in 0..config.max_iterations {
+        if let Ok(mse) = icp_iteration::<T, N, O>(
+            &downsampled_points_a,
+            &mut transformed_points,
+            &downsampled_points_b,
+            target_points_tree.as_ref(),
+            &mut current_transform,
+            &mut current_mse,
+            &config,
+        ) {
             return Ok(ICPSuccess {
                 transform: current_transform,
-                mse: new_mse,
+                mse,
                 iteration_num,
             });
         }
-
-        current_mse = new_mse;
     }
 
     Err(String::from("Could not converge"))
@@ -106,10 +155,8 @@ macro_rules! impl_icp_algorithm {
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
             pub fn [<icp _$nd d>](points_a: &[Point<$prec, $nd>],
                 points_b: &[Point<$prec, $nd>],
-                max_iterations: usize,
-                mse_threshold: $prec,
-                with_kd: bool) -> Result<ICPSuccess<$prec, $nd, nalgebra::Const<$nd>>, String> {
-                    icp(points_a, points_b, max_iterations, mse_threshold, with_kd)
+                config: ICPConfiguration<$prec>) -> Result<ICPSuccess<$prec, $nd, nalgebra::Const<$nd>>, String> {
+                    icp(points_a, points_b, config)
             }
         }
     };
@@ -131,80 +178,89 @@ pub mod f64 {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils;
+    use crate::{
+        icp::types::ICPConfiguration,
+        utils::point_cloud::{generate_point_cloud, transform_point_cloud},
+    };
 
     #[test]
     fn test_icp_2d() {
+        let points = generate_point_cloud(1000, -15.0..=15.0);
         let translation = nalgebra::Vector2::new(-0.8, 1.3);
         let isom = nalgebra::Isometry2::new(translation, 0.1);
-        let (points, points_transformed) = utils::tests::generate_points(5000, isom);
+        let points_transformed = transform_point_cloud(&points, isom);
 
-        assert!(super::f32::icp_2d(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
-            false
-        )
-        .is_ok());
+            ICPConfiguration {
+                with_kd: false,
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
     }
 
     #[test]
     fn test_icp_2d_with_kd() {
-        let translation = nalgebra::Vector2::new(-0.8, 1.3);
-        let isom = nalgebra::Isometry2::new(translation, 0.1);
-        let (points, points_transformed) = utils::tests::generate_points(5000, isom);
+        let points = generate_point_cloud(1000, -15.0..=15.0);
+        let isom = nalgebra::Isometry2::new(nalgebra::Vector2::new(-0.8, 1.3), 0.1);
+        let points_transformed = transform_point_cloud(&points, isom);
 
-        assert!(super::f32::icp_2d(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
-            true
-        )
-        .is_ok());
+            ICPConfiguration {
+                with_kd: true,
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
     }
 
     #[test]
     fn test_sm_3d() {
+        let points = generate_point_cloud(5000, -15.0..=15.0);
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
         let isom = nalgebra::Isometry3::new(translation, rotation);
-        let (points, points_transformed) = utils::tests::generate_points(5000, isom);
+        let points_transformed = transform_point_cloud(&points, isom);
 
-        assert!(super::f32::icp_3d(
+        let res = super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
-            false
-        )
-        .is_ok());
-
-        assert!(super::f32::icp_3d(
-            points.as_slice(),
-            points_transformed.as_slice(),
-            100,
-            0.0001,
-            true
-        )
-        .is_ok());
+            ICPConfiguration {
+                with_kd: false,
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
     }
 
     #[test]
     fn test_sm_3d_with_kd() {
+        let points = generate_point_cloud(5000, -15.0..=15.0);
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
         let isom = nalgebra::Isometry3::new(translation, rotation);
-        let (points, points_transformed) = utils::tests::generate_points(5000, isom);
+        let points_transformed = transform_point_cloud(&points, isom);
 
-        assert!(super::f32::icp_3d(
+        let res = super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
-            100,
-            0.0001,
-            true
-        )
-        .is_ok());
+            ICPConfiguration {
+                with_kd: true,
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
     }
 }
