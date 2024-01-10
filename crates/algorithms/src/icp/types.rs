@@ -19,10 +19,12 @@ where
 }
 
 /// A struct specifying configuration options for an ICP algorithm.
-#[derive(Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct ICPConfiguration<T> {
     /// Whether to use a KDTree structure to find nearest neighbours, becomes increasingly effective with point cloud growth.
     pub with_kd: bool,
+    /// Whether to downsample to point cloud to maintain while maintaining the following intervals between points
+    pub downsample_interval: Option<T>,
     /// The amount of iterations before giving up and exiting the algorithm.
     pub max_iterations: usize,
     /// When provided, the algorithm will consider itself converged when the MSE is smaller than the given value, without any more iterations.

@@ -22,6 +22,7 @@ where
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument("Insert New Point", skip_all))]
     fn insert(&mut self, data: Point<T, N>, depth: usize) {
         let dimension_to_check = depth % N;
 
@@ -78,6 +79,10 @@ where
         Some(best)
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Traverse Branch With Function", skip_all)
+    )]
     fn traverse_branch<F: FnMut(&Point<T, N>)>(&self, func: &mut F) {
         if let Some(left) = self.left.as_ref() {
             left.traverse_branch(func);
@@ -88,6 +93,10 @@ where
         }
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Traverse Branch With Mutable Function)", skip_all)
+    )]
     fn traverse_branch_mut<F: FnMut(&mut Point<T, N>)>(&mut self, func: &mut F) {
         if let Some(left) = self.left.as_mut() {
             left.traverse_branch_mut(func);
@@ -154,7 +163,7 @@ where
     /// * `func`: a closure of type [`Fn`], it's only parameter is a reference of the branch's [`Point`].
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Traverse Tree With Closure", skip_all)
+        tracing::instrument("Traverse Tree With Function", skip_all)
     )]
     pub fn traverse_tree<F: FnMut(&Point<T, N>)>(&self, mut func: F) {
         if let Some(root) = self.root.as_ref() {
@@ -168,7 +177,7 @@ where
     /// * func: a closure of type [`FnMut`], it's only parameter is a reference of the branch's [`Point`].
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Traverse Tree With Mutable Closure", skip_all)
+        tracing::instrument("Traverse Tree With Mutable Function", skip_all)
     )]
     pub fn traverse_tree_mut<F: FnMut(&mut Point<T, N>)>(&mut self, mut func: F) {
         if let Some(root) = self.root.as_mut() {
@@ -181,6 +190,10 @@ impl<T, const N: usize> From<&[Point<T, N>]> for KDTree<T, N>
 where
     T: RealField + SimdRealField + Copy + Default,
 {
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Generate Tree From Point Cloud", skip_all)
+    )]
     fn from(point_cloud: &[Point<T, N>]) -> Self {
         point_cloud
             .iter()

@@ -7,7 +7,10 @@ opt-level = 1
 
 # Compile external dependencies with higher opt level
 [profile.dev.package."*"]
-opt-level = 2
+opt-level = 3
+
+[profile.test]
+opt-level = 3
 
 [profile.release]
-opt-level = 2
+opt-level = 3

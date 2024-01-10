@@ -78,23 +78,18 @@ pub fn downsample_point_cloud<T, const N: usize>(
 where
     T: RealField + SimdRealField + Copy,
 {
-    if points.is_empty() {
-        return Vec::new();
+    let mut out_vec = Vec::with_capacity(points.len());
+    if let Some(mut latest_point) = points.get(0).copied() {
+        out_vec.push(latest_point);
+        for point in points {
+            if nalgebra::distance(point, &latest_point) >= min_distance {
+                latest_point = *point;
+                out_vec.push(*point);
+            }
+        }
     }
 
-    let mut latest_point = points[0];
-    points
-        .iter()
-        .skip(1)
-        .filter_map(|element| {
-            if nalgebra::distance(element, &latest_point) >= min_distance {
-                latest_point = *element;
-                Some(*element)
-            } else {
-                None
-            }
-        })
-        .collect()
+    out_vec
 }
 
 /// Generates a points cloud, and a corresponding points cloud, transformed by `isometry_matrix`
@@ -118,7 +113,7 @@ where
     (0..num_points)
         .map(|_| nalgebra::Point::from(crate::array::from_fn(|_| rng.gen_range(range.clone()))))
         .collect()
-}
+} // Just calls a different function a number of times, no specific test needed
 
 /// Transform a point cloud using an [`AbstractRotation`], returning a transformed point cloud.
 /// This function does not mutate the original point cloud.
@@ -145,13 +140,13 @@ where
         .iter()
         .map(|point| isometry_matrix.transform_point(point))
         .collect()
-}
+} // Just calls a different function a number of times, no specific test needed
 
 #[cfg(test)]
 mod tests {
-    use super::find_closest_point;
+    use super::*;
     use crate::Vec;
-    use nalgebra::{Point, Point2};
+    use nalgebra::{Point, Point2, Point3};
 
     #[test]
     fn test_find_closest_point() {
@@ -187,5 +182,37 @@ mod tests {
 
         // This should panic as the target_points array is empty
         let _ = find_closest_point(&transformed_point, &target_points);
+    }
+
+    #[test]
+    fn test_calculate_point_cloud_center() {
+        let point_cloud = [
+            Point3::new(1.0, 2.0, 3.0),
+            Point3::new(2.0, 3.0, 4.0),
+            Point3::new(3.0, 4.0, 5.0),
+            Point3::new(-2.0, -1.0, 0.0),
+            Point3::new(-5.0, -2.0, -3.0),
+            Point3::new(1.0, 0.0, 0.0),
+        ];
+
+        assert_eq!(
+            calculate_point_cloud_center(point_cloud.as_slice()),
+            Point3::new(0.0, 1.0, 1.5)
+        );
+    }
+
+    #[test]
+    fn test_downsample_point_cloud() {
+        let point_cloud = [
+            Point3::new(-6.0, -5.0, -4.0),
+            Point3::new(-1.0, -2.0, -3.0),
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(0.05, -0.08, 0.01),
+            Point3::new(1.0, 2.0, 3.0),
+            Point3::new(6.0, 5.0, 4.0),
+        ];
+
+        let res = downsample_point_cloud(point_cloud.as_slice(), 0.1);
+        assert_eq!(res.len(), 5);
     }
 }

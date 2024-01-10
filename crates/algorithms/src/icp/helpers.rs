@@ -74,7 +74,7 @@ where
 #[inline]
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Estimate Transform", skip_all)
+    tracing::instrument("Estimate Transform And Means", skip_all)
 )]
 pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],

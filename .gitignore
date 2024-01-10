@@ -3,6 +3,8 @@
 **/target_ra
 **/target_wasm
 /.*.json
-/.vscode/
 /media/*
-.idea/
+**/.vscode/
+**/.idea/
+**/.vs/
+**/codecov.json

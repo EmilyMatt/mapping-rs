@@ -10,6 +10,7 @@ use num_traits::{AsPrimitive, Float};
 use types::{ICPConfiguration, ICPSuccess};
 
 mod helpers;
+
 /// Structs in use as part of the public API of the ICP algorithm.
 pub mod types;
 
@@ -18,7 +19,7 @@ pub mod types;
     feature = "tracing",
     tracing::instrument("ICP Algorithm Iteration", skip_all)
 )]
-pub fn icp_iteration<T, const N: usize, O>(
+pub(crate) fn icp_iteration<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     transformed_points: &mut [Point<T, N>],
     points_b: &[Point<T, N>],
@@ -40,9 +41,11 @@ where
                 .unwrap_or(find_closest_point(transformed_point_a, points_b))
         })
         .collect::<Vec<_>>();
+    log::trace!("Found nearest neighbours");
 
     let (rot_mat, mean_a, mean_b) =
         get_rotation_matrix_and_centeroids(transformed_points, &closest_points);
+    log::trace!("Generated covariance matrix");
 
     *current_transform = O::update_transform(current_transform, mean_a, mean_b, &rot_mat);
 
@@ -50,6 +53,7 @@ where
         transformed_points[idx] = O::transform_point(current_transform, point_a)
     }
     let new_mse = calculate_mse(transformed_points, closest_points.as_slice());
+    log::trace!("New MSE: {new_mse}");
 
     // If the MSE difference is lower than the threshold, then this is as good as it gets
     if config
@@ -91,26 +95,35 @@ where
         return Err(String::from("Must have more than one iteration"));
     }
 
-    if config
-        .mse_threshold
-        .map(|thres| thres <= T::epsilon())
-        .unwrap_or_default()
-    {
+    if config.mse_interval_threshold < T::epsilon() {
         return Err(String::from(
-            "MSE Threshold too low, convergence impossible",
+            "MSE interval threshold too low, convergence impossible",
         ));
     }
 
-    let downsampled_points_a = downsample_point_cloud(
-        points_a,
-        T::from_f32(0.1).expect("T must be a floating point"),
-    );
-    let downsampled_points_b = downsample_point_cloud(
-        points_b,
-        T::from_f32(0.1).expect("T must be a floating point"),
-    );
+    if config
+        .mse_threshold
+        .map(|thres| thres < T::epsilon())
+        .unwrap_or_default()
+    {
+        return Err(String::from(
+            "Absolute MSE threshold too low, convergence impossible",
+        ));
+    }
 
-    let mut transformed_points = downsampled_points_a.to_vec();
+    let (downsampled_points_a, downsampled_points_b) = config
+        .downsample_interval
+        .map(|intervals| {
+            let ret = (
+                downsample_point_cloud(points_a, intervals),
+                downsample_point_cloud(points_b, intervals),
+            );
+            log::trace!("Downsampled point clouds");
+            ret
+        })
+        .unwrap_or((points_a.to_vec(), points_b.to_vec()));
+
+    let mut points_to_transform = downsampled_points_a.to_vec();
     let target_points_tree = config
         .with_kd
         .then_some(KDTree::from(downsampled_points_b.as_slice()));
@@ -118,15 +131,20 @@ where
     let mut current_mse = <T as RealField>::max_value().expect("Must have MAX");
 
     for iteration_num in 0..config.max_iterations {
+        log::trace!(
+            "Running iteration number {iteration_num}/{}",
+            config.max_iterations
+        );
         if let Ok(mse) = icp_iteration::<T, N, O>(
             &downsampled_points_a,
-            &mut transformed_points,
+            &mut points_to_transform,
             &downsampled_points_b,
             target_points_tree.as_ref(),
             &mut current_transform,
             &mut current_mse,
             &config,
         ) {
+            log::trace!("Converged after {iteration_num} iterations with an MSE of {mse}");
             return Ok(ICPSuccess {
                 transform: current_transform,
                 mse,
@@ -139,23 +157,23 @@ where
 }
 
 macro_rules! impl_icp_algorithm {
-    ($nd: expr, $prec:expr) => {
+    ($nd: expr, $precision:expr) => {
         ::paste::paste! {
             #[doc = "An ICP algorithm in " $nd "D space."]
             #[doc = "# Arguments"]
-            #[doc = "* `points_a`: A slice of [`Point<" $prec ", " $nd ">`], representing the source point cloud."]
-            #[doc = "* `points_b`: A slice of [`Point<" $prec ", " $nd ">`], representing the target point cloud."]
+            #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`], representing the source point cloud."]
+            #[doc = "* `points_b`: A slice of [`Point<" $precision ", " $nd ">`], representing the target point cloud."]
             #[doc = "* `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
-            #[doc = "* `mse_threshold`: an `" $prec "`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
+            #[doc = "* `mse_threshold`: an `" $precision "`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
             #[doc = "* `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
             #[doc = ""]
             #[doc = "# Returns"]
-            #[doc = "An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $prec "` precision, or an error message explaining what went wrong."]
+            #[doc = "An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
             #[doc = ""]
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
-            pub fn [<icp _$nd d>](points_a: &[Point<$prec, $nd>],
-                points_b: &[Point<$prec, $nd>],
-                config: ICPConfiguration<$prec>) -> Result<ICPSuccess<$prec, $nd, nalgebra::Const<$nd>>, String> {
+            pub fn [<icp _$nd d>](points_a: &[Point<$precision, $nd>],
+                points_b: &[Point<$precision, $nd>],
+                config: ICPConfiguration<$precision>) -> Result<ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, String> {
                     icp(points_a, points_b, config)
             }
         }
@@ -184,8 +202,66 @@ mod tests {
     };
 
     #[test]
-    fn test_icp_2d() {
-        let points = generate_point_cloud(1000, -15.0..=15.0);
+    fn test_icp_errors() {
+        let points = generate_point_cloud(10, -15.0..=15.0);
+        let config = ICPConfiguration {
+            with_kd: false,
+            downsample_interval: None,
+            max_iterations: 10,
+            mse_threshold: None,
+            mse_interval_threshold: 0.01,
+        };
+
+        let res = super::f32::icp_2d(&[], points.as_slice(), config);
+        assert_eq!(res.unwrap_err(), "Source point cloud is empty".to_string());
+
+        let res = super::f32::icp_2d(points.as_slice(), &[], config);
+        assert_eq!(res.unwrap_err(), "Target point cloud is empty".to_string());
+
+        let res = super::f32::icp_2d(
+            points.as_slice(),
+            points.as_slice(),
+            ICPConfiguration {
+                max_iterations: 0,
+                ..config
+            },
+        );
+        assert_eq!(
+            res.unwrap_err(),
+            "Must have more than one iteration".to_string()
+        );
+
+        let res = super::f32::icp_2d(
+            points.as_slice(),
+            points.as_slice(),
+            ICPConfiguration {
+                mse_interval_threshold: 0.0,
+                ..config
+            },
+        );
+        assert_eq!(
+            res.unwrap_err(),
+            "MSE interval threshold too low, convergence impossible".to_string()
+        );
+
+        let res = super::f32::icp_2d(
+            points.as_slice(),
+            points.as_slice(),
+            ICPConfiguration {
+                mse_threshold: Some(0.0),
+                ..config
+            },
+        );
+        assert_eq!(
+            res.unwrap_err(),
+            "Absolute MSE threshold too low, convergence impossible".to_string()
+        );
+    }
+
+    #[test]
+    // This is for code coverage purposes, ensure that absolute MSE is used instead of interval
+    fn test_icp_absolute_threshold() {
+        let points = generate_point_cloud(100, -15.0..=15.0);
         let translation = nalgebra::Vector2::new(-0.8, 1.3);
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
@@ -195,17 +271,41 @@ mod tests {
             points_transformed.as_slice(),
             ICPConfiguration {
                 with_kd: false,
+                downsample_interval: None,
+                max_iterations: 10,
+                mse_threshold: Some(0.1),
+                mse_interval_threshold: 0.001,
+            },
+        );
+        assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.1);
+    }
+
+    #[test]
+    fn test_icp_2d() {
+        let points = generate_point_cloud(100, -15.0..=15.0);
+        let translation = nalgebra::Vector2::new(-0.8, 1.3);
+        let isom = nalgebra::Isometry2::new(translation, 0.1);
+        let points_transformed = transform_point_cloud(&points, isom);
+
+        let res = super::f32::icp_2d(
+            points.as_slice(),
+            points_transformed.as_slice(),
+            ICPConfiguration {
+                with_kd: false,
+                downsample_interval: None,
                 max_iterations: 50,
                 mse_threshold: None,
                 mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
     }
 
     #[test]
     fn test_icp_2d_with_kd() {
-        let points = generate_point_cloud(1000, -15.0..=15.0);
+        let points = generate_point_cloud(100, -15.0..=15.0);
         let isom = nalgebra::Isometry2::new(nalgebra::Vector2::new(-0.8, 1.3), 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
@@ -214,17 +314,62 @@ mod tests {
             points_transformed.as_slice(),
             ICPConfiguration {
                 with_kd: true,
+                downsample_interval: None,
                 max_iterations: 50,
                 mse_threshold: None,
                 mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
     }
 
     #[test]
-    fn test_sm_3d() {
-        let points = generate_point_cloud(5000, -15.0..=15.0);
+    fn test_icp_2d_downsample() {
+        let points = generate_point_cloud(100, -15.0..=15.0);
+        let translation = nalgebra::Vector2::new(-0.8, 1.3);
+        let isom = nalgebra::Isometry2::new(translation, 0.1);
+        let points_transformed = transform_point_cloud(&points, isom);
+
+        let res = super::f32::icp_2d(
+            points.as_slice(),
+            points_transformed.as_slice(),
+            ICPConfiguration {
+                with_kd: false,
+                downsample_interval: Some(0.5),
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
+    }
+
+    #[test]
+    fn test_icp_2d_with_kd_downsample() {
+        let points = generate_point_cloud(100, -15.0..=15.0);
+        let isom = nalgebra::Isometry2::new(nalgebra::Vector2::new(-0.8, 1.3), 0.1);
+        let points_transformed = transform_point_cloud(&points, isom);
+
+        let res = super::f32::icp_2d(
+            points.as_slice(),
+            points_transformed.as_slice(),
+            ICPConfiguration {
+                with_kd: true,
+                downsample_interval: Some(0.5),
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
+    }
+
+    #[test]
+    fn test_icp_3d() {
+        let points = generate_point_cloud(500, -15.0..=15.0);
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
         let isom = nalgebra::Isometry3::new(translation, rotation);
@@ -235,17 +380,19 @@ mod tests {
             points_transformed.as_slice(),
             ICPConfiguration {
                 with_kd: false,
+                downsample_interval: None,
                 max_iterations: 50,
                 mse_threshold: None,
                 mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
     }
 
     #[test]
-    fn test_sm_3d_with_kd() {
-        let points = generate_point_cloud(5000, -15.0..=15.0);
+    fn test_icp_3d_with_kd() {
+        let points = generate_point_cloud(500, -15.0..=15.0);
         let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
         let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
         let isom = nalgebra::Isometry3::new(translation, rotation);
@@ -256,11 +403,59 @@ mod tests {
             points_transformed.as_slice(),
             ICPConfiguration {
                 with_kd: true,
+                downsample_interval: None,
                 max_iterations: 50,
                 mse_threshold: None,
                 mse_interval_threshold: 0.01,
             },
         );
         assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
+    }
+
+    #[test]
+    fn test_icp_3d_downsample() {
+        let points = generate_point_cloud(500, -15.0..=15.0);
+        let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
+        let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
+        let isom = nalgebra::Isometry3::new(translation, rotation);
+        let points_transformed = transform_point_cloud(&points, isom);
+
+        let res = super::f32::icp_3d(
+            points.as_slice(),
+            points_transformed.as_slice(),
+            ICPConfiguration {
+                with_kd: false,
+                downsample_interval: Some(0.5),
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
+    }
+
+    #[test]
+    fn test_icp_3d_with_kd_downsample() {
+        let points = generate_point_cloud(500, -15.0..=15.0);
+        let translation = nalgebra::Vector3::new(-0.8, 1.3, 0.2);
+        let rotation = nalgebra::Vector3::new(0.1, 0.5, -0.21);
+        let isom = nalgebra::Isometry3::new(translation, rotation);
+        let points_transformed = transform_point_cloud(&points, isom);
+
+        let res = super::f32::icp_3d(
+            points.as_slice(),
+            points_transformed.as_slice(),
+            ICPConfiguration {
+                with_kd: true,
+                downsample_interval: Some(0.5),
+                max_iterations: 50,
+                mse_threshold: None,
+                mse_interval_threshold: 0.01,
+            },
+        );
+        assert!(res.is_ok());
+        assert!(res.unwrap().mse < 0.01);
     }
 }

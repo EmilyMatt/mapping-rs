@@ -34,7 +34,7 @@ pub mod icp;
 pub mod types;
 
 /// Implementation of an Ackerman vehicle steering model.
-pub mod ackerman;
+pub mod ackermann;
 
 /// Implementations of Bresenham line algorithms.
 pub mod bresenham;
@@ -49,6 +49,7 @@ pub mod point_in_convex_hull;
 pub mod kd_tree;
 
 /// A Collection of pathfinding algorithms
-mod pathfinding;
+pub mod pathfinding;
+
 /// Various utility functions that are commonly used by these algorithms.
 pub mod utils;

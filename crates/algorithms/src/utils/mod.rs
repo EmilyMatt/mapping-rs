@@ -8,7 +8,7 @@ use nalgebra::{Const, DimMin, Point, RealField, SimdRealField};
 /// Various utility functions regarding point clouds of 2 or 3 dimensions.
 pub mod point_cloud;
 
-#[cfg(not(feature = "std"))]
+#[cfg(any(not(feature = "std"), test))]
 pub(crate) fn distance_squared<T, const N: usize>(point_a: &Point<T, N>, point_b: &Point<T, N>) -> T
 where
     T: RealField + SimdRealField + Copy + Default,
@@ -40,6 +40,10 @@ where
 ///
 /// # Returns
 /// See [`PolygonExtents`]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Calculate Polygon Extents", skip_all)
+)]
 pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> PolygonExtents<T, N>
 where
     T: RealField + SimdRealField + Copy,
@@ -81,7 +85,7 @@ where
 pub(crate) mod tests {
     use super::*;
     use crate::Vec;
-    use nalgebra::{Point, Point2};
+    use nalgebra::{Point, Point2, Point3};
 
     #[test]
     fn test_calculate_polygon_extents() {
@@ -119,5 +123,12 @@ pub(crate) mod tests {
                 RangeInclusive::new(f64::MAX, f64::MIN)
             ]
         );
+    }
+
+    #[test]
+    fn test_distance_squared() {
+        let point_a = Point3::new(1.0, 2.0, 3.0);
+        let point_b = Point3::new(4.0, 5.0, 6.0);
+        assert_eq!(distance_squared(&point_a, &point_b), 27.0)
     }
 }

@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of pure-rust algorithms in popular use for SLAM purposes"
 edition = "2021"
-rust-version = "1.67"
+rust-version = "1.72"
 license = "MIT"
 readme = "../../README.md"
 categories = ["algorithms", "science", "science::robotics"]
@@ -17,7 +17,7 @@ all-features = true
 [lib]
 
 [features]
-default = []
+default = ["std"]
 std = ["nalgebra/std", "tracing?/std", "num-traits/std", "rand?/std", "rand?/std_rng"]
 tracing = ["dep:tracing"]
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
@@ -29,7 +29,7 @@ log = { version = "0.4.19", default-features = false }
 nalgebra = { version = "0.32.3", default-features = false }
 num-traits = { version = "0.2.17", default-features = false }
 paste = { version = "1.0.14", default-features = false }
-rand = { version = "0.8", default-features = false, optional = true }
+rand = { version = "0.8.5", default-features = false, optional = true }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
 [dev-dependencies]
@@ -44,3 +44,18 @@ cc = { version = "1.0.83", default-features = false, optional = true }
 [[example]]
 name = "visualized_icp_2d"
 required-features = ["std", "rand"]
+
+
+# Compilation Profiles
+[profile.dev]
+opt-level = 1
+
+# Compile external dependencies with higher opt level
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.test]
+opt-level = 3
+
+[profile.release]
+opt-level = 3

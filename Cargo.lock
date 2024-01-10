@@ -1029,6 +1029,8 @@ dependencies = [
  "log",
  "mapping-algorithms-rs",
  "nalgebra",
+ "num-traits",
+ "rand",
  "tracing",
 ]
 

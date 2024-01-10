@@ -25,6 +25,7 @@ impl From<RunConfiguartion> for ICPConfiguration<f32> {
     fn from(value: RunConfiguartion) -> Self {
         ICPConfiguration {
             with_kd: value.with_kd,
+            downsample_interval: None,
             max_iterations: value.max_iterations,
             mse_threshold: value.mse_threshold,
             mse_interval_threshold: value.mse_interval_threshold,

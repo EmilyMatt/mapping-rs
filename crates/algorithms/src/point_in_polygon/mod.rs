@@ -2,6 +2,10 @@ use crate::{mem, utils::calculate_polygon_extents, Vec};
 use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRealField, Vector2};
 
 #[inline]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Does Ray Intersect Polygon", skip_all)
+)]
 fn does_ray_intersect<T>(point: &Vector2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
@@ -34,6 +38,10 @@ where
         < T::zero()
 }
 
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Get Point's Number Of Intersections With Polygon", skip_all)
+)]
 fn get_point_intersections_with_polygon<T>(
     point: &Point2<T>,
     polygon: &[Point2<T>],
@@ -52,6 +60,10 @@ where
         .collect() // Only returns the intersections as Some()
 }
 
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Is Point In Polygon", skip_all)
+)]
 fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
@@ -60,6 +72,10 @@ where
     len % 2 == 1 // If the number of intersections is odd - we didn't exit the polygon, and are therefor in it.
 }
 
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Are Points In Polygon", skip_all)
+)]
 fn are_multiple_points_in_polygon<T>(points: &[Point<T, 2>], polygon: &[Point<T, 2>]) -> Vec<bool>
 where
     T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
