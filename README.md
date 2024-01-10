@@ -2,6 +2,7 @@
 ![Linux Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml/badge.svg)
 ![MacOS Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml/badge.svg)
 ![Documentation](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml/badge.svg)
+![codecov](https://codecov.io/gh/EmilyMatt/mapping-rs/graph/badge.svg?token=GSPWQVRCV8)(https://codecov.io/gh/EmilyMatt/mapping-rs)
 
 ![GitHub Stars](https://img.shields.io/github/stars/EmilyMatt/mapping-rs)
 ![GitHub Watchers](https://img.shields.io/github/watchers/EmilyMatt/mapping-rs)
