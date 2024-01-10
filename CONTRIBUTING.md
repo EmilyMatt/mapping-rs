@@ -97,7 +97,7 @@ We use GitHub issues to track bugs and errors. If you run into an issue with the
   - This does not mean that this crate requires you to work in a test-driven-development paradigm, but you are free to do so if you wish.
 
 #### Writing Examples
-When implementing a new algorithm, suite, or feature, it is nice to add an [example](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#examples), but it is not mandatory for that PR (as established, the function will already be fully documented), you can, instead, [open a new issue](), label it with the "Enhancement" label, and someone else will request assignment and create that example.
+When implementing a new algorithm, suite, or feature, it is nice to add an [example](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#examples), but it is not mandatory for that PR (as established, the function will already be fully documented), you can, instead, [open a new issue](https://github.com/EmilyMatt/mapping-rs/issues/new), label it with the "Enhancement" label, and someone else will request assignment and create that example.
 An example, should be very clear in showing *how* to use the crate's API to perform that specific functionality, but should also have much more focus on UI/UX, and clearly and most importantly *visually* present the feature.
 Generally, examples in this crate use [egui](https://github.com/emilk/egui), which is a fantastic ecosystem for Immediate-style GUI purposes, we use it with the `glow` feature enabled, for when `OpenGL` interfacing is required (mostly for 3D examples).
 
