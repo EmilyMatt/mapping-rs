@@ -9,13 +9,13 @@ env:
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest # Because wayland crates fucks up the Linux build with unstable attribute use
     steps:
       - uses: actions/checkout@v4
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov
       - name: Generate Code Coverage
-        run: cargo llvm-cov --workspace --codecov --output-path codecov.json
+        run: cargo llvm-cov --all --all-features --codecov --output-path codecov.json
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         with:
