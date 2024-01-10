@@ -196,6 +196,7 @@ pub mod f64 {
 
 #[cfg(test)]
 mod tests {
+    use crate::String;
     use crate::{
         icp::types::ICPConfiguration,
         utils::point_cloud::{generate_point_cloud, transform_point_cloud},
@@ -213,10 +214,16 @@ mod tests {
         };
 
         let res = super::f32::icp_2d(&[], points.as_slice(), config);
-        assert_eq!(res.unwrap_err(), "Source point cloud is empty".to_string());
+        assert_eq!(
+            res.unwrap_err(),
+            String::from("Source point cloud is empty")
+        );
 
         let res = super::f32::icp_2d(points.as_slice(), &[], config);
-        assert_eq!(res.unwrap_err(), "Target point cloud is empty".to_string());
+        assert_eq!(
+            res.unwrap_err(),
+            String::from("Target point cloud is empty")
+        );
 
         let res = super::f32::icp_2d(
             points.as_slice(),
@@ -228,7 +235,7 @@ mod tests {
         );
         assert_eq!(
             res.unwrap_err(),
-            "Must have more than one iteration".to_string()
+            String::from("Must have more than one iteration")
         );
 
         let res = super::f32::icp_2d(
@@ -241,7 +248,7 @@ mod tests {
         );
         assert_eq!(
             res.unwrap_err(),
-            "MSE interval threshold too low, convergence impossible".to_string()
+            String::from("MSE interval threshold too low, convergence impossible")
         );
 
         let res = super::f32::icp_2d(
@@ -254,7 +261,7 @@ mod tests {
         );
         assert_eq!(
             res.unwrap_err(),
-            "Absolute MSE threshold too low, convergence impossible".to_string()
+            String::from("Absolute MSE threshold too low, convergence impossible")
         );
     }
 
