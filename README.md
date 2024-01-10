@@ -1,16 +1,16 @@
-![Windows Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-win.yml/badge.svg)
-![Linux Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml/badge.svg)
-![MacOS Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml/badge.svg)
-![Documentation](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml/badge.svg)
-![codecov](https://codecov.io/gh/EmilyMatt/mapping-rs/graph/badge.svg?token=GSPWQVRCV8)(https://codecov.io/gh/EmilyMatt/mapping-rs)
+[![Windows Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-win.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-win.yml)
+[![Linux Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml)
+[![MacOS Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml)
+[![Documentation](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml)
+[![codecov](https://codecov.io/gh/EmilyMatt/mapping-rs/graph/badge.svg?token=GSPWQVRCV8)](https://codecov.io/gh/EmilyMatt/mapping-rs)
 
 ![GitHub Stars](https://img.shields.io/github/stars/EmilyMatt/mapping-rs)
 ![GitHub Watchers](https://img.shields.io/github/watchers/EmilyMatt/mapping-rs)
-![GitHub Forks](https://img.shields.io/github/forks/EmilyMatt/mapping-rs)
+[![GitHub Forks](https://img.shields.io/github/forks/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/fork)
 [![GitHub Issues](https://img.shields.io/github/issues/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/issues)
-[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/EmilyMatt/mapping-rs/blob/master/LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)
+[![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
 ## Unstable API
 Note that this crate is in early development, breaking API changes are to be expected.
