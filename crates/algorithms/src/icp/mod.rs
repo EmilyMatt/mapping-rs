@@ -19,7 +19,7 @@ pub mod types;
     feature = "tracing",
     tracing::instrument("ICP Algorithm Iteration", skip_all)
 )]
-pub(crate) fn icp_iteration<T, const N: usize, O>(
+pub fn icp_iteration<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     transformed_points: &mut [Point<T, N>],
     points_b: &[Point<T, N>],
