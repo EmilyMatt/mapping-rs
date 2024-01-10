@@ -196,10 +196,10 @@ pub mod f64 {
 
 #[cfg(test)]
 mod tests {
-    use crate::String;
     use crate::{
         icp::types::ICPConfiguration,
         utils::point_cloud::{generate_point_cloud, transform_point_cloud},
+        String,
     };
 
     #[test]
