@@ -6,9 +6,6 @@
 
 //! A collection of mapping algorithms, for use either independently, or using the mapping-suites-rs crate.
 
-#[cfg(not(any(feature = "std", feature = "libm")))]
-compile_error!("Either `std` or `libm` features must be enabled");
-
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]

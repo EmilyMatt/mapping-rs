@@ -156,8 +156,8 @@ macro_rules! impl_p_i_p_algorithm {
                 #[doc = "# Returns"]
                 #[doc = "A [`Vec`] of booleans, with the same size as `points`, containing the result for each point."]
                 pub fn [<are_multiple_points_in_polygon_$prec>](
-                    points: &[Point<$prec, 2>],
-                    polygon: &[Point<$prec, 2>],
+                    points: &[Point2<$prec>],
+                    polygon: &[Point2<$prec>],
                 ) -> Vec<bool> {
                     are_multiple_points_in_polygon(points, polygon)
                 }
@@ -171,19 +171,24 @@ impl_p_i_p_algorithm!(f64, double);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::Vec;
+    use nalgebra::{Point2, Vector2};
 
     #[test]
     fn test_does_ray_intersect() {
         let point_a = Vector2::new(4.0, -3.0);
         let vertex_a1 = Point2::new(5.0, 0.0);
         let vertex_a2 = Point2::new(1.0, -4.0);
-        assert!(does_ray_intersect(&point_a, vertex_a1, vertex_a2));
+        assert!(super::f32::does_ray_intersect_f32(
+            &point_a, vertex_a1, vertex_a2
+        ));
 
         let point_b = Vector2::new(-4.0, 4.0);
         let vertex_b1 = Point2::new(0.0, 0.0);
         let vertex_b2 = Point2::new(1.0, 5.0);
-        assert!(does_ray_intersect(&point_b, vertex_b1, vertex_b2));
+        assert!(super::f32::does_ray_intersect_f32(
+            &point_b, vertex_b1, vertex_b2
+        ));
     }
 
     // These following tests pretty much test all the functions:
@@ -203,7 +208,7 @@ mod tests {
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = are_multiple_points_in_polygon(points, polygon);
+        let result = super::f32::are_multiple_points_in_polygon_f32(points, polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
         assert_eq!(result, Vec::from([true, false]));
@@ -225,7 +230,7 @@ mod tests {
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = are_multiple_points_in_polygon(points, polygon);
+        let result = super::f32::are_multiple_points_in_polygon_f32(points, polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
         assert_eq!(result, Vec::from([true, false]));

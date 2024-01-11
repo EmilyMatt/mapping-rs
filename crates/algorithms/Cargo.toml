@@ -21,13 +21,12 @@ default = ["std"]
 std = ["nalgebra/std", "tracing?/std", "num-traits/std", "rand?/std", "rand?/std_rng"]
 tracing = ["dep:tracing"]
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
-libm = ["nalgebra/libm-force", "num-traits/libm"]
 rand = ["dep:rand"]
 
 [dependencies]
 log = { version = "0.4.19", default-features = false }
-nalgebra = { version = "0.32.3", default-features = false }
-num-traits = { version = "0.2.17", default-features = false }
+nalgebra = { version = "0.32.3", default-features = false, features = ["libm", "libm-force"] }
+num-traits = { version = "0.2.17", default-features = false, features = ["libm"] }
 paste = { version = "1.0.14", default-features = false }
 rand = { version = "0.8.5", default-features = false, optional = true }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }

@@ -124,3 +124,57 @@ where
 
 /// A type which is simply an `N` length array of [`RangeInclusive`]s, representing the minimum and maximum coordinates for each dimension.
 pub type PolygonExtents<T, const N: usize> = [RangeInclusive<T>; N];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::{
+        Isometry2, Isometry3, Point2, Point3, Translation2, Translation3, UnitComplex, Vector3,
+    };
+
+    #[test]
+    fn test_isometry_2d() {
+        let point_2d = Point2::new(1.0, 2.0);
+        let isometry_2d = Isometry2::from_parts(
+            Translation2::new(3.0, 4.0),
+            UnitComplex::new(30.0f32.to_radians()),
+        );
+
+        assert_eq!(
+            <Const<2> as IsometryAbstraction<f32, 2>>::transform_point(&isometry_2d, &point_2d),
+            isometry_2d.transform_point(&point_2d)
+        );
+        assert_eq!(
+            <Const<2> as IsometryAbstraction<f32, 2>>::transform_vector(
+                &isometry_2d,
+                &point_2d.coords
+            ),
+            isometry_2d.transform_vector(&point_2d.coords)
+        );
+    }
+
+    #[test]
+    fn test_isometry_3d() {
+        let point_3d = Point3::new(1.0, 2.0, 3.0);
+        let isometry_3d = Isometry3::from_parts(
+            Translation3::new(0.1, 0.2, 0.3),
+            UnitQuaternion::new(Vector3::new(
+                45.0f32.to_radians(),
+                45.0f32.to_radians(),
+                45.0f32.to_radians(),
+            )),
+        );
+
+        assert_eq!(
+            <Const<3> as IsometryAbstraction<f32, 3>>::transform_point(&isometry_3d, &point_3d),
+            isometry_3d.transform_point(&point_3d)
+        );
+        assert_eq!(
+            <Const<3> as IsometryAbstraction<f32, 3>>::transform_vector(
+                &isometry_3d,
+                &point_3d.coords
+            ),
+            isometry_3d.transform_vector(&point_3d.coords)
+        );
+    }
+}

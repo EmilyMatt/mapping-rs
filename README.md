@@ -35,18 +35,13 @@ opt-level = 3
 # Features
 
 ## no_std
-This crate can be used without the standard library, given that:
-
-a. memory allocator is configured(this crate __does__ use the `alloc` crate).
-
-b. the `libm` feature is enabled.
+This crate can be used without the standard library, given that a memory allocator is configured(this crate __does__ use the `alloc` crate).
 
 this can be easily achieved like so:
 
 ```toml
 [dependencies.mapping-algorithms-rs]
 default-features = false
-features = ["libm"]
 ```
 
 ## tracing

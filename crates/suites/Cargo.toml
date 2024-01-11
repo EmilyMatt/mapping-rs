@@ -21,13 +21,12 @@ default = ["std"]
 std = ["mapping-algorithms-rs/std", "nalgebra/std", "tracing?/std"]
 tracing = ["dep:tracing"]
 cuda = ["mapping-algorithms-rs/cuda", "nalgebra/cuda", "bindgen", "cc"]
-libm = ["mapping-algorithms-rs/libm", "nalgebra/libm-force", "num-traits/libm"]
 
 [dependencies]
 mapping-algorithms-rs = { default-features = false, path = "../algorithms" }
 log = { version = "0.4.19", default-features = false }
-nalgebra = { version = "0.32.3", default-features = false }
-num-traits = { version = "0.2.17", default-features = false }
+nalgebra = { version = "0.32.3", default-features = false, features = ["libm", "libm-force"] }
+num-traits = { version = "0.2.17", default-features = false, features = ["libm"] }
 rand = { version = "0.8", default-features = false, optional = true }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
