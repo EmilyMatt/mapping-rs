@@ -37,7 +37,7 @@ rand = { version = "0.8.5", default-features = false, features = ["std", "std_rn
 simple_logger = { version = "4.3.3", default-features = false, features = ["timestamps", "threads"]}
 
 [build-dependencies]
-bindgen = { version = "0.69.1", default-features = false, optional = true }
+bindgen = { version = "0.69.2", default-features = false, optional = true }
 cc = { version = "1.0.83", default-features = false, optional = true }
 
 [[example]]
