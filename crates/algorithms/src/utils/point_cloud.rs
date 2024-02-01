@@ -79,7 +79,7 @@ where
     T: RealField + SimdRealField + Copy,
 {
     let mut out_vec = Vec::with_capacity(points.len());
-    if let Some(mut latest_point) = points.get(0).copied() {
+    if let Some(mut latest_point) = points.first().copied() {
         out_vec.push(latest_point);
         for point in points {
             if nalgebra::distance(point, &latest_point) >= min_distance {
