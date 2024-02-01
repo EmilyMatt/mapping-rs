@@ -1,7 +1,7 @@
 use crate::{
     array, ops::Add, types::SameSizeMat, utils::point_cloud::calculate_point_cloud_center, Sum,
 };
-use nalgebra::{ArrayStorage, Const, Matrix, Point, RealField, SimdRealField, Vector};
+use nalgebra::{ArrayStorage, Const, Matrix, Point, RealField, Vector};
 use num_traits::AsPrimitive;
 
 /// Calculates the Mean Squared Error between two point clouds.
@@ -21,7 +21,7 @@ pub(crate) fn calculate_mse<T, const N: usize>(
     closest_points_in_b: &[Point<T, N>],
 ) -> T::RealField
 where
-    T: RealField + SimdRealField + Copy + Default + Sum,
+    T: RealField + Copy + Default + Sum,
 {
     transformed_points_a
         .iter()
@@ -50,7 +50,7 @@ pub(crate) fn outer_product<T, const N: usize>(
     point_b: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
 ) -> SameSizeMat<T, N>
 where
-    T: RealField + SimdRealField + Copy,
+    T: RealField + Copy,
 {
     Matrix::from_data(ArrayStorage(array::from_fn(|a_idx| {
         array::from_fn(|b_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
@@ -81,7 +81,7 @@ pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     closest_points: &[Point<T, N>],
 ) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
 where
-    T: Copy + RealField + SimdRealField,
+    T: Copy + RealField,
     usize: AsPrimitive<T>,
     SameSizeMat<T, N>: Add<Output = SameSizeMat<T, N>>,
 {

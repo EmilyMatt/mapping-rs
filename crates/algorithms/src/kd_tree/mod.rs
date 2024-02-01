@@ -1,9 +1,9 @@
 use crate::{distance_squared, Box};
-use nalgebra::{Point, RealField, SimdRealField};
+use nalgebra::{Point, RealField};
 
 struct KDNode<T, const N: usize>
 where
-    T: RealField + SimdRealField + Copy + Default,
+    T: RealField + Copy + Default,
 {
     internal_data: Point<T, N>,
     right: Option<Box<KDNode<T, N>>>,
@@ -12,7 +12,7 @@ where
 
 impl<T, const N: usize> KDNode<T, N>
 where
-    T: RealField + SimdRealField + Copy + Default,
+    T: RealField + Copy + Default,
 {
     fn new(data: Point<T, N>) -> Self {
         Self {
@@ -116,14 +116,14 @@ where
 #[derive(Default)]
 pub struct KDTree<T, const N: usize>
 where
-    T: RealField + SimdRealField + Copy + Default,
+    T: RealField + Copy + Default,
 {
     root: Option<KDNode<T, N>>,
 }
 
 impl<T, const N: usize> KDTree<T, N>
 where
-    T: RealField + SimdRealField + Copy + Default,
+    T: RealField + Copy + Default,
 {
     /// Returns an empty instance of this tree structure
     pub fn new() -> Self {
@@ -188,7 +188,7 @@ where
 
 impl<T, const N: usize> From<&[Point<T, N>]> for KDTree<T, N>
 where
-    T: RealField + SimdRealField + Copy + Default,
+    T: RealField + Copy + Default,
 {
     #[cfg_attr(
         feature = "tracing",

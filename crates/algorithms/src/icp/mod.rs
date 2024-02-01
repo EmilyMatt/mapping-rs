@@ -5,7 +5,7 @@ use crate::{
     String, Sum, Vec,
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
-use nalgebra::{Point, RealField, SimdRealField};
+use nalgebra::{Point, RealField};
 use num_traits::{AsPrimitive, Float};
 use types::{ICPConfiguration, ICPSuccess};
 
@@ -29,7 +29,7 @@ pub fn icp_iteration<T, const N: usize, O>(
     config: &ICPConfiguration<T>,
 ) -> Result<T, (Point<T, N>, Point<T, N>)>
 where
-    T: RealField + SimdRealField + Copy + Default + Sum + Float,
+    T: RealField + Copy + Default + Sum + Float,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
@@ -79,7 +79,7 @@ fn icp<T, const N: usize, O>(
     config: ICPConfiguration<T>,
 ) -> Result<ICPSuccess<T, N, O>, String>
 where
-    T: RealField + SimdRealField + Copy + Default + Float + Sum,
+    T: RealField + Copy + Default + Float + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
