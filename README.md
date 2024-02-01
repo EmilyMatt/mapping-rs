@@ -13,7 +13,7 @@
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
 ## Unstable API
-Note that this crate is in early development, breaking API changes are to be expected.
+Warning: this crate is in early development, breaking API changes are to be expected.
 
 ## Usage
 
@@ -24,9 +24,9 @@ Add this to your `Cargo.toml`:
 mapping-algorithms-rs = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
 ```
 
-Note that in this crate heavily uses generics, and is therefor suffering penalties in `debug` profile, (but _very_ fast in `release`).
+Note that this crate heavily relies on generics, and therefore suffers performance penalties in `debug` profile, (but is _very_ fast in `release`).
 
-I'd recommend adding the following in your Cargo.toml, and using the macro pre-generated functions whenever possible:
+I recommend adding the following to your Cargo.toml, and using the macro pre-generated functions whenever possible:
 ```toml
 [profile.dev.package.mapping-rs]
 opt-level = 3
@@ -35,9 +35,9 @@ opt-level = 3
 # Features
 
 ## no_std
-This crate can be used without the standard library, given that a memory allocator is configured(this crate __does__ use the `alloc` crate).
+This crate can be used without the standard library, provided that a memory allocator is configured (this crate __does__ use the `alloc` crate).
 
-this can be easily achieved like so:
+This can be easily achieved like so:
 
 ```toml
 [dependencies.mapping-algorithms-rs]
@@ -46,12 +46,15 @@ default-features = false
 
 ## tracing
 This crate provides profiling and instrumentation insight 
-via the [tracing](https://github.com/tokio-rs/tracing) crate, in order to use that, 
-simply enable the `tracing` feature in your Cargo.toml, and use your choice of a subscriber.
+via the [tracing](https://github.com/tokio-rs/tracing) crate.
+
+To use it, simply enable the `tracing` feature in your Cargo.toml, 
+and use your choice of a subscriber.
 
 ## CUDA (Future-Feature)
-This crate is designed to be able to take advantage of CUDA for parallel processing, 
-this can greatly improve algorithm performance, but requires an NVIDIA graphics card and drivers.
+This crate is designed to take advantage of CUDA for parallel processing; 
+this can greatly improve algorithm performance but requires an NVIDIA graphics card and drivers.
+
 To enable CUDA, use the `cuda` feature:
 ```toml
 [dependencies.mapping-algorithms-rs]
@@ -59,4 +62,6 @@ features = ["cuda"]
 ```
 
 ## Contributing
-If you'd like to contribute, we'll gladly have you, but be sure to check out our [CONTRIBUTING.md](CONTRIBUTING.md)
+The sentence is fine, but consider rephrasing for a more formal tone: "If you would like to contribute, we welcome your contributions. 
+
+Please be sure to check out our [CONTRIBUTING.md](CONTRIBUTING.md)
