@@ -85,7 +85,7 @@ where
 pub(crate) mod tests {
     use super::*;
     use crate::Vec;
-    use nalgebra::{Point, Point2, Point3};
+    use nalgebra::{Matrix2, Point, Point2, Point3};
 
     #[test]
     fn test_calculate_polygon_extents() {
@@ -130,5 +130,21 @@ pub(crate) mod tests {
         let point_a = Point3::new(1.0, 2.0, 3.0);
         let point_b = Point3::new(4.0, 5.0, 6.0);
         assert_eq!(distance_squared(&point_a, &point_b), 27.0)
+    }
+
+    #[test]
+    fn test_verify_rotation_matrix_determinant() {
+        let mat_a = Matrix2::new(2.0, 3.0, 2.0, 1.0);
+        let mat_b = Matrix2::new(-1.0, 0.0, 0.0, -1.0);
+
+        let regular_dot = mat_a * mat_b;
+        assert!(regular_dot.determinant() < 0.0);
+
+        let func_dot = verify_rotation_matrix_determinant(mat_a, mat_b);
+
+        // Verify second column is actually reversed by this function
+        assert!(func_dot.determinant() >= 0.0);
+        assert_eq!(func_dot.m12, -regular_dot.m12);
+        assert_eq!(func_dot.m22, -regular_dot.m22);
     }
 }
