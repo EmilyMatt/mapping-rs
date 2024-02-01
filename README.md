@@ -62,6 +62,5 @@ features = ["cuda"]
 ```
 
 ## Contributing
-The sentence is fine, but consider rephrasing for a more formal tone: "If you would like to contribute, we welcome your contributions. 
-
+If you would like to contribute, we welcome your contributions.
 Please be sure to check out our [CONTRIBUTING.md](CONTRIBUTING.md)
