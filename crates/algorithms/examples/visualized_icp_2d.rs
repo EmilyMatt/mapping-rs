@@ -208,7 +208,7 @@ fn main() -> eframe::Result<()> {
         "mapping-rs 2D ICP Algorithm Visualization Tool",
         options,
         Box::new(|_cc| {
-            let mut rng = rand::rngs::OsRng;
+            let mut rng = rand::thread_rng();
             Box::new(VisualizerApp::new(RunConfiguartion {
                 num_points: 500,
                 offset_x: rng.gen_range(-0.1..=0.1),
