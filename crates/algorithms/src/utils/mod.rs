@@ -3,7 +3,7 @@ use crate::{
     ops::RangeInclusive,
     types::{PolygonExtents, SameSizeMat},
 };
-use nalgebra::{Const, DimMin, Point, RealField, SimdRealField};
+use nalgebra::{Const, DimMin, Point, RealField};
 
 /// Various utility functions regarding point clouds of 2 or 3 dimensions.
 pub mod point_cloud;
@@ -11,7 +11,7 @@ pub mod point_cloud;
 #[cfg(any(not(feature = "std"), test))]
 pub(crate) fn distance_squared<T, const N: usize>(point_a: &Point<T, N>, point_b: &Point<T, N>) -> T
 where
-    T: RealField + SimdRealField + Copy + Default,
+    T: RealField + Copy + Default,
 {
     let distance = (point_a - point_b).norm();
     distance * distance
@@ -46,7 +46,7 @@ where
 )]
 pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> PolygonExtents<T, N>
 where
-    T: RealField + SimdRealField + Copy,
+    T: RealField + Copy,
 {
     let mut extents_accumulator: [RangeInclusive<T>; N] = array::from_fn(|_| {
         T::max_value().expect("System floating number must have a maximum value")
@@ -70,7 +70,7 @@ pub(crate) fn verify_rotation_matrix_determinant<T, const N: usize>(
     v_t: SameSizeMat<T, N>,
 ) -> SameSizeMat<T, N>
 where
-    T: Copy + RealField + SimdRealField,
+    T: Copy + RealField,
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
     if (u * v_t).determinant() < T::zero() {

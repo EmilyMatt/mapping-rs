@@ -1,7 +1,6 @@
 use crate::{ops::RangeInclusive, utils::verify_rotation_matrix_determinant};
 use nalgebra::{
-    ArrayStorage, Const, Isometry, Matrix, Point, RealField, SimdRealField, UnitComplex,
-    UnitQuaternion, Vector,
+    ArrayStorage, Const, Isometry, Matrix, Point, RealField, UnitComplex, UnitQuaternion, Vector,
 };
 
 /// A shorthand way of specifying a symmetrical [`Matrix`](Matrix) of `N` size.
@@ -13,7 +12,7 @@ pub(crate) type SameSizeMat<T, const N: usize> =
 /// Since that crate does not contain a generic version, that will allow algorithms to be used easily between 2D and 3D.
 pub trait IsometryAbstraction<T, const N: usize>
 where
-    T: Copy + Default + RealField + SimdRealField,
+    T: Copy + Default + RealField,
 {
     /// This is the type of the isometry matrix itself, allowing us to specify it for 2D and 3D
     type IsometryType: Copy;
@@ -44,7 +43,7 @@ where
 
 impl<T> IsometryAbstraction<T, 2> for Const<2>
 where
-    T: Copy + Default + RealField + SimdRealField,
+    T: Copy + Default + RealField,
 {
     type IsometryType = Isometry<T, UnitComplex<T>, 2>;
 
@@ -84,7 +83,7 @@ where
 
 impl<T> IsometryAbstraction<T, 3> for Const<3>
 where
-    T: Copy + Default + RealField + SimdRealField,
+    T: Copy + Default + RealField,
 {
     type IsometryType = Isometry<T, UnitQuaternion<T>, 3>;
 

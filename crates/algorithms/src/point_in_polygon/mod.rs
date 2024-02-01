@@ -1,5 +1,5 @@
 use crate::{mem, utils::calculate_polygon_extents, Vec};
-use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRealField, Vector2};
+use nalgebra::{ComplexField, Point, Point2, RealField, Vector2};
 
 #[inline]
 #[cfg_attr(
@@ -8,7 +8,7 @@ use nalgebra::{ComplexField, Point, Point2, RealField, SimdComplexField, SimdRea
 )]
 fn does_ray_intersect<T>(point: &Vector2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool
 where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
+    T: ComplexField + RealField + Default + Copy,
 {
     // Reverse direction, we assume a rising line function, the simplest solution to avoid a different one is simply to reverse the order of vertices.
     if vertex1.y > vertex2.y {
@@ -47,7 +47,7 @@ fn get_point_intersections_with_polygon<T>(
     polygon: &[Point2<T>],
 ) -> Vec<Point2<T>>
 where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
+    T: ComplexField + RealField + Default + Copy,
 {
     let polygon_len = polygon.len();
     (0..polygon_len)
@@ -66,7 +66,7 @@ where
 )]
 fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
 where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
+    T: ComplexField + RealField + Default + Copy,
 {
     let len: usize = get_point_intersections_with_polygon(point, polygon).len();
     len % 2 == 1 // If the number of intersections is odd - we didn't exit the polygon, and are therefor in it.
@@ -78,7 +78,7 @@ where
 )]
 fn are_multiple_points_in_polygon<T>(points: &[Point<T, 2>], polygon: &[Point<T, 2>]) -> Vec<bool>
 where
-    T: ComplexField + SimdComplexField + RealField + SimdRealField + Default + Copy,
+    T: ComplexField + RealField + Default + Copy,
 {
     let polygon_extents = calculate_polygon_extents(polygon);
 

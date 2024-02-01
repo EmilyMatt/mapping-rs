@@ -1,5 +1,5 @@
 use crate::Vec;
-use nalgebra::{AbstractRotation, Isometry, Point, RealField, SimdRealField};
+use nalgebra::{AbstractRotation, Isometry, Point, RealField};
 use num_traits::AsPrimitive;
 
 /// Calculates the mean(centeroid) of the point cloud.
@@ -19,7 +19,7 @@ use num_traits::AsPrimitive;
 )]
 pub fn calculate_point_cloud_center<T, const N: usize>(points: &[Point<T, N>]) -> Point<T, N>
 where
-    T: RealField + SimdRealField + Copy,
+    T: RealField + Copy,
     usize: AsPrimitive<T>,
 {
     debug_assert!(!points.is_empty());
@@ -42,7 +42,7 @@ pub(crate) fn find_closest_point<'a, T, const N: usize>(
     target_points: &'a [Point<T, N>],
 ) -> Point<T, N>
 where
-    T: RealField + SimdRealField + Copy,
+    T: RealField + Copy,
 {
     debug_assert!(!target_points.is_empty());
 
@@ -76,7 +76,7 @@ pub fn downsample_point_cloud<T, const N: usize>(
     min_distance: T,
 ) -> Vec<Point<T, N>>
 where
-    T: RealField + SimdRealField + Copy,
+    T: RealField + Copy,
 {
     let mut out_vec = Vec::with_capacity(points.len());
     if let Some(mut latest_point) = points.first().copied() {
@@ -104,7 +104,7 @@ pub fn generate_point_cloud<T, const N: usize>(
     range: crate::ops::RangeInclusive<T>,
 ) -> Vec<Point<T, N>>
 where
-    T: RealField + SimdRealField + rand::distributions::uniform::SampleUniform,
+    T: RealField + rand::distributions::uniform::SampleUniform,
 {
     use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::SmallRng::seed_from_u64(3765665954583626552);
@@ -132,7 +132,7 @@ pub fn transform_point_cloud<T, const N: usize, R>(
     isometry_matrix: Isometry<T, R, N>,
 ) -> Vec<Point<T, N>>
 where
-    T: RealField + SimdRealField,
+    T: RealField,
     R: AbstractRotation<T, N>,
 {
     source_points

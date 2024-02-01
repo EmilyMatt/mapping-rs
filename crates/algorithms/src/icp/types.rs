@@ -1,11 +1,11 @@
 use crate::{types::IsometryAbstraction, Debug};
-use nalgebra::{RealField, SimdRealField};
+use nalgebra::RealField;
 
 /// Contains the resulting transform, the resulting Mean Squared Error, and the number of iterations taken for a successful ICP convergence.
 #[derive(Debug)]
 pub struct ICPSuccess<T, const N: usize, O>
 where
-    T: RealField + SimdRealField + Default + Copy,
+    T: RealField + Default + Copy,
     O: IsometryAbstraction<T, N>,
 {
     /// An isometric matrix, containing the translation and rotation between the point sets.
