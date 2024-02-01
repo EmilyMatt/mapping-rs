@@ -99,7 +99,6 @@ where
 ///
 /// # Returns
 /// A [`Vec`] of [`Point<f32, N>`] representing the point cloud.
-#[cfg(any(all(feature = "std", feature = "rand"), test))]
 pub fn generate_point_cloud<T, const N: usize>(
     num_points: usize,
     range: crate::ops::RangeInclusive<T>,
@@ -107,8 +106,8 @@ pub fn generate_point_cloud<T, const N: usize>(
 where
     T: RealField + SimdRealField + rand::distributions::uniform::SampleUniform,
 {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(3765665954583626552);
 
     (0..num_points)
         .map(|_| nalgebra::Point::from(crate::array::from_fn(|_| rng.gen_range(range.clone()))))

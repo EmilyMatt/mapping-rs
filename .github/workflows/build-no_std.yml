@@ -13,6 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: cargo build --no-default-features
+        run: cargo build --all --no-default-features
       - name: Test
-        run: cargo test --no-default-features -- --nocapture
+        run: cargo test --all --no-default-features -- --nocapture
