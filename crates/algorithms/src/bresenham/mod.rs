@@ -27,8 +27,9 @@ where
 
     let mut current_point = start_point;
     let mut errors = Vec::from([F::zero(); N]);
-    let mut points =
-        Vec::with_capacity(<F as AsPrimitive<usize>>::as_(deltas[primary_axis]) * N.pow(2));
+    let mut points = Vec::with_capacity(<F as AsPrimitive<usize>>::as_(
+        deltas[primary_axis] + F::one(),
+    ));
     while <F as Float>::abs(current_point[primary_axis] - end_point[primary_axis])
         > Float::epsilon()
     {
