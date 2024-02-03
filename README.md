@@ -12,7 +12,7 @@
 
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
-## Unstable API
+## ⚠️ Unstable API ⚠️
 Warning: this crate is in early development, breaking API changes are to be expected.
 
 ## Usage
@@ -44,23 +44,20 @@ via the [tracing](https://github.com/tokio-rs/tracing) crate.
 To use it, simply enable the `tracing` feature in your Cargo.toml, 
 and use your choice of a subscriber.
 
-# pregenerated
-Note that this crate heavily relies on generics, and therefore suffers performance penalties in `debug`, (but is _very_ fast in `release`).
-A `pregenerated` feature exists, which provides access to public pre-generated functions for most use cases and types.
+## pregenerated
+This crate heavily relies on generics, and therefore suffers performance penalties in `debug`, (but is _very_ fast in `release`).
+For this purpose, a `pregenerated` feature exists, which provides access to public pre-generated functions for most use cases and types.
 
-I recommend adding the following to your Cargo.toml, and using the macro pre-generated functions whenever possible, 
-bypassing the generics overhead:
-```toml
-[dependencies.mapping-algorithms-rs]
-features = ["pregenerated"]
-```
+This is recommended for most users, and allows bypassing the generics overhead.
 
+Cargo.toml:
 ```toml
+# Compiles this crate with max optimizations
 [profile.dev.package.mapping-rs]
 opt-level = 3
 ```
 
-Example:
+Code example:
 ```rust
 // Instead of doing this:
 let res = icp::icp::<f32, 2, Const<2>>(...);

@@ -66,6 +66,10 @@ where
 /// A [`Vec`] of [`Point`]s, representing the drawn line, including the starting point and ending point.
 ///
 /// NOTE: The returned [`Vec`] will always go from the starting point to the ending point, regardless of direction in axis.
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Plot Bresenham Line", skip_all)
+)]
 pub fn plot_bresenham_line<I, F, T, const N: usize>(
     start_point: Point<I, N>,
     end_point: Point<I, N>,
@@ -76,8 +80,8 @@ where
     T: Scalar + Copy,
 {
     bresenham_implementation(
-        start_point.map(|element| <F as Float>::round(element.as_())),
-        end_point.map(|element| <F as Float>::round(element.as_())),
+        start_point.map(|element| <F as Float>::floor(element.as_())),
+        end_point.map(|element| <F as Float>::floor(element.as_())),
     )
 }
 
