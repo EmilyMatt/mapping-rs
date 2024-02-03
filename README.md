@@ -2,6 +2,7 @@
 [![Linux Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml)
 [![MacOS Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml)
 [![Documentation](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml)
+[![CVEs and Licenses](https://github.com/EmilyMatt/mapping-rs/actions/workflows/deny.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml)
 [![codecov](https://codecov.io/gh/EmilyMatt/mapping-rs/graph/badge.svg?token=GSPWQVRCV8)](https://codecov.io/gh/EmilyMatt/mapping-rs)
 
 ![GitHub Stars](https://img.shields.io/github/stars/EmilyMatt/mapping-rs)
