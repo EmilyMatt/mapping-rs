@@ -5,8 +5,8 @@ use crate::{
     String, Sum, Vec,
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
-use nalgebra::{Point, RealField};
-use num_traits::{AsPrimitive, Float};
+use nalgebra::{ComplexField, Point, RealField};
+use num_traits::AsPrimitive;
 use types::{ICPConfiguration, ICPSuccess};
 
 mod helpers;
@@ -29,7 +29,7 @@ pub fn icp_iteration<T, const N: usize, O>(
     config: &ICPConfiguration<T>,
 ) -> Result<T, (Point<T, N>, Point<T, N>)>
 where
-    T: RealField + Copy + Default + Sum + Float,
+    T: RealField + Copy + Default + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
@@ -60,7 +60,7 @@ where
         .mse_threshold
         .map(|thres| new_mse < thres)
         .unwrap_or_default()
-        || Float::abs(*current_mse - new_mse) < config.mse_interval_threshold
+        || <T as ComplexField>::abs(*current_mse - new_mse) < config.mse_interval_threshold
     {
         return Ok(new_mse);
     }
@@ -69,17 +69,29 @@ where
     Err((mean_a, mean_b))
 }
 
+/// A free-form version of the ICP function, allowing for any input and output, under the constraints of the function
+/// #[doc = "# Arguments"]
+/// * `points_a`: A slice of [`Point<T, N>`], representing the source point cloud."]
+/// * `points_b`: A slice of [`Point<T, N>`], representing the target point cloud."]
+/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
+/// * `mse_threshold`: a `T`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
+/// * `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
+///
+/// # Returns"]
+/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with a `T` precision, or an error message explaining what went wrong."]
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Full ICP Algorithm", skip_all)
 )]
-fn icp<T, const N: usize, O>(
+pub fn icp<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     config: ICPConfiguration<T>,
 ) -> Result<ICPSuccess<T, N, O>, String>
 where
-    T: RealField + Copy + Default + Float + Sum,
+    T: RealField + Copy + Default + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
@@ -95,7 +107,7 @@ where
         return Err(String::from("Must have more than one iteration"));
     }
 
-    if config.mse_interval_threshold < T::epsilon() {
+    if config.mse_interval_threshold < T::default_epsilon() {
         return Err(String::from(
             "MSE interval threshold too low, convergence impossible",
         ));
@@ -103,7 +115,7 @@ where
 
     if config
         .mse_threshold
-        .map(|thres| thres < T::epsilon())
+        .map(|thres| thres < T::default_epsilon())
         .unwrap_or_default()
     {
         return Err(String::from(
@@ -171,7 +183,7 @@ macro_rules! impl_icp_algorithm {
             #[doc = "An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
             #[doc = ""]
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
-            pub fn [<icp _$nd d>](points_a: &[Point<$precision, $nd>],
+            pub fn [<icp_$nd d>](points_a: &[Point<$precision, $nd>],
                 points_b: &[Point<$precision, $nd>],
                 config: ICPConfiguration<$precision>) -> Result<ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, String> {
                     icp(points_a, points_b, config)
@@ -181,6 +193,7 @@ macro_rules! impl_icp_algorithm {
 }
 
 /// A single-precision implementation of a basic ICP algorithm.
+#[cfg(feature = "pregenerated")]
 pub mod f32 {
     use super::*;
     impl_icp_algorithm!(2, f32);
@@ -188,6 +201,7 @@ pub mod f32 {
 }
 
 /// A double-precision implementation of a basic ICP algorithm.
+#[cfg(feature = "pregenerated")]
 pub mod f64 {
     use super::*;
     impl_icp_algorithm!(2, f64);

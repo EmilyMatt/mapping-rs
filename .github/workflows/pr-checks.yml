@@ -44,9 +44,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: cargo build --all --no-default-features
+        run: cargo build --all --no-default-features --features=pregenerated
       - name: Test
-        run: cargo test --all --no-default-features -- --nocapture
+        run: cargo test --all --no-default-features --features=pregenerated -- --nocapture
 
   build-linux:
     runs-on: ubuntu-latest

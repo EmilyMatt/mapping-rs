@@ -1,6 +1,4 @@
-use crate::{
-    array, ops::Add, types::SameSizeMat, utils::point_cloud::calculate_point_cloud_center, Sum,
-};
+use crate::{array, types::SameSizeMat, utils::point_cloud::calculate_point_cloud_center, Sum};
 use nalgebra::{ArrayStorage, Const, Matrix, Point, RealField, Vector};
 use num_traits::AsPrimitive;
 
@@ -19,9 +17,9 @@ use num_traits::AsPrimitive;
 pub(crate) fn calculate_mse<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],
     closest_points_in_b: &[Point<T, N>],
-) -> T::RealField
+) -> T
 where
-    T: RealField + Copy + Default + Sum,
+    T: RealField + Sum,
 {
     transformed_points_a
         .iter()
@@ -81,9 +79,8 @@ pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     closest_points: &[Point<T, N>],
 ) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
 where
-    T: Copy + RealField,
+    T: RealField + Copy,
     usize: AsPrimitive<T>,
-    SameSizeMat<T, N>: Add<Output = SameSizeMat<T, N>>,
 {
     let (mean_transformed_a, mean_closest) = (
         calculate_point_cloud_center(transformed_points_a),

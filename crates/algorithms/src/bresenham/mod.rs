@@ -82,52 +82,50 @@ where
 }
 
 macro_rules! impl_bresenham_algorithm {
-    ($precision:expr, $out:expr) => {
+    ($precision:expr, $nd:expr, $out:expr) => {
         ::paste::paste! {
-            #[doc = "Bresenham line drawing algorithm in 2D space."]
+            #[doc = "Bresenham line drawing algorithm in " $nd "D space."]
             #[doc = "# Arguments"]
-            #[doc = "* `start_point`: A [`Point<" $precision ", 2>`], representing the starting point of the line."]
-            #[doc = "* `end_point`: A [`Point<" $precision ", 2>`], representing the ending point of the line."]
+            #[doc = "* `start_point`: A [`Point<" $precision ", " $nd ">`], representing the starting point of the line."]
+            #[doc = "* `end_point`: A [`Point<" $precision ", " $nd ">`], representing the ending point of the line."]
             #[doc = ""]
             #[doc = "# Returns"]
             #[doc = "A [`Vec`] of [`Point`]s, representing the drawn line, including the starting point and ending point."]
             #[doc = ""]
             #[doc = "NOTE: The returned [`Vec`] will always go from the starting point to the ending point, regardless of direction in axis."]
-            pub fn [<plot_bresenham_line_2d_returns_$out>](start_point: Point<$precision, 2>, end_point: Point<$precision, 2>) -> Vec<Point<$out, 2>> {
-                    plot_bresenham_line::<$precision, $precision, $out, 2>(start_point, end_point)
-            }
-
-            #[doc = "Bresenham line drawing algorithm in 3D space."]
-            #[doc = "# Arguments"]
-            #[doc = "* `start_point`: A [`Point<" $precision ", 3>`], representing the starting point of the line."]
-            #[doc = "* `end_point`: A [`Point<" $precision ", 3>`], representing the starting point of the line."]
-            #[doc = ""]
-            #[doc = "# Returns"]
-            #[doc = "A [`Vec`] of [`Point`]s, representing the drawn line, including the starting point and ending point."]
-            #[doc = ""]
-            #[doc = "NOTE: The returned [`Vec`] will always go from the starting point to the ending point, regardless of direction in axis."]
-            pub fn [<plot_bresenham_line_3d_returns_$out>](start_point: Point<$precision, 3>, end_point: Point<$precision, 3>) -> Vec<Point<$out, 3>> {
-                    plot_bresenham_line::<$precision, $precision, $out, 3>(start_point, end_point)
+            pub fn [<plot_bresenham_line_$nd d_returns_$out>](start_point: Point<$precision, $nd>, end_point: Point<$precision, $nd>) -> Vec<Point<$out, $nd>> {
+                    plot_bresenham_line::<$precision, $precision, $out, $nd>(start_point, end_point)
             }
         }
     };
 }
 
+macro_rules! blanket_impl_bresenham_for_d {
+    ($prec:expr, $nd:expr) => {
+        impl_bresenham_algorithm!($prec, $nd, i32);
+        impl_bresenham_algorithm!($prec, $nd, i64);
+        impl_bresenham_algorithm!($prec, $nd, isize);
+        impl_bresenham_algorithm!($prec, $nd, u32);
+        impl_bresenham_algorithm!($prec, $nd, u64);
+        impl_bresenham_algorithm!($prec, $nd, usize);
+        impl_bresenham_algorithm!($prec, $nd, $prec);
+    };
+}
+
+#[cfg(feature = "pregenerated")]
 /// A single-precision implementation of a bresenham line-drawing algorithm.
 pub mod f32 {
     use super::*;
-    impl_bresenham_algorithm!(f32, isize);
-    impl_bresenham_algorithm!(f32, usize);
-    impl_bresenham_algorithm!(f32, f32);
+    blanket_impl_bresenham_for_d!(f32, 2);
+    blanket_impl_bresenham_for_d!(f32, 3);
 }
 
+#[cfg(feature = "pregenerated")]
 /// A single-precision implementation of a bresenham line-drawing algorithm.
 pub mod f64 {
     use super::*;
-
-    impl_bresenham_algorithm!(f64, isize);
-    impl_bresenham_algorithm!(f64, usize);
-    impl_bresenham_algorithm!(f64, f64);
+    blanket_impl_bresenham_for_d!(f64, 2);
+    blanket_impl_bresenham_for_d!(f64, 3);
 }
 
 #[cfg(test)]

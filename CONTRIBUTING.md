@@ -66,7 +66,7 @@ We use GitHub issues to track bugs and errors. If you run into an issue with the
   * Run the project tests: `cargo test --all`
 - Please ensure these jobs pass on your local machine with both:
   - The standard library and all required features (by adding `--all-features` after the job)
-  - Without the standard library (by adding `--no-default-features` after the job)
+  - Without the standard library (by adding `--no-default-features --features=pregenerated` after the job)
 
 #### Coding Guidelines
 - Project layout: This crate adheres to the [Cargo project layout](https://doc.rust-lang.org/cargo/guide/project-layout.html), but uses the old module system, in which each module has its own directory containing a "mod.rs" file, which is the entrypoint to that module.

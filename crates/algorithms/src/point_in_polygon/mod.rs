@@ -166,7 +166,9 @@ macro_rules! impl_p_i_p_algorithm {
     };
 }
 
+#[cfg(feature = "pregenerated")]
 impl_p_i_p_algorithm!(f32, single);
+#[cfg(feature = "pregenerated")]
 impl_p_i_p_algorithm!(f64, double);
 
 #[cfg(test)]
