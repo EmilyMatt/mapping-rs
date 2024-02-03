@@ -70,7 +70,8 @@ where
 }
 
 /// A free-form version of the ICP function, allowing for any input and output, under the constraints of the function
-/// #[doc = "# Arguments"]
+///
+/// # Arguments
 /// * `points_a`: A slice of [`Point<T, N>`], representing the source point cloud."]
 /// * `points_b`: A slice of [`Point<T, N>`], representing the target point cloud."]
 /// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
@@ -169,44 +170,43 @@ where
 }
 
 macro_rules! impl_icp_algorithm {
-    ($nd: expr, $precision:expr) => {
+    ($precision:expr, $nd:expr) => {
         ::paste::paste! {
             #[doc = "An ICP algorithm in " $nd "D space."]
             #[doc = "# Arguments"]
-            #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`], representing the source point cloud."]
-            #[doc = "* `points_b`: A slice of [`Point<" $precision ", " $nd ">`], representing the target point cloud."]
+            #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the source point cloud."]
+            #[doc = "* `points_b`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the target point cloud."]
             #[doc = "* `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
             #[doc = "* `mse_threshold`: an `" $precision "`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
             #[doc = "* `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
             #[doc = ""]
             #[doc = "# Returns"]
-            #[doc = "An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
+            #[doc = "An [`ICPSuccess`](super::ICPSuccess) struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
             #[doc = ""]
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
-            pub fn [<icp_$nd d>](points_a: &[Point<$precision, $nd>],
-                points_b: &[Point<$precision, $nd>],
-                config: ICPConfiguration<$precision>) -> Result<ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, String> {
-                    icp(points_a, points_b, config)
+            pub fn [<icp_$nd d>](points_a: &[nalgebra::Point<$precision, $nd>],
+                points_b: &[nalgebra::Point<$precision, $nd>],
+                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, String> {
+                    super::icp(points_a, points_b, config)
             }
         }
     };
+
+    ($precision:expr, doc $doc:tt) => {
+        ::paste::paste! {
+            #[doc = "A " $doc "-precision implementation of a basic ICP algorithm"]
+            pub mod $precision {
+                impl_icp_algorithm!($precision, 2);
+                impl_icp_algorithm!($precision, 3);
+            }
+        }
+    }
 }
 
-/// A single-precision implementation of a basic ICP algorithm.
 #[cfg(feature = "pregenerated")]
-pub mod f32 {
-    use super::*;
-    impl_icp_algorithm!(2, f32);
-    impl_icp_algorithm!(3, f32);
-}
-
-/// A double-precision implementation of a basic ICP algorithm.
+impl_icp_algorithm!(f32, doc single);
 #[cfg(feature = "pregenerated")]
-pub mod f64 {
-    use super::*;
-    impl_icp_algorithm!(2, f64);
-    impl_icp_algorithm!(3, f64);
-}
+impl_icp_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
