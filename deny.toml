@@ -6,14 +6,7 @@ unsound = "deny"
 
 [bans]
 multiple-versions = "deny"
-skip = [
-    { name = "cc" },
-    { name = "bindgen" },
-    { name = "syn" },
-    { name = "bitflags" },
-    { name = "regex-automata" },
-    { name = "regex-syntax" }
-]
+skip = []
 
 [sources]
 unknown-registry = "deny"
@@ -27,7 +20,6 @@ confidence-threshold = 0.93
 allow = [
     "Apache-2.0",
     "MIT",
-    "ISC",
     "BSD-3-Clause",
 ]
 exceptions = [

@@ -1,8 +1,13 @@
 use crate::{
-    array, ops::Add, types::SameSizeMat, utils::point_cloud::calculate_point_cloud_center, Sum,
+    array,
+    types::SameSizeMat,
+    utils::{distance_squared, point_cloud::calculate_point_cloud_center},
+    Sum,
 };
-use nalgebra::{ArrayStorage, Const, Matrix, Point, RealField, Vector};
-use num_traits::AsPrimitive;
+use nalgebra::{
+    ArrayStorage, ClosedAdd, ClosedDiv, ClosedSub, Const, Matrix, Point, Scalar, Vector,
+};
+use num_traits::{AsPrimitive, NumOps, Zero};
 
 /// Calculates the Mean Squared Error between two point clouds.
 /// # Generics
@@ -19,15 +24,15 @@ use num_traits::AsPrimitive;
 pub(crate) fn calculate_mse<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],
     closest_points_in_b: &[Point<T, N>],
-) -> T::RealField
+) -> T
 where
-    T: RealField + Copy + Default + Sum,
+    T: Copy + Default + NumOps + Scalar + Sum,
 {
     transformed_points_a
         .iter()
         .zip(closest_points_in_b.iter())
         .map(|(transformed_a, closest_point_in_b)| {
-            nalgebra::distance_squared(transformed_a, closest_point_in_b)
+            distance_squared(transformed_a, closest_point_in_b)
         })
         .sum()
 }
@@ -50,7 +55,7 @@ pub(crate) fn outer_product<T, const N: usize>(
     point_b: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
 ) -> SameSizeMat<T, N>
 where
-    T: RealField + Copy,
+    T: NumOps + Copy,
 {
     Matrix::from_data(ArrayStorage(array::from_fn(|a_idx| {
         array::from_fn(|b_idx| point_a.data.0[0][a_idx] * point_b.data.0[0][b_idx])
@@ -81,9 +86,8 @@ pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     closest_points: &[Point<T, N>],
 ) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
 where
-    T: Copy + RealField,
+    T: ClosedAdd + ClosedDiv + ClosedSub + Copy + NumOps + Scalar + Zero,
     usize: AsPrimitive<T>,
-    SameSizeMat<T, N>: Add<Output = SameSizeMat<T, N>>,
 {
     let (mean_transformed_a, mean_closest) = (
         calculate_point_cloud_center(transformed_points_a),

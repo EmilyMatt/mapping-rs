@@ -1,6 +1,6 @@
-use crate::Vec;
-use nalgebra::{AbstractRotation, Isometry, Point, RealField};
-use num_traits::AsPrimitive;
+use crate::{utils::distance_squared, Vec};
+use nalgebra::{AbstractRotation, ClosedAdd, ClosedDiv, Isometry, Point, RealField, Scalar};
+use num_traits::{AsPrimitive, Bounded, NumOps, Zero};
 
 /// Calculates the mean(centeroid) of the point cloud.
 ///
@@ -19,7 +19,7 @@ use num_traits::AsPrimitive;
 )]
 pub fn calculate_point_cloud_center<T, const N: usize>(points: &[Point<T, N>]) -> Point<T, N>
 where
-    T: RealField + Copy,
+    T: ClosedAdd + ClosedDiv + Copy + Scalar + Zero,
     usize: AsPrimitive<T>,
 {
     debug_assert!(!points.is_empty());
@@ -42,15 +42,15 @@ pub(crate) fn find_closest_point<'a, T, const N: usize>(
     target_points: &'a [Point<T, N>],
 ) -> Point<T, N>
 where
-    T: RealField + Copy,
+    T: Bounded + Copy + Default + NumOps + PartialOrd + Scalar,
 {
     debug_assert!(!target_points.is_empty());
 
-    let mut current_distance = T::max_value().expect("Number Must Have a MAX value");
+    let mut current_distance = T::max_value();
     let mut current_point = target_points[0]; // Guaranteed to exist
 
     for target_point in target_points.iter() {
-        let distance = nalgebra::distance_squared(transformed_point, target_point);
+        let distance = distance_squared(transformed_point, target_point);
         if distance < current_distance {
             current_distance = distance;
             current_point = *target_point;
@@ -76,13 +76,13 @@ pub fn downsample_point_cloud<T, const N: usize>(
     min_distance: T,
 ) -> Vec<Point<T, N>>
 where
-    T: RealField + Copy,
+    T: Copy + Default + NumOps + PartialOrd + Scalar,
 {
     let mut out_vec = Vec::with_capacity(points.len());
     if let Some(mut latest_point) = points.first().copied() {
         out_vec.push(latest_point);
         for point in points {
-            if nalgebra::distance(point, &latest_point) >= min_distance {
+            if distance_squared(point, &latest_point) >= (min_distance * min_distance) {
                 latest_point = *point;
                 out_vec.push(*point);
             }
@@ -104,7 +104,7 @@ pub fn generate_point_cloud<T, const N: usize>(
     range: crate::ops::RangeInclusive<T>,
 ) -> Vec<Point<T, N>>
 where
-    T: RealField + rand::distributions::uniform::SampleUniform,
+    T: PartialOrd + rand::distributions::uniform::SampleUniform + Scalar,
 {
     use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::SmallRng::seed_from_u64(3765665954583626552);

@@ -17,8 +17,10 @@ all-features = true
 [lib]
 
 [features]
-default = ["std"]
+default = ["std", "pregenerated"]
 std = ["nalgebra/std", "tracing?/std", "num-traits/std", "rand/std", "rand/std_rng"]
+
+pregenerated = ["dep:paste"]
 tracing = ["dep:tracing"]
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
 
@@ -26,7 +28,7 @@ cuda = ["nalgebra/cuda", "bindgen", "cc"]
 log = { version = "0.4.19", default-features = false }
 nalgebra = { version = "0.32.3", default-features = false, features = ["libm"] }
 num-traits = { version = "0.2.17", default-features = false, features = ["libm"] }
-paste = { version = "1.0.14", default-features = false }
+paste = { version = "1.0.14", default-features = false, optional = true }
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
@@ -40,7 +42,7 @@ cc = { version = "1.0.83", default-features = false, optional = true }
 
 [[example]]
 name = "visualized_icp_2d"
-required-features = ["std"]
+required-features = ["std", "pregenerated"]
 
 # Compilation Profiles
 [profile.dev]

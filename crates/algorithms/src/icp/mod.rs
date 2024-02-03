@@ -2,11 +2,11 @@ use crate::{
     kd_tree::KDTree,
     types::IsometryAbstraction,
     utils::point_cloud::{downsample_point_cloud, find_closest_point},
-    String, Sum, Vec,
+    Sum, Vec,
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
-use nalgebra::{Point, RealField};
-use num_traits::{AsPrimitive, Float};
+use nalgebra::{ComplexField, Point, RealField};
+use num_traits::{AsPrimitive, Bounded};
 use types::{ICPConfiguration, ICPSuccess};
 
 mod helpers;
@@ -29,7 +29,7 @@ pub fn icp_iteration<T, const N: usize, O>(
     config: &ICPConfiguration<T>,
 ) -> Result<T, (Point<T, N>, Point<T, N>)>
 where
-    T: RealField + Copy + Default + Sum + Float,
+    T: Bounded + Copy + Default + RealField + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
@@ -60,7 +60,7 @@ where
         .mse_threshold
         .map(|thres| new_mse < thres)
         .unwrap_or_default()
-        || Float::abs(*current_mse - new_mse) < config.mse_interval_threshold
+        || <T as ComplexField>::abs(*current_mse - new_mse) < config.mse_interval_threshold
     {
         return Ok(new_mse);
     }
@@ -69,6 +69,19 @@ where
     Err((mean_a, mean_b))
 }
 
+/// A free-form version of the ICP function, allowing for any input and output, under the constraints of the function
+///
+/// # Arguments
+/// * `points_a`: A slice of [`Point<T, N>`], representing the source point cloud."]
+/// * `points_b`: A slice of [`Point<T, N>`], representing the target point cloud."]
+/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
+/// * `mse_threshold`: a `T`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
+/// * `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
+///
+/// # Returns"]
+/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with a `T` precision, or an error message explaining what went wrong."]
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Full ICP Algorithm", skip_all)
@@ -77,38 +90,34 @@ fn icp<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     config: ICPConfiguration<T>,
-) -> Result<ICPSuccess<T, N, O>, String>
+) -> Result<ICPSuccess<T, N, O>, &'static str>
 where
-    T: RealField + Copy + Default + Float + Sum,
+    T: Bounded + Copy + Default + RealField + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
     if points_a.is_empty() {
-        return Err(String::from("Source point cloud is empty"));
+        return Err("Source point cloud is empty");
     }
 
     if points_b.is_empty() {
-        return Err(String::from("Target point cloud is empty"));
+        return Err("Target point cloud is empty");
     }
 
     if config.max_iterations == 0 {
-        return Err(String::from("Must have more than one iteration"));
+        return Err("Must have more than one iteration");
     }
 
-    if config.mse_interval_threshold < T::epsilon() {
-        return Err(String::from(
-            "MSE interval threshold too low, convergence impossible",
-        ));
+    if config.mse_interval_threshold < T::default_epsilon() {
+        return Err("MSE interval threshold too low, convergence impossible");
     }
 
     if config
         .mse_threshold
-        .map(|thres| thres < T::epsilon())
+        .map(|thres| thres < T::default_epsilon())
         .unwrap_or_default()
     {
-        return Err(String::from(
-            "Absolute MSE threshold too low, convergence impossible",
-        ));
+        return Err("Absolute MSE threshold too low, convergence impossible");
     }
 
     let (downsampled_points_a, downsampled_points_b) = config
@@ -128,7 +137,7 @@ where
         .with_kd
         .then_some(KDTree::from(downsampled_points_b.as_slice()));
     let mut current_transform = O::identity();
-    let mut current_mse = <T as RealField>::max_value().expect("Must have MAX");
+    let mut current_mse = <T as Bounded>::max_value();
 
     for iteration_num in 0..config.max_iterations {
         log::trace!(
@@ -153,53 +162,54 @@ where
         }
     }
 
-    Err(String::from("Could not converge"))
+    Err("Could not converge")
 }
 
+#[cfg(feature = "pregenerated")]
 macro_rules! impl_icp_algorithm {
-    ($nd: expr, $precision:expr) => {
+    ($precision:expr, $nd:expr) => {
         ::paste::paste! {
             #[doc = "An ICP algorithm in " $nd "D space."]
             #[doc = "# Arguments"]
-            #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`], representing the source point cloud."]
-            #[doc = "* `points_b`: A slice of [`Point<" $precision ", " $nd ">`], representing the target point cloud."]
+            #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the source point cloud."]
+            #[doc = "* `points_b`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the target point cloud."]
             #[doc = "* `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
             #[doc = "* `mse_threshold`: an `" $precision "`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
             #[doc = "* `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
             #[doc = ""]
             #[doc = "# Returns"]
-            #[doc = "An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
+            #[doc = "An [`ICPSuccess`](super::ICPSuccess) struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
             #[doc = ""]
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
-            pub fn [<icp _$nd d>](points_a: &[Point<$precision, $nd>],
-                points_b: &[Point<$precision, $nd>],
-                config: ICPConfiguration<$precision>) -> Result<ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, String> {
-                    icp(points_a, points_b, config)
+            pub fn [<icp_$nd d>](points_a: &[nalgebra::Point<$precision, $nd>],
+                points_b: &[nalgebra::Point<$precision, $nd>],
+                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, &'static str> {
+                    super::icp(points_a, points_b, config)
             }
         }
     };
+
+    ($precision:expr, doc $doc:tt) => {
+        ::paste::paste! {
+            #[doc = "A " $doc "-precision implementation of a basic ICP algorithm"]
+            pub mod $precision {
+                impl_icp_algorithm!($precision, 2);
+                impl_icp_algorithm!($precision, 3);
+            }
+        }
+    }
 }
 
-/// A single-precision implementation of a basic ICP algorithm.
-pub mod f32 {
-    use super::*;
-    impl_icp_algorithm!(2, f32);
-    impl_icp_algorithm!(3, f32);
-}
-
-/// A double-precision implementation of a basic ICP algorithm.
-pub mod f64 {
-    use super::*;
-    impl_icp_algorithm!(2, f64);
-    impl_icp_algorithm!(3, f64);
-}
+#[cfg(feature = "pregenerated")]
+impl_icp_algorithm!(f32, doc single);
+#[cfg(feature = "pregenerated")]
+impl_icp_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
     use crate::{
         icp::types::ICPConfiguration,
         utils::point_cloud::{generate_point_cloud, transform_point_cloud},
-        String,
     };
 
     #[test]
@@ -214,16 +224,10 @@ mod tests {
         };
 
         let res = super::f32::icp_2d(&[], points.as_slice(), config);
-        assert_eq!(
-            res.unwrap_err(),
-            String::from("Source point cloud is empty")
-        );
+        assert_eq!(res.unwrap_err(), "Source point cloud is empty");
 
         let res = super::f32::icp_2d(points.as_slice(), &[], config);
-        assert_eq!(
-            res.unwrap_err(),
-            String::from("Target point cloud is empty")
-        );
+        assert_eq!(res.unwrap_err(), "Target point cloud is empty");
 
         let res = super::f32::icp_2d(
             points.as_slice(),
@@ -233,10 +237,7 @@ mod tests {
                 ..config
             },
         );
-        assert_eq!(
-            res.unwrap_err(),
-            String::from("Must have more than one iteration")
-        );
+        assert_eq!(res.unwrap_err(), "Must have more than one iteration");
 
         let res = super::f32::icp_2d(
             points.as_slice(),
@@ -248,7 +249,7 @@ mod tests {
         );
         assert_eq!(
             res.unwrap_err(),
-            String::from("MSE interval threshold too low, convergence impossible")
+            "MSE interval threshold too low, convergence impossible"
         );
 
         let res = super::f32::icp_2d(
@@ -261,7 +262,7 @@ mod tests {
         );
         assert_eq!(
             res.unwrap_err(),
-            String::from("Absolute MSE threshold too low, convergence impossible")
+            "Absolute MSE threshold too low, convergence impossible"
         );
     }
 
