@@ -1,12 +1,24 @@
 use crate::{mem, utils::calculate_polygon_extents, Vec};
 use nalgebra::{ComplexField, Point, Point2, RealField, Vector2};
 
+/// Check whether a specified ray(with origin 0) collides with another ray.
+///
+/// # Arguments
+/// * `ray`: A reference to a [`Vector2`], representing a ray, whose origin is [0.0, 0.0].
+/// * `vertex1`: A [`Point2`] representing the first vertex of the other ray.
+/// * `vertex2`: A [`Point2`] representing the second vertex of the other ray.
+/// # Returns
+/// A `bool`, specifying whether the rays intersect
 #[inline]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Does Ray Intersect Polygon", skip_all)
 )]
-fn does_ray_intersect<T>(point: &Vector2<T>, mut vertex1: Point2<T>, mut vertex2: Point2<T>) -> bool
+pub fn does_ray_intersect<T>(
+    point: &Vector2<T>,
+    mut vertex1: Point2<T>,
+    mut vertex2: Point2<T>,
+) -> bool
 where
     T: ComplexField + RealField + Default + Copy,
 {
@@ -38,11 +50,19 @@ where
         < T::zero()
 }
 
+/// Get the number of intersections of this point(representing a vector), with this polygon.
+///
+/// # Arguments
+/// * `point`: A reference to a [`Point2`]
+/// * `polygon`: A slice of [`Point2`]s representing the vertices.
+///
+/// # Returns
+/// A usize, representing the number of intersections.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Get Point's Number Of Intersections With Polygon", skip_all)
 )]
-fn get_point_intersections_with_polygon<T>(
+pub fn get_point_intersections_with_polygon<T>(
     point: &Point2<T>,
     polygon: &[Point2<T>],
 ) -> Vec<Point2<T>>
@@ -60,11 +80,18 @@ where
         .collect() // Only returns the intersections as Some()
 }
 
+/// Check if the provided point is within the provided polygon.
+///
+/// # Arguments
+/// * `point`: A reference to a [`Point2`].
+/// * `polygon`: A slice of [`Point2`]s representing the vertices.
+/// # Returns
+/// A boolean value, specifying if the point is within the polygon.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Is Point In Polygon", skip_all)
 )]
-fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
+pub fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
 where
     T: ComplexField + RealField + Default + Copy,
 {
@@ -72,11 +99,23 @@ where
     len % 2 == 1 // If the number of intersections is odd - we didn't exit the polygon, and are therefor in it.
 }
 
+/// This function will run the [`is_single_point_in_polygon_" $prec "`] for each on of the points given, and the provided polygon,
+/// But pre-calculates the polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case.
+///
+/// # Arguments
+/// * `points`: A slice of [`Point`].
+/// * `polygon`: A slice of [`Point`]s, representing the vertices.
+///
+/// # Returns
+/// A [`Vec`] of booleans, with the same size as `points`, containing the result for each point.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Are Points In Polygon", skip_all)
 )]
-fn are_multiple_points_in_polygon<T>(points: &[Point<T, 2>], polygon: &[Point<T, 2>]) -> Vec<bool>
+pub fn are_multiple_points_in_polygon<T>(
+    points: &[Point<T, 2>],
+    polygon: &[Point<T, 2>],
+) -> Vec<bool>
 where
     T: ComplexField + RealField + Default + Copy,
 {
@@ -100,6 +139,7 @@ where
         .collect()
 }
 
+#[cfg(feature = "pregenerated")]
 macro_rules! impl_p_i_p_algorithm {
     ($prec:expr, $prec_str:tt) => {
         ::paste::paste! {

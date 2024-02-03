@@ -2,7 +2,7 @@ use crate::{
     kd_tree::KDTree,
     types::IsometryAbstraction,
     utils::point_cloud::{downsample_point_cloud, find_closest_point},
-    String, Sum, Vec,
+    Sum, Vec,
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
 use nalgebra::{ComplexField, Point, RealField};
@@ -90,28 +90,26 @@ pub fn icp<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     config: ICPConfiguration<T>,
-) -> Result<ICPSuccess<T, N, O>, String>
+) -> Result<ICPSuccess<T, N, O>, &'static str>
 where
     T: RealField + Copy + Default + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
     if points_a.is_empty() {
-        return Err(String::from("Source point cloud is empty"));
+        return Err("Source point cloud is empty");
     }
 
     if points_b.is_empty() {
-        return Err(String::from("Target point cloud is empty"));
+        return Err("Target point cloud is empty");
     }
 
     if config.max_iterations == 0 {
-        return Err(String::from("Must have more than one iteration"));
+        return Err("Must have more than one iteration");
     }
 
     if config.mse_interval_threshold < T::default_epsilon() {
-        return Err(String::from(
-            "MSE interval threshold too low, convergence impossible",
-        ));
+        return Err("MSE interval threshold too low, convergence impossible");
     }
 
     if config
@@ -119,9 +117,7 @@ where
         .map(|thres| thres < T::default_epsilon())
         .unwrap_or_default()
     {
-        return Err(String::from(
-            "Absolute MSE threshold too low, convergence impossible",
-        ));
+        return Err("Absolute MSE threshold too low, convergence impossible");
     }
 
     let (downsampled_points_a, downsampled_points_b) = config
@@ -166,9 +162,10 @@ where
         }
     }
 
-    Err(String::from("Could not converge"))
+    Err("Could not converge")
 }
 
+#[cfg(feature = "pregenerated")]
 macro_rules! impl_icp_algorithm {
     ($precision:expr, $nd:expr) => {
         ::paste::paste! {
@@ -186,7 +183,7 @@ macro_rules! impl_icp_algorithm {
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
             pub fn [<icp_$nd d>](points_a: &[nalgebra::Point<$precision, $nd>],
                 points_b: &[nalgebra::Point<$precision, $nd>],
-                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, String> {
+                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, &'static str> {
                     super::icp(points_a, points_b, config)
             }
         }
@@ -213,7 +210,6 @@ mod tests {
     use crate::{
         icp::types::ICPConfiguration,
         utils::point_cloud::{generate_point_cloud, transform_point_cloud},
-        String,
     };
 
     #[test]
@@ -228,16 +224,10 @@ mod tests {
         };
 
         let res = super::f32::icp_2d(&[], points.as_slice(), config);
-        assert_eq!(
-            res.unwrap_err(),
-            String::from("Source point cloud is empty")
-        );
+        assert_eq!(res.unwrap_err(), "Source point cloud is empty");
 
         let res = super::f32::icp_2d(points.as_slice(), &[], config);
-        assert_eq!(
-            res.unwrap_err(),
-            String::from("Target point cloud is empty")
-        );
+        assert_eq!(res.unwrap_err(), "Target point cloud is empty");
 
         let res = super::f32::icp_2d(
             points.as_slice(),
@@ -247,10 +237,7 @@ mod tests {
                 ..config
             },
         );
-        assert_eq!(
-            res.unwrap_err(),
-            String::from("Must have more than one iteration")
-        );
+        assert_eq!(res.unwrap_err(), "Must have more than one iteration");
 
         let res = super::f32::icp_2d(
             points.as_slice(),
@@ -262,7 +249,7 @@ mod tests {
         );
         assert_eq!(
             res.unwrap_err(),
-            String::from("MSE interval threshold too low, convergence impossible")
+            "MSE interval threshold too low, convergence impossible"
         );
 
         let res = super::f32::icp_2d(
@@ -275,7 +262,7 @@ mod tests {
         );
         assert_eq!(
             res.unwrap_err(),
-            String::from("Absolute MSE threshold too low, convergence impossible")
+            "Absolute MSE threshold too low, convergence impossible"
         );
     }
 

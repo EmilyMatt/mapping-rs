@@ -85,6 +85,7 @@ where
     )
 }
 
+#[cfg(feature = "pregenerated")]
 macro_rules! impl_bresenham_algorithm {
     ($precision:expr, $nd:expr, $out:expr) => {
         ::paste::paste! {

@@ -13,14 +13,14 @@ extern crate core;
 
 #[cfg(not(feature = "std"))]
 use {
-    alloc::{boxed::Box, string::String, vec::Vec},
+    alloc::{boxed::Box, vec::Vec},
     core::{array, fmt::Debug, iter::Sum, mem, ops},
     utils::distance_squared,
 };
 #[cfg(feature = "std")]
-use {
+pub use {
     nalgebra::distance_squared,
-    std::{array, boxed::Box, fmt::Debug, iter::Sum, mem, ops, string::String, vec::Vec},
+    std::{array, boxed::Box, error::Error, fmt::Debug, iter::Sum, mem, ops, vec::Vec},
 };
 
 /// An Iterative Closest Point algorithm, useful in matching Point Clouds.
