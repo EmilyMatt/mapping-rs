@@ -3,18 +3,24 @@ use crate::{
     ops::RangeInclusive,
     types::{PolygonExtents, SameSizeMat},
 };
-use nalgebra::{Const, DimMin, Point, RealField};
+use nalgebra::{Const, DimMin, Point, RealField, Scalar};
+use num_traits::{Bounded, NumOps};
 
 /// Various utility functions regarding point clouds of 2 or 3 dimensions.
 pub mod point_cloud;
 
-#[cfg(any(not(feature = "std"), test))]
 pub(crate) fn distance_squared<T, const N: usize>(point_a: &Point<T, N>, point_b: &Point<T, N>) -> T
 where
-    T: RealField + Copy + Default,
+    T: Copy + Default + NumOps + Scalar,
 {
-    let distance = (point_a - point_b).norm();
-    distance * distance
+    point_a
+        .iter()
+        .zip(point_b.iter())
+        .map(|(&x, &y)| {
+            let diff = x - y;
+            diff * diff
+        })
+        .fold(T::default(), |acc, x| acc + x)
 }
 
 /// Finds the closest matching target point to the passed source point.
@@ -46,12 +52,10 @@ where
 )]
 pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> PolygonExtents<T, N>
 where
-    T: RealField + Copy,
+    T: Bounded + Copy + RealField,
 {
-    let mut extents_accumulator: [RangeInclusive<T>; N] = array::from_fn(|_| {
-        T::max_value().expect("System floating number must have a maximum value")
-            ..=T::min_value().expect("System floating number must have a minimum value")
-    });
+    let mut extents_accumulator: [RangeInclusive<T>; N] =
+        array::from_fn(|_| <T as Bounded>::max_value()..=<T as Bounded>::min_value());
 
     for vertex in polygon.iter() {
         for (extent_for_dimension, vertex_coord) in

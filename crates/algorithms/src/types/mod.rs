@@ -12,7 +12,7 @@ pub(crate) type SameSizeMat<T, const N: usize> =
 /// Since that crate does not contain a generic version, that will allow algorithms to be used easily between 2D and 3D.
 pub trait IsometryAbstraction<T, const N: usize>
 where
-    T: Copy + Default + RealField,
+    T: Default + RealField,
 {
     /// This is the type of the isometry matrix itself, allowing us to specify it for 2D and 3D
     type IsometryType: Copy;

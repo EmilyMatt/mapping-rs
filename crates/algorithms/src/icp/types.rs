@@ -5,7 +5,7 @@ use nalgebra::RealField;
 #[derive(Debug)]
 pub struct ICPSuccess<T, const N: usize, O>
 where
-    T: RealField + Default + Copy,
+    T: Default + RealField,
     O: IsometryAbstraction<T, N>,
 {
     /// An isometric matrix, containing the translation and rotation between the point sets.

@@ -1,9 +1,10 @@
-use crate::{distance_squared, Box};
-use nalgebra::{Point, RealField};
+use crate::{utils::distance_squared, Box};
+use nalgebra::{Point, Scalar};
+use num_traits::NumOps;
 
 struct KDNode<T, const N: usize>
 where
-    T: RealField + Copy + Default,
+    T: Copy + Default + NumOps + PartialOrd + Scalar,
 {
     internal_data: Point<T, N>,
     right: Option<Box<KDNode<T, N>>>,
@@ -12,7 +13,7 @@ where
 
 impl<T, const N: usize> KDNode<T, N>
 where
-    T: RealField + Copy + Default,
+    T: Copy + Default + NumOps + PartialOrd + Scalar,
 {
     fn new(data: Point<T, N>) -> Self {
         Self {
@@ -27,7 +28,7 @@ where
         let dimension_to_check = depth % N;
 
         let branch_to_use =
-            // Note that this is an &mut Option, not an Option<&mut>!
+            // Note that this is a &mut Option, not an Option<&mut>!
             if data.coords[dimension_to_check] < self.internal_data.coords[dimension_to_check] {
                 &mut self.left
             } else {
@@ -116,14 +117,14 @@ where
 #[derive(Default)]
 pub struct KDTree<T, const N: usize>
 where
-    T: RealField + Copy + Default,
+    T: Copy + Default + NumOps + PartialOrd + Scalar,
 {
     root: Option<KDNode<T, N>>,
 }
 
 impl<T, const N: usize> KDTree<T, N>
 where
-    T: RealField + Copy + Default,
+    T: Copy + Default + NumOps + PartialOrd + Scalar,
 {
     /// Returns an empty instance of this tree structure
     pub fn new() -> Self {
@@ -188,7 +189,7 @@ where
 
 impl<T, const N: usize> From<&[Point<T, N>]> for KDTree<T, N>
 where
-    T: RealField + Copy + Default,
+    T: Copy + Default + NumOps + PartialOrd + Scalar,
 {
     #[cfg_attr(
         feature = "tracing",

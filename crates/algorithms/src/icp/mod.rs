@@ -6,7 +6,7 @@ use crate::{
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
 use nalgebra::{ComplexField, Point, RealField};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Bounded};
 use types::{ICPConfiguration, ICPSuccess};
 
 mod helpers;
@@ -29,7 +29,7 @@ pub fn icp_iteration<T, const N: usize, O>(
     config: &ICPConfiguration<T>,
 ) -> Result<T, (Point<T, N>, Point<T, N>)>
 where
-    T: RealField + Copy + Default + Sum,
+    T: Bounded + Copy + Default + RealField + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
@@ -86,13 +86,13 @@ where
     feature = "tracing",
     tracing::instrument("Full ICP Algorithm", skip_all)
 )]
-pub fn icp<T, const N: usize, O>(
+fn icp<T, const N: usize, O>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     config: ICPConfiguration<T>,
 ) -> Result<ICPSuccess<T, N, O>, &'static str>
 where
-    T: RealField + Copy + Default + Sum,
+    T: Bounded + Copy + Default + RealField + Sum,
     usize: AsPrimitive<T>,
     O: IsometryAbstraction<T, N>,
 {
@@ -137,7 +137,7 @@ where
         .with_kd
         .then_some(KDTree::from(downsampled_points_b.as_slice()));
     let mut current_transform = O::identity();
-    let mut current_mse = <T as RealField>::max_value().expect("Must have MAX");
+    let mut current_mse = <T as Bounded>::max_value();
 
     for iteration_num in 0..config.max_iterations {
         log::trace!(
