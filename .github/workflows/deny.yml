@@ -1,4 +1,4 @@
-name: Licenses and CVTs
+name: Licenses and CVEs
 on:
   push:
     branches: [ "main" ]
