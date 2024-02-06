@@ -33,7 +33,7 @@ rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
 [dev-dependencies]
-eframe = { version = "0.25.0", default-features = false, features = ["glow"] }
+eframe = { version = "0.26.0", default-features = false, features = ["glow"] }
 simple_logger = { version = "4.3.3", default-features = false, features = ["timestamps", "threads"]}
 
 [build-dependencies]
