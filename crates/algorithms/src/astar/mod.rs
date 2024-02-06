@@ -81,34 +81,53 @@ fn distance_heuristic(p1: &Point2<i32>, p2: &Point2<i32>) -> f32 {
 
 fn a_star(mut start: Node, end: Node, grid: &mut DMatrix<Node>) -> Option<Vec<Node>> {
     start.update_total_cost(&end);
+    println!("{}", start.total_cost);
     let mut to_check = BinaryHeap::new();
     to_check.push(start);
+    println!("{}", to_check.len());
+
     let mut was_check = Vec::new();
     while let Some(current) = to_check.pop() {
+        println!("{}", current.position);
         if current.position.eq(&end.position) {
             let mut path: Vec<Node> = vec![current.clone()];
             let mut temp = current;
+            println!("before loop path len:{}", path.len());
             while let Some(parent) = &temp.parent {
                 path.push(*parent.clone());
                 temp = *parent.clone();
             }
+            println!("after loop path len: {}", path.len());
             path.reverse();
             return Some(path);
         }
         was_check.push(current.position);
         //get neighbor
         for &(dx, dy) in &[(-1, 0), (1, 0), (0, -1), (0, 1)] {
+            println!("next check");
             let x = current.position.x + dx;
+            println!("x = {}", x);
             let y = current.position.y + dy;
+            println!("y = {}", y);
             if (x >= 0 && x < grid.ncols() as i32) && (y >= 0 && y < grid.nrows() as i32) {
-                if let Some(mut next) = grid.get_mut((x as usize, y as usize)) {
+                let next = grid.index_mut((x as usize, y as usize));
+                if Some(next).is_some(){
+
+
+                    println!("_next position: {}", next.position);
                     if next.state == CellState::Free {
                         let tentative_cost = current.cost_from_start
                             + distance_heuristic(&current.position, &next.position);
-                        if tentative_cost < next.cost_from_start {
-                            next.parent = Some(Box::from(current.clone()));
-                            next.update_total_cost(&end);
-                            to_check.push(next.clone());
+
+                        // Obtain a mutable reference to update the node
+                            if tentative_cost < next.cost_from_start {
+                                next.parent = Some(Box::new(current.clone()));
+                                next.update_total_cost(&end);
+                                to_check.push(next.clone()); // Clone the modified Node
+                                println!("tentative_cost: {}", tentative_cost);
+                                println!("to check len {}", to_check.len());
+                                println!("total_cost : {}", next.total_cost);
+
                         }
                     }
                 }
