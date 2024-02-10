@@ -10,15 +10,14 @@
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core;
+extern crate core;
 
 #[cfg(feature = "std")]
-pub use std::{
-    array, boxed::Box, error::Error, f64::consts::PI, fmt::Debug, iter::Sum, mem, ops, vec::Vec,
-};
+pub use std::{array, boxed::Box, error::Error, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
 #[cfg(not(feature = "std"))]
 use {
     alloc::{boxed::Box, vec::Vec},
-    core::{array, f64::consts::PI, fmt::Debug, iter::Sum, mem, ops},
+    core::{array, fmt::Debug, iter::Sum, mem, ops},
 };
 
 /// An Iterative Closest Point algorithm, useful in matching Point Clouds.
@@ -43,8 +42,8 @@ pub mod point_in_convex_hull;
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
 
-///impl Haversine formula
-pub mod haversine_formula;
+///impl Haversine formula to calc distance between to points and function to calculate bearing between to points
+pub mod haversine;
 /// A Collection of pathfinding algorithms
 pub mod pathfinding;
 /// Various utility functions that are commonly used by these algorithms.
