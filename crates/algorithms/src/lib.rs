@@ -10,8 +10,6 @@
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core;
-extern crate core;
-
 #[cfg(feature = "std")]
 pub use std::{array, boxed::Box, error::Error, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
 #[cfg(not(feature = "std"))]
@@ -42,9 +40,11 @@ pub mod point_in_convex_hull;
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
 
-///impl Haversine formula to calc distance between to points and function to calculate bearing between to points
+/// Implementation of the Haversine formula, which calculate the distance and bearing between two points
 pub mod haversine;
+
 /// A Collection of pathfinding algorithms
 pub mod pathfinding;
+
 /// Various utility functions that are commonly used by these algorithms.
 pub mod utils;

@@ -1,55 +1,58 @@
-use core::fmt::Debug;
-use nalgebra::Point2;
+use nalgebra::{Point2, RealField, Scalar};
 use num_traits::Float;
 
-///calculate distance between point with use haversine formula
-/// return distance in km
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Calculate Haversine Data", skip_all)
+    tracing::instrument("Calculate Haversine Distance", skip_all)
 )]
-fn calculate_haversine_distance<T>(p1: Point2<T>, p2: Point2<T>, sphere_radius: T) -> T
+fn calculate_haversine_distance<T>(point_a: Point2<T>, point_b: Point2<T>, sphere_radius: T) -> T
 where
-    T: Copy + Float + Debug + 'static,
+    T: Scalar + Float,
 {
-    //define two = 2 to support generic
-    let two = T::from(2.0).unwrap();
-    //calc delta
-    let dlat = (p2.x - p1.x).to_radians();
-    let dlon = (p2.y - p1.y).to_radians();
-    //convert coordinate to radians
-    let lat1_radians = p1.x.to_radians();
-    let lat2_radians = p2.x.to_radians();
-    //apply haversine formula
-    let a = (dlat / two).sin().powi(2)
-        + (dlon / two).sin().powi(2) * lat1_radians.cos() * lat2_radians.cos();
-    //use atan2 instead of arcsin(\sqrt a) due to numerical stability and precision
-    let c = two * a.sqrt().atan2((T::one() - a).sqrt());
+    let delta_lat = point_b.x - point_a.x;
+    let delta_lon = point_b.y - point_a.y;
+    let lat1_radians = point_a.x.to_radians();
+    let lat2_radians = point_b.x.to_radians();
+    let basic_haversine =
+        haversine(delta_lat) + haversine(delta_lon) * lat1_radians.cos() * lat2_radians.cos();
+    let inverse_haversine = (T::one() + T::one())
+        * basic_haversine
+            .sqrt()
+            .atan2((T::one() - basic_haversine).sqrt());
 
-    sphere_radius * c
+    sphere_radius * inverse_haversine
 }
-/// Returns the bearing from the first point to the second point.
+#[inline]
+fn haversine<T>(input: T) -> T
+where
+    T: Float,
+{
+    (input.to_radians() / (T::one() + T::one())).sin().powi(2)
+}
+
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Calculate Bearing Between Points", skip_all)
 )]
-fn return_bearing_between_points<T>(p1: Point2<T>, p2: Point2<T>) -> T
+fn calculate_bearing_on_sphere<T>(point_a: Point2<T>, point_b: Point2<T>) -> T
 where
-    T: Copy + Float + Debug + 'static,
+    T: Scalar + Float + RealField,
 {
-    let lat1_rad = p1.x.to_radians();
-    let lat2_rad = p2.x.to_radians();
-    let lon_diff_rad = (p2.y - p1.y).to_radians();
-    let y = lon_diff_rad.sin() * lat2_rad.cos();
-    let x = lat1_rad.cos() * lat2_rad.sin() - lat1_rad.sin() * lat2_rad.cos() * lon_diff_rad.cos();
-
-    let bearing_rad = y.atan2(x);
-    //convert to degree because navigation work with degree and return it
-    let circle_angle = T::from(360.0).unwrap();
-    (bearing_rad.to_degrees() + circle_angle) % circle_angle
+    let lat1_rad = point_a.x.to_radians();
+    let lat2_rad = point_b.x.to_radians();
+    let lon_diff_rad = (point_b.y - point_a.y).to_radians();
+    let x = <T as Float>::sin(lon_diff_rad) * <T as Float>::cos(lat2_rad);
+    let y = (<T as Float>::cos(lat1_rad) * <T as Float>::sin(lat2_rad))
+        - (<T as Float>::sin(lat1_rad)
+            * <T as Float>::cos(lat2_rad)
+            * <T as Float>::cos(lon_diff_rad));
+    let bearing_rad = <T as Float>::atan2(x, y);
+    ((bearing_rad + T::two_pi()) % T::two_pi()).to_degrees()
 }
+
 #[cfg(feature = "pregenerated")]
-macro_rules! impl_p_i_p_algorithm {
+
+macro_rules! impl_haversine_formula {
     ($prec:expr, $prec_str:tt) => {
         ::paste::paste! {
             #[doc = "A " $prec_str "-precision implementation of a Haversine formula and calculate bearing between two points"]
@@ -58,15 +61,16 @@ macro_rules! impl_p_i_p_algorithm {
                 #[doc = "Calculates the Haversine distance between two points on a sphere using " $prec_str "-precision floating-point arithmetic."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
-                #[doc = "* `p1`: A [`Point2'] representing the first geographical point."]
-                #[doc = "* `p2`: A [`Point2`] representing the second geographical point."]
+                #[doc = "* `point_a`: A [`Point2'] representing the first geographical point."]
+                #[doc = "* `point_b`: A [`Point2`] representing the second geographical point."]
                 #[doc = "* `sphere_radius`: The radius of the sphere, typically the Earth's radius in kilometers or miles."]
                 #[doc = ""]
                 #[doc = "# Returns"]
-                #[doc = "A 'float', the distance between `p1` and `p2` along the surface of the sphere, using the Haversine formula."]
-                pub fn [<calculate_haversine_distance_ $prec>](p1: nalgebra::Point2<$prec>, p2: nalgebra::Point2<$prec>, sphere_radius: $prec) -> $prec {
+                #[doc = "A 'float', the distance between `point_a` and `point_b` along the surface of the sphere, using the Haversine formula."]
+                #[doc = "distance will return as kilometer"]
+                pub fn [<calculate_haversine_distance_ $prec>](point_a: nalgebra::Point2<$prec>, point_b: nalgebra::Point2<$prec>, sphere_radius: $prec) -> $prec {
 
-                    calculate_haversine_distance(p1,p2,sphere_radius)
+                    calculate_haversine_distance(point_a,point_b,sphere_radius)
                 }
                 #[doc = "Calculates the initial bearing (forward azimuth) from the first point to the second point."]
                 #[doc = ""]
@@ -76,55 +80,56 @@ macro_rules! impl_p_i_p_algorithm {
                 #[doc = "in a clockwise direction."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
-                #[doc = "* `p1`: A [`Point2`] representing the starting geographical point (latitude and longitude)."]
-                #[doc = "* `p2`: A [`Point2`] representing the destination geographical point (latitude and longitude)."]
+                #[doc = "* `point_a`: A [`Point2`] representing the starting geographical point (latitude and longitude)."]
+                #[doc = "* `point_b`: A [`Point2`] representing the destination geographical point (latitude and longitude)."]
                 #[doc = ""]
                 #[doc = "# Type Parameters"]
                 #[doc = "* `T`: The floating point type used for the calculation, which must implement `Copy`, `Float`, and `Debug`."]
                 #[doc = "  This allows for a generic implementation that can work with different numeric types, such as `f32` or `f64`."]
                 #[doc = ""]
                 #[doc = "# Returns"]
-                #[doc = "* A value that representing the initial bearing from `p1` to `p2`, in degrees. The result is normalized"]
+                #[doc = "* A value that representing the initial bearing from `point_a` to `point_b`, in degrees. The result is normalized"]
                 #[doc = "  to a range of 0 to 360 degrees."]
-                pub fn [<return_bearing_between_points_ $prec>](p1: nalgebra::Point2<$prec>, p2: nalgebra::Point2<$prec>) -> $prec {
+                pub fn [<calculate_bearing_on_sphere_ $prec>](point_a: nalgebra::Point2<$prec>, point_b: nalgebra::Point2<$prec>) -> $prec {
 
-                    return_bearing_between_points(p1,p2)}
+                    calculate_bearing_on_sphere(point_a,point_b)}
                 }
 
 
             }
         };}
 #[cfg(feature = "pregenerated")]
-impl_p_i_p_algorithm!(f32, single);
+impl_haversine_formula!(f32, single);
 #[cfg(feature = "pregenerated")]
-impl_p_i_p_algorithm!(f64, double);
+impl_haversine_formula!(f64, double);
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_distance() {
-        let p1 = Point2::new(52.5200, 13.4050); // Berlin, Germany
-        let p2 = Point2::new(48.8566, 2.3522); // Paris, France
+        let point_a = Point2::new(52.5200, 13.4050); // Berlin, Germany
+        let point_b = Point2::new(48.8566, 2.3522); // Paris, France
         let earth_radius_km = 6371.0;
-        let distance = calculate_haversine_distance(p1, p2, earth_radius_km);
-        let expected_distance = 878.0; // Approximate distance in km
+        let distance = calculate_haversine_distance(point_a, point_b, earth_radius_km);
+        let expected_distance = 877.46; // Approximate distance in km
         assert!(
-            (distance - expected_distance).abs() < 10.0,
-            "Distance between Berlin and Paris should be roughly 878 km, found {}",
+            (distance - expected_distance).abs() < 0.01,
+            "Distance between Berlin and Paris should be roughly 877.46 km, found {}",
             distance
         );
     }
 
     #[test]
     fn test_bearing() {
-        let p1 = Point2::new(52.5200, 13.4050); // Berlin, Germany
-        let p2 = Point2::new(48.8566, 2.3522); // Paris, France
-        let bearing = return_bearing_between_points(p1, p2);
-        let expected_bearing = 240.0; // Approximate bearing in degrees
+        let point_a = Point2::new(39.099912, -94.581213); // Kansas City
+        let point_b = Point2::new(38.627089, -90.200203); // St Louis
+        let bearing = calculate_bearing_on_sphere(point_a, point_b);
+        let expected_bearing = 96.51; // Approximate bearing in degrees
         assert!(
-            (bearing - expected_bearing).abs() < 10.0,
-            "Bearing from Berlin to Paris should be roughly 240 degrees, found {}",
+            (bearing - expected_bearing).abs() < 0.01,
+            "Bearing from Kansas City to St Louis should be roughly 96.51 degrees, found {}",
             bearing
         );
     }
