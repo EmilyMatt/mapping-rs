@@ -54,7 +54,7 @@ This is recommended for most users, and allows bypassing the generics overhead.
 Cargo.toml:
 ```toml
 # Compiles this crate with max optimizations
-[profile.dev.package.mapping-rs]
+[profile.dev.package.mapping-algorithms-rs]
 opt-level = 3
 ```
 
