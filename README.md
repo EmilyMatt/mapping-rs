@@ -9,7 +9,7 @@
 ![GitHub Watchers](https://img.shields.io/github/watchers/EmilyMatt/mapping-rs)
 [![GitHub Forks](https://img.shields.io/github/forks/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/fork)
 [![GitHub Issues](https://img.shields.io/github/issues/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/issues)
-[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/EmilyMatt/mapping-rs/blob/main/LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
@@ -81,4 +81,4 @@ features = ["cuda"]
 
 ## Contributing
 If you would like to contribute, we welcome your contributions.
-Please be sure to check out our [CONTRIBUTING.md](https://github.com/EmilyMatt/mapping-rs/blob/main/CONTRIBUTING.md)
+Please be sure to check out our [CONTRIBUTING.md](CONTRIBUTING.md)

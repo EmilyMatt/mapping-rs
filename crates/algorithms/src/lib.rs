@@ -3,7 +3,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![doc = include_str!("../../../README.md")]
+//! A collection of mapping algorithms, for use either independently, or using the mapping-suites-rs crate.
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
