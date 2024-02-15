@@ -14,7 +14,27 @@ mod helpers;
 /// Structs in use as part of the public API of the ICP algorithm.
 pub mod types;
 
-/// A single ICP iteration in `N`D space
+/// A single iteration of the ICP function, allowing for any input and output, usually used for debugging or visualization
+///
+/// # Arguments
+/// * `points_a`: A slice of [`Point<T, N>`], representing the source point cloud.
+/// * `transformed_points`: A mutable slice of [`Point<T, N>`], representing the transformed source point cloud, this will be transformed further by the function.
+/// * `points_b`: A slice of [`Point<T, N>`], representing the target point cloud.
+/// * `target_points_tree`: An [`Option<KDTree<T, N>>`], this is usually created by the ICP function if `config.use_kd` is `true`
+/// * `current_transform`: A mutable reference to the [`IsometryAbstraction<T, N>::IsometryType`] used to transform the source points, this will gradually change with each iteration.
+/// * `current_mse`: A mutable reference of a `T`, this will be updated by the function to the latest MSE, which is then used by the ICP function to determine an exit strategy.
+/// * `config`: a reference to an [`ICPConfiguration`], specifying the behaviour of the algorithm.
+///
+/// # Generics
+/// * `T`: Either [`prim@f32`] or [`prim@f64`]
+/// * `N`: a usize, either `2` or `3`
+/// * `O`: An ['IsometryAbstraction'] of `T` and `N`
+///
+/// # Returns
+/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with a `T` precision, or an error message explaining what went wrong.
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
+
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("ICP Algorithm Iteration", skip_all)
@@ -72,16 +92,19 @@ where
 /// A free-form version of the ICP function, allowing for any input and output, under the constraints of the function
 ///
 /// # Arguments
-/// * `points_a`: A slice of [`Point<T, N>`], representing the source point cloud."]
-/// * `points_b`: A slice of [`Point<T, N>`], representing the target point cloud."]
-/// * `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
-/// * `mse_threshold`: a `T`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
-/// * `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
+/// * `points_a`: A slice of [`Point<T, N>`], representing the source point cloud.
+/// * `points_b`: A slice of [`Point<T, N>`], representing the target point cloud.
+/// * `config`: a reference to an [`ICPConfiguration<T>`], specifying the behaviour of the algorithm.
 ///
-/// # Returns"]
-/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with a `T` precision, or an error message explaining what went wrong."]
+/// # Generics
+/// * `T`: Either [`prim@f32`] or [`prim@f64`]
+/// * `N`: a usize, either `2` or `3`
+/// * `O`: An ['IsometryAbstraction'] of `T` and `N`
 ///
-/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
+/// # Returns
+/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with a `T` precision, or an error message explaining what went wrong.
+///
+/// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Full ICP Algorithm", skip_all)
@@ -173,9 +196,7 @@ macro_rules! impl_icp_algorithm {
             #[doc = "# Arguments"]
             #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the source point cloud."]
             #[doc = "* `points_b`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the target point cloud."]
-            #[doc = "* `max_iterations`: a [`usize`], specifying for how many iterations to try converging before returning an error."]
-            #[doc = "* `mse_threshold`: an `" $precision "`, if the MSE __differential__ is smaller than this number, we are considered converged[^convergence_note]."]
-            #[doc = "* `with_kd`: Whether to use a KDTree data structure in order to locate nearest points, the more points in your point cloud, the greater the benefit for this, smaller 3D point clouds may actually be better off without it."]
+            #[doc = "* `config`: a reference to an [`ICPConfiguration`](super::ICPConfiguration), specifying the behaviour of the algorithm."]
             #[doc = ""]
             #[doc = "# Returns"]
             #[doc = "An [`ICPSuccess`](super::ICPSuccess) struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]

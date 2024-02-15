@@ -10,12 +10,14 @@ use nalgebra::{
 use num_traits::{AsPrimitive, NumOps, Zero};
 
 /// Calculates the Mean Squared Error between two point clouds.
-/// # Generics
-/// * T: either an [`f32`] or [`f64`]
 ///
 /// # Arguments
 /// * `transformed_points_a`: a slice of [`Point`], representing the source point cloud, transformed by the current [`Isometry`](nalgebra::Isometry) matrix.
 /// * `points_b`: a slice of [`Point`], representing the point cloud to match against.
+///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, specifying the amount of dimensions in the points.
 ///
 /// # Returns
 /// A [`T`], representing the sum of all squared distances between each point in `transformed_points_a` and its corresponding point in `points_b`.
@@ -43,6 +45,10 @@ where
 /// * `point_a`: A reference to the first [`Vector`].
 /// * `point_b`: A reference to the second [`Vector`].
 ///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, specifying the amount of dimensions in the points.
+///
 /// # Returns
 /// A [`SameSizeMat`] of size `N` by `N`, containing the outer product.
 #[inline]
@@ -67,6 +73,10 @@ where
 /// # Arguments
 /// * `points_a`: a slice of [`Point`], representing the source point cloud.
 /// * `closest_points`: a slice of [`Point`], representing the target nearest neighbour for each point in `points_a`.
+///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, specifying the amount of dimensions in the points.
 ///
 /// # Returns
 /// A tuple of

@@ -113,7 +113,7 @@ where
 ///
 /// # Generics
 /// `T`: Either an [`f32`] or [`f64`]
-/// `N`: a constant usize specifying how many dimensions should each point have.
+/// `N`: a const usize specifying how many dimensions should each point have.
 #[derive(Default)]
 pub struct KDTree<T, const N: usize>
 where

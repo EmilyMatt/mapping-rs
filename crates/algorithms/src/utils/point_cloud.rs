@@ -7,11 +7,13 @@ use num_traits::{AsPrimitive, Bounded, NumOps, Zero};
 /// # Arguments
 /// * points: a slice of [`Point`], representing the point cloud.
 ///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, representing the number of dimensions in the points.
+///
 /// # Returns
 /// A [`Point`], representing the point cloud centeroid.
-///
-/// # Panics
-/// In debug builds, this function will panic if `points` is an empty slice, to avoid dividing by 0.
+/// Returns Point::default() if point cloud is empty.
 #[inline]
 #[cfg_attr(
     feature = "tracing",
@@ -22,7 +24,9 @@ where
     T: ClosedAdd + ClosedDiv + Copy + Scalar + Zero,
     usize: AsPrimitive<T>,
 {
-    debug_assert!(!points.is_empty());
+    if points.is_empty() {
+        return Point::default();
+    }
 
     points
         .iter()
@@ -32,25 +36,40 @@ where
         / points.len().as_()
 }
 
+/// Finds the closest matching target point to the passed source point.
+///
+/// # Arguments
+/// * `point`: A [`Point`], for which to find the closest point.
+/// * `all_points`: A slice of [`Point`], representing the target point cloud.
+///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, representing the number of dimensions in the points.
+///
+/// # Returns
+/// A [`Point`], representing said closest point.
+///
+/// # Panics
+/// this function will panic if the `target_points` is an empty slice.
 #[inline]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Find Closest Points", skip_all)
 )]
-pub(crate) fn find_closest_point<'a, T, const N: usize>(
-    transformed_point: &'a Point<T, N>,
-    target_points: &'a [Point<T, N>],
+pub fn find_closest_point<T, const N: usize>(
+    point: &Point<T, N>,
+    all_points: &[Point<T, N>],
 ) -> Point<T, N>
 where
     T: Bounded + Copy + Default + NumOps + PartialOrd + Scalar,
 {
-    debug_assert!(!target_points.is_empty());
+    assert!(!all_points.is_empty(), "Point cloud must not be empty");
 
     let mut current_distance = T::max_value();
-    let mut current_point = target_points[0]; // Guaranteed to exist
+    let mut current_point = all_points[0]; // Guaranteed to exist
 
-    for target_point in target_points.iter() {
-        let distance = distance_squared(transformed_point, target_point);
+    for target_point in all_points.iter() {
+        let distance = distance_squared(point, target_point);
         if distance < current_distance {
             current_distance = distance;
             current_point = *target_point;
@@ -61,9 +80,14 @@ where
 }
 
 /// Downsample a points cloud, returning a new point cloud, with minimum intervals between each point.
+///
 /// # Arguments
 /// * `points`: a slice of [`Point<T, N>`], representing the point cloud.
 /// * `min_distance`: a floating point number, specifying the minimum interval between points.
+///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, representing the number of dimensions in the points.
 ///
 /// # Returns
 /// A [`Vec`] of [`Point<f32, N>`] representing the downsampled point cloud.
@@ -92,10 +116,15 @@ where
     out_vec
 }
 
-/// Generates a points cloud, and a corresponding points cloud, transformed by `isometry_matrix`
+/// Generates a randomized points cloud within a specified spherical range.
+///
 /// # Arguments
 /// * `num_points`: a [`usize`], specifying the amount of points to generate
 /// * `range`: a [`crate::ops::RangeInclusive<T>`] specifying the normal distribution of points.
+///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, representing the number of dimensions to use.
 ///
 /// # Returns
 /// A [`Vec`] of [`Point<f32, N>`] representing the point cloud.
@@ -114,11 +143,17 @@ where
         .collect()
 } // Just calls a different function a number of times, no specific test needed
 
-/// Transform a point cloud using an [`AbstractRotation`], returning a transformed point cloud.
+/// Transform a point cloud, returning a transformed copy.
 /// This function does not mutate the original point cloud.
+///
 /// # Arguments
 /// * `source_points`: a slice of [`Point<T, N>`], representing the point cloud
 /// * `isometry_matrix`: a transform that implements [`AbstractRotation<T, N>`], to use for the transformation.
+///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, either `2` or `3`.
+/// * `R`: An [`AbstractRotation`] for `T` and `N`.
 ///
 /// # Returns
 /// A [`Vec`] of [`Point<f32, N>`] containing the transformed point cloud.

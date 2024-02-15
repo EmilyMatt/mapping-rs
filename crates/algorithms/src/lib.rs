@@ -3,15 +3,15 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
-
-//! A collection of mapping algorithms, for use either independently, or using the mapping-suites-rs crate.
+#![doc = include_str!("../../../README.md")]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core;
+
 #[cfg(feature = "std")]
-pub use std::{array, boxed::Box, error::Error, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
+use std::{array, boxed::Box, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
 #[cfg(not(feature = "std"))]
 use {
     alloc::{boxed::Box, vec::Vec},
