@@ -23,18 +23,6 @@ where
         .fold(T::default(), |acc, x| acc + x)
 }
 
-/// Finds the closest matching target point to the passed source point.
-///
-/// # Arguments
-/// * `transformed_point`: a [`Point`], for which to find the closest point.
-/// * `target_points`: a slice of [`Point`], representing the target point cloud.
-///
-/// # Returns
-/// A [`Point`], representing said closest point.
-///
-/// # Panics
-/// In debug builds, this function will panic if the `target_points` is an empty slice.
-
 /// This function calculates the extents of the polygon, i.e., the minimum and maximum values for each coordinate dimension.
 ///
 /// # Generics

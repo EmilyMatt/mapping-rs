@@ -3,7 +3,6 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
-
 //! A collection of mapping algorithms, for use either independently, or using the mapping-suites-rs crate.
 
 #[cfg(not(feature = "std"))]
@@ -12,7 +11,7 @@ extern crate alloc;
 extern crate core;
 
 #[cfg(feature = "std")]
-pub use std::{array, boxed::Box, error::Error, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
+use std::{array, boxed::Box, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
 #[cfg(not(feature = "std"))]
 use {
     alloc::{boxed::Box, vec::Vec},
@@ -40,6 +39,9 @@ pub mod point_in_convex_hull;
 
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
+
+/// Implementation of the Haversine formula, which calculate the distance and bearing between two points
+pub mod haversine;
 
 /// A Collection of pathfinding algorithms
 pub mod pathfinding;

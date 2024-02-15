@@ -9,6 +9,10 @@ use num_traits::{AsPrimitive, Float};
 /// * `start_point`: A [`Point`] of floating type `F` and `N` dimensions, representing the starting point of the line.
 /// * `end_point`: A [`Point`] of floating type `F` and `N` dimensions, representing the ending point of the line.
 ///
+/// # Generics
+/// * F: either [`prim@f32`] or [`prim@f64`]
+/// * N: a usize, representing the dimension to use
+///
 /// # Returns
 /// A [`Vec`] of [`Point`]s with inner type `T`, representing the drawn line, including the starting point and ending point.
 ///
