@@ -32,7 +32,7 @@ tracing = { version = "0.1.40", default-features = false, features = ["attribute
 
 [build-dependencies]
 bindgen = { version = "0.69.4", default-features = false, optional = true }
-cc = { version = "1.0.88", default-features = false, optional = true }
+cc = { version = "1.0.89", default-features = false, optional = true }
 
 # Compilation Profiles
 [profile.dev]
