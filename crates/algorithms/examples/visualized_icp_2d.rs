@@ -10,7 +10,7 @@ use nalgebra::{Const, Isometry2, Point2, UnitComplex, Vector2};
 use rand::Rng;
 
 #[derive(Copy, Clone)]
-struct RunConfiguartion {
+struct RunConfiguration {
     num_points: usize,
     offset_x: f32,
     offset_y: f32,
@@ -21,15 +21,14 @@ struct RunConfiguartion {
     with_kd: bool,
 }
 
-impl From<RunConfiguartion> for ICPConfiguration<f32> {
-    fn from(value: RunConfiguartion) -> Self {
-        ICPConfiguration {
-            with_kd: value.with_kd,
-            downsample_interval: None,
-            max_iterations: value.max_iterations,
-            mse_threshold: value.mse_threshold,
-            mse_interval_threshold: value.mse_interval_threshold,
-        }
+impl From<RunConfiguration> for ICPConfiguration<f32> {
+    fn from(value: RunConfiguration) -> Self {
+        ICPConfiguration::builder()
+            .with_kd_tree(value.with_kd)
+            .with_max_iterations(value.max_iterations)
+            .with_absolute_mse_threshold(value.mse_threshold)
+            .with_mse_interval_threshold(value.mse_interval_threshold)
+            .build()
     }
 }
 
@@ -43,13 +42,13 @@ struct VisualizerApp {
     current_iteration: usize,
     original_mean: Point2<f32>,
     current_means: (Point2<f32>, Point2<f32>),
-    config: RunConfiguartion,
+    config: RunConfiguration,
     run_next_iteration: bool,
     converged: bool,
 }
 
 impl VisualizerApp {
-    fn new(config: RunConfiguartion) -> Self {
+    fn new(config: RunConfiguration) -> Self {
         let points_a = generate_point_cloud(config.num_points, -1.0..=1.0);
         let points_b = transform_point_cloud(
             &points_a,
@@ -209,7 +208,7 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(|_cc| {
             let mut rng = rand::thread_rng();
-            Box::new(VisualizerApp::new(RunConfiguartion {
+            Box::new(VisualizerApp::new(RunConfiguration {
                 num_points: 500,
                 offset_x: rng.gen_range(-0.1..=0.1),
                 offset_y: rng.gen_range(-0.1..=0.1),
