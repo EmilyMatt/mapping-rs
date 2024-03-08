@@ -1,8 +1,11 @@
+use crate::Sum;
 use builder::HectorMapperBuilder;
 use grid_map::GridMap;
-use mapping_algorithms_rs::icp::icp;
-use mapping_algorithms_rs::icp::types::ICPConfiguration;
-use nalgebra::ComplexField;
+use mapping_algorithms_rs::icp::types::ICPSuccess;
+use mapping_algorithms_rs::icp::{icp, types::ICPConfiguration};
+use mapping_algorithms_rs::types::IsometryAbstraction;
+use nalgebra::{ComplexField, Const, RealField};
+use num_traits::{AsPrimitive, Bounded};
 
 mod builder;
 mod grid_map;
@@ -16,12 +19,16 @@ where
     with_odometry: bool,
 
     current_position: nalgebra::Point<T, N>,
+    current_angle: T,
     last_point_cloud: Vec<nalgebra::Point<T, N>>,
 }
 
 impl<T, const N: usize> HectorMapper<T, N>
 where
-    T: ComplexField,
+    T: Bounded + Copy + Default + RealField + Sum,
+    f32: AsPrimitive<T>,
+    usize: AsPrimitive<T>,
+    Const<N>: IsometryAbstraction<T, N>,
 {
     pub fn builder() -> HectorMapperBuilder<
         T,
@@ -36,17 +43,15 @@ where
     ///
     pub fn push_point_cloud(&mut self, point_cloud: Vec<nalgebra::Point<T, N>>) {
         if self.with_odometry {
-            if let Ok(res) = icp(
+            let res: Result<ICPSuccess<T, N, Const<N>>, &'static str> = icp(
                 &self.last_point_cloud,
                 &point_cloud,
                 ICPConfiguration::builder()
                     .with_kd_tree(true)
                     .with_max_iterations(20)
-                    .with_mse_interval_threshold(0.001)
+                    .with_mse_interval_threshold(0.001.as_())
                     .build(),
-            ) {
-                if res.mse <
-            }
+            );
         }
     }
 }

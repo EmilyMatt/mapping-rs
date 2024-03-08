@@ -18,7 +18,7 @@ pub(super) mod resolution {
 }
 
 pub(super) struct HectorMapperBuilder<
-    T,
+    T: ComplexField,
     const N: usize,
     MaybeCalculatesOdometry,
     MaybeHasDimensions,
@@ -47,6 +47,9 @@ where
                 with_odometry: false,
                 grid_map: GridMap::create([0; N]),
                 resolution: T::zero(),
+                current_position: nalgebra::Point::default(),
+                current_angle: T::zero(),
+                last_point_cloud: Vec::new(),
             },
             _calculates_odometry: Default::default(),
             _has_dimensions: Default::default(),
@@ -55,7 +58,7 @@ where
     }
 }
 
-impl<T, const N: usize, MaybeHasDimensions, MaybeHasResolution>
+impl<T: ComplexField, const N: usize, MaybeHasDimensions, MaybeHasResolution>
     HectorMapperBuilder<T, N, odometry::WantsOdometryConfig, MaybeHasDimensions, MaybeHasResolution>
 {
     pub fn with_odometry_calculation(
@@ -80,7 +83,7 @@ impl<T, const N: usize, MaybeHasDimensions, MaybeHasResolution>
     }
 }
 
-impl<T, const N: usize, MaybeCalculatesOdometry, MaybeHasResolution>
+impl<T: ComplexField, const N: usize, MaybeCalculatesOdometry, MaybeHasResolution>
     HectorMapperBuilder<
         T,
         N,
@@ -111,7 +114,7 @@ impl<T, const N: usize, MaybeCalculatesOdometry, MaybeHasResolution>
     }
 }
 
-impl<T, const N: usize, MaybeCalculatesOdometry, MaybeHasDimensions>
+impl<T: ComplexField, const N: usize, MaybeCalculatesOdometry, MaybeHasDimensions>
     HectorMapperBuilder<
         T,
         N,
@@ -142,7 +145,7 @@ impl<T, const N: usize, MaybeCalculatesOdometry, MaybeHasDimensions>
     }
 }
 
-impl<T, const N: usize>
+impl<T: ComplexField, const N: usize>
     HectorMapperBuilder<
         T,
         N,

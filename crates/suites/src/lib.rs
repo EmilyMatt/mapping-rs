@@ -11,9 +11,12 @@ extern crate alloc;
 extern crate core;
 
 #[cfg(feature = "std")]
-use std::{marker::PhantomData, vec::Vec};
+use std::{iter::Sum, marker::PhantomData, vec::Vec};
 #[cfg(not(feature = "std"))]
-use {alloc::vec::Vec, core::marker::PhantomData};
+use {
+    alloc::vec::Vec,
+    core::{iter::Sum, marker::PhantomData},
+};
 
 /// A SLAM suite that uses LIDAR point clouds to determine the vehicle's velocity and map its surroundings.
 pub mod hector_mapper;
