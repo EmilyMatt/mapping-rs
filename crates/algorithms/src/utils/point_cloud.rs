@@ -1,5 +1,7 @@
-use crate::{utils::distance_squared, Vec};
-use nalgebra::{AbstractRotation, ClosedAdd, ClosedDiv, Isometry, Point, RealField, Scalar};
+use crate::{array, utils::distance_squared, HashMap, Vec};
+use nalgebra::{
+    AbstractRotation, ClosedAdd, ClosedDiv, ComplexField, Isometry, Point, RealField, Scalar,
+};
 use num_traits::{AsPrimitive, Bounded, NumOps, Zero};
 
 /// Calculates the mean(centeroid) of the point cloud.
@@ -79,43 +81,6 @@ where
     current_point
 }
 
-/// Downsample a points cloud, returning a new point cloud, with minimum intervals between each point.
-///
-/// # Arguments
-/// * `points`: a slice of [`Point<T, N>`], representing the point cloud.
-/// * `min_distance`: a floating point number, specifying the minimum interval between points.
-///
-/// # Generics
-/// * `T`: Either an [`f32`] or [`f64`].
-/// * `N`: A const usize, representing the number of dimensions in the points.
-///
-/// # Returns
-/// A [`Vec`] of [`Point<f32, N>`] representing the downsampled point cloud.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument("Downsample Point Cloud", skip_all)
-)]
-pub fn downsample_point_cloud<T, const N: usize>(
-    points: &[Point<T, N>],
-    min_distance: T,
-) -> Vec<Point<T, N>>
-where
-    T: Copy + Default + NumOps + PartialOrd + Scalar,
-{
-    let mut out_vec = Vec::with_capacity(points.len());
-    if let Some(mut latest_point) = points.first().copied() {
-        out_vec.push(latest_point);
-        for point in points {
-            if distance_squared(point, &latest_point) >= (min_distance * min_distance) {
-                latest_point = *point;
-                out_vec.push(*point);
-            }
-        }
-    }
-
-    out_vec
-}
-
 /// Generates a randomized points cloud within a specified spherical range.
 ///
 /// # Arguments
@@ -139,7 +104,7 @@ where
     let mut rng = rand::rngs::SmallRng::seed_from_u64(3765665954583626552);
 
     (0..num_points)
-        .map(|_| nalgebra::Point::from(crate::array::from_fn(|_| rng.gen_range(range.clone()))))
+        .map(|_| nalgebra::Point::from(array::from_fn(|_| rng.gen_range(range.clone()))))
         .collect()
 } // Just calls a different function a number of times, no specific test needed
 
@@ -175,6 +140,56 @@ where
         .map(|point| isometry_matrix.transform_point(point))
         .collect()
 } // Just calls a different function a number of times, no specific test needed
+
+/// Downsample a points cloud, returning a new point cloud, with all points within each voxel combined into their mean.
+///
+/// # Arguments
+/// * `points`: a slice of [`Point<T, N>`], representing the point cloud.
+/// * `voxel_size`: a floating point number, specifying the size for each voxel, all points inside that voxel will be downsampled to their centeroid..
+///
+/// # Generics
+/// * `T`: Either an [`f32`] or [`f64`].
+/// * `N`: A const usize, representing the number of dimensions in the points.
+///
+/// # Returns
+/// A [`Vec`] of [`Point<f32, N>`] representing the downsampled point cloud.
+///
+/// # Warnings
+/// * Point cloud order is *never* guaranteed.
+/// * When compiling for no_std, a `BTreeMap` from the `alloc` crate is used in place of a [`HashMap`].
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Downsample Point Cloud Using Voxels", skip_all)
+)]
+pub fn voxel_downsample_point_cloud<T, const N: usize>(
+    points: &[Point<T, N>],
+    voxel_size: T,
+) -> Vec<Point<T, N>>
+where
+    T: ComplexField + Copy + AsPrimitive<isize>,
+    usize: AsPrimitive<T>,
+{
+    let mut voxel_map: HashMap<[isize; N], Vec<Point<T, N>>> = HashMap::new();
+
+    // Assign points to voxels
+    for point in points {
+        let voxel_coords: [isize; N] =
+            array::from_fn(|idx| (point[idx] / voxel_size).floor().as_());
+        voxel_map.entry(voxel_coords).or_default().push(*point);
+    }
+
+    // Compute centroid for each voxel and collect them as the downsampled points
+    voxel_map
+        .into_values()
+        .map(|points_in_voxel| {
+            let num_points = points_in_voxel.len().as_();
+            let sum = points_in_voxel
+                .into_iter()
+                .fold(Point::default(), |acc, p| acc + p.coords);
+            sum / num_points
+        })
+        .collect()
+}
 
 #[cfg(test)]
 mod tests {
@@ -238,15 +253,23 @@ mod tests {
     #[test]
     fn test_downsample_point_cloud() {
         let point_cloud = [
-            Point3::new(-6.0, -5.0, -4.0),
+            Point3::new(-5.9, -5.0, -3.9), // These two are very close now
+            Point3::new(-6.0, -5.0, -4.0), // Will end up in the same voxel
             Point3::new(-1.0, -2.0, -3.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(0.05, -0.08, 0.01),
+            Point3::new(0.0, 0.0, 0.0),    // These two are also very close
+            Point3::new(0.05, 0.08, 0.01), // Will end up in the same voxel
             Point3::new(1.0, 2.0, 3.0),
             Point3::new(6.0, 5.0, 4.0),
         ];
 
-        let res = downsample_point_cloud(point_cloud.as_slice(), 0.1);
+        // We should be left with 5 voxels
+        let res = voxel_downsample_point_cloud(point_cloud.as_slice(), 0.5);
         assert_eq!(res.len(), 5);
+
+        // Moreover, the most negative voxel had two points, (-5.9, -5.0, -4.0) and (-6.0, -5.0, -4.0)
+        // Meaning there should be a voxel resulting in the elements' centeroid
+        assert!(res
+            .iter()
+            .any(|element| *element == Point3::new(-5.95, -5.0, -3.95)));
     }
 }

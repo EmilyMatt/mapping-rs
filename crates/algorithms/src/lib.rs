@@ -11,10 +11,10 @@ extern crate alloc;
 extern crate core;
 
 #[cfg(feature = "std")]
-use std::{array, boxed::Box, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
+use std::{array, boxed::Box, collections::HashMap, fmt::Debug, iter::Sum, mem, ops, vec::Vec};
 #[cfg(not(feature = "std"))]
 use {
-    alloc::{boxed::Box, vec::Vec},
+    alloc::{boxed::Box, collections::BTreeMap as HashMap, vec::Vec},
     core::{array, fmt::Debug, iter::Sum, mem, ops},
 };
 
