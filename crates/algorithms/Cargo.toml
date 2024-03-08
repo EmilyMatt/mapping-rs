@@ -38,7 +38,7 @@ simple_logger = { version = "4.3.3", default-features = false, features = ["time
 
 [build-dependencies]
 bindgen = { version = "0.69.4", default-features = false, optional = true }
-cc = { version = "1.0.88", default-features = false, optional = true }
+cc = { version = "1.0.90", default-features = false, optional = true }
 
 [[example]]
 name = "visualized_icp_2d"
