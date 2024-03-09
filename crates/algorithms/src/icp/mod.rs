@@ -172,10 +172,9 @@ where
 }
 
 #[cfg(feature = "pregenerated")]
-macro_rules! impl_icp_for_dimensions {
-    ($nd:expr, $rot:expr, $precision:expr) => {
+macro_rules! impl_icp_algorithm {
+    ($precision:expr, $nd:expr, $rot_type:expr) => {
         ::paste::paste! {
-            ::paste::paste! {
             #[doc = "An ICP algorithm in " $nd "D space."]
             #[doc = "# Arguments"]
             #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the source point cloud."]
@@ -186,30 +185,29 @@ macro_rules! impl_icp_for_dimensions {
             #[doc = "An [`ICPSuccess`](super::ICPSuccess) struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
             #[doc = ""]
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
-            pub fn [<icp_ $nd d_ $precision>](points_a: &[nalgebra::Point<$precision, $nd>],
+            pub fn [<icp_$nd d>](points_a: &[nalgebra::Point<$precision, $nd>],
                 points_b: &[nalgebra::Point<$precision, $nd>],
-                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, nalgebra::$rot <$precision>, $nd>, &'static str> {
+                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, nalgebra::$rot_type<$precision>, $nd>, &'static str> {
                     super::icp(points_a, points_b, config)
             }
         }
-        }
     };
 
-    ($rot_type:expr, $nd:expr) => {
+    ($precision:expr, doc $doc:tt) => {
         ::paste::paste! {
-            #[doc = "A " $nd "D implementation of a basic ICP algorithm"]
-            pub mod [< $rot_type:lower >] {
-                impl_icp_for_dimensions!($nd, $rot_type, f32);
-                impl_icp_for_dimensions!($nd, $rot_type, f64);
+            #[doc = "A " $doc "-precision implementation of a basic ICP algorithm"]
+            pub mod $precision {
+                impl_icp_algorithm!($precision, 2, UnitComplex);
+                impl_icp_algorithm!($precision, 3, UnitQuaternion);
             }
         }
-    };
+    }
 }
 
 #[cfg(feature = "pregenerated")]
-impl_icp_for_dimensions!(UnitComplex, 2);
+impl_icp_algorithm!(f32, doc single);
 #[cfg(feature = "pregenerated")]
-impl_icp_for_dimensions!(UnitQuaternion, 3);
+impl_icp_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
@@ -223,20 +221,20 @@ mod tests {
         let points = generate_point_cloud(10, -15.0..=15.0);
         let config_builder = ICPConfiguration::builder();
 
-        let res = super::unitcomplex::icp_2d_f32(&[], points.as_slice(), config_builder.build());
+        let res = super::f32::icp_2d(&[], points.as_slice(), config_builder.build());
         assert_eq!(res.unwrap_err(), "Source point cloud is empty");
 
-        let res = super::unitcomplex::icp_2d_f32(points.as_slice(), &[], config_builder.build());
+        let res = super::f32::icp_2d(points.as_slice(), &[], config_builder.build());
         assert_eq!(res.unwrap_err(), "Target point cloud is empty");
 
-        let res = super::unitcomplex::icp_2d_f32(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_max_iterations(0).build(),
         );
         assert_eq!(res.unwrap_err(), "Must have more than one iteration");
 
-        let res = super::unitcomplex::icp_2d_f32(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_mse_interval_threshold(0.0).build(),
@@ -246,7 +244,7 @@ mod tests {
             "MSE interval threshold too low, convergence impossible"
         );
 
-        let res = super::unitcomplex::icp_2d_f32(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points.as_slice(),
             config_builder
@@ -267,7 +265,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::unitcomplex::icp_2d_f32(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -287,7 +285,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::unitcomplex::icp_2d_f32(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -305,7 +303,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(nalgebra::Vector2::new(-0.8, 1.3), 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::unitcomplex::icp_2d_f32(
+        let res = super::f32::icp_2d(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -326,7 +324,7 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::unitquaternion::icp_3d_f32(
+        let res = super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -346,7 +344,7 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::unitquaternion::icp_3d_f32(
+        let res = super::f32::icp_3d(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
