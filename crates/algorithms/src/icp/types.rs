@@ -1,17 +1,13 @@
-use crate::{types::IsometryAbstraction, Debug};
-use nalgebra::RealField;
-use num_traits::Float;
+use crate::Debug;
+use nalgebra::{AbstractRotation, Isometry, Scalar};
+use num_traits::AsPrimitive;
 
 /// Contains the resulting transform, the resulting Mean Squared Error, and the number of iterations taken for a successful ICP convergence.
 #[derive(Debug)]
-pub struct ICPSuccess<T, const N: usize, O>
-where
-    T: Default + RealField,
-    O: IsometryAbstraction<T, N>,
-{
+pub struct ICPSuccess<T: Scalar, R: AbstractRotation<T, N>, const N: usize> {
     /// An isometric matrix, containing the translation and rotation between the point sets.
-    /// In 2D space, [`IsometryAbstraction::IsometryType`] would be a [`nalgebra::UnitComplex<T>`](nalgebra::UnitComplex), in 3D space it would be a [`nalgebra::UnitQuaternion<T>`](nalgebra::UnitQuaternion).
-    pub transform: O::IsometryType,
+    /// In 2D space, its rotation component would be a [`nalgebra::UnitComplex<T>`](nalgebra::UnitComplex), in 3D space it would be a [`nalgebra::UnitQuaternion<T>`](nalgebra::UnitQuaternion).
+    pub transform: Isometry<T, R, N>,
     /// Mean Squared Error, this is the distances between each point in `points_a` and its corresponding point in `points_b`,
     /// This can be used to determine whether the ICP converged correctly, or simply on its local minimum.
     pub mse: T,
@@ -32,7 +28,10 @@ pub struct ICPConfiguration<T> {
     pub(crate) mse_interval_threshold: T,
 }
 
-impl<T: Float> ICPConfiguration<T> {
+impl<T: 'static + Copy> ICPConfiguration<T>
+where
+    f32: AsPrimitive<T>,
+{
     /// Returns a builder for the configuration struct.
     ///
     /// # Returns
@@ -43,7 +42,7 @@ impl<T: Float> ICPConfiguration<T> {
                 use_kd_tree: false,
                 max_iterations: 20,
                 mse_absolute_threshold: None,
-                mse_interval_threshold: T::from(0.01).unwrap(),
+                mse_interval_threshold: 0.01.as_(),
             },
         }
     }
@@ -55,7 +54,7 @@ pub struct ICPConfigurationBuilder<T> {
     _internal: ICPConfiguration<T>,
 }
 
-impl<T: Float> ICPConfigurationBuilder<T> {
+impl<T: Copy> ICPConfigurationBuilder<T> {
     /// Enables usage of a KD Tree structure to find nearest neighbours, or use a native On^2 search,
     /// a KD Tree becomes increasingly effective with point cloud growth.
     ///

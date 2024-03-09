@@ -1,8 +1,8 @@
 use crate::{
-    kd_tree::KDTree, types::IsometryAbstraction, utils::point_cloud::find_closest_point, Sum, Vec,
+    kd_tree::KDTree, types::SVDIsometry, utils::point_cloud::find_closest_point, Sum, Vec,
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
-use nalgebra::{ComplexField, Point, RealField};
+use nalgebra::{AbstractRotation, ComplexField, Isometry, Point, RealField, SimdRealField};
 use num_traits::{AsPrimitive, Bounded};
 use types::{ICPConfiguration, ICPSuccess};
 
@@ -18,17 +18,17 @@ pub mod types;
 /// * `transformed_points`: A mutable slice of [`Point<T, N>`], representing the transformed source point cloud, this will be transformed further by the function.
 /// * `points_b`: A slice of [`Point<T, N>`], representing the target point cloud.
 /// * `target_points_tree`: An [`Option<KDTree<T, N>>`], this is usually created by the ICP function if `config.use_kd` is `true`
-/// * `current_transform`: A mutable reference to the [`IsometryAbstraction<T, N>::IsometryType`] used to transform the source points, this will gradually change with each iteration.
+/// * `current_transform`: A mutable reference to the [`Isometry`] used to transform the source points, this will gradually change with each iteration.
 /// * `current_mse`: A mutable reference of a `T`, this will be updated by the function to the latest MSE, which is then used by the ICP function to determine an exit strategy.
 /// * `config`: a reference to an [`ICPConfiguration`], specifying the behaviour of the algorithm.
 ///
 /// # Generics
-/// * `T`: Either [`prim@f32`] or [`prim@f64`]
-/// * `N`: a usize, either `2` or `3`
-/// * `O`: An ['IsometryAbstraction'] of `T` and `N`
+/// * `T`: Either [`prim@f32`] or [`prim@f64`].
+/// * `R`: Either a [`UnitComplex`](nalgebra::UnitComplex) or a [`UnitQuaternion`](nalgebra::UnitQuaternion) of `T`, depednding on `N`.
+/// * `N`: a usize, either `2` or `3`.
 ///
 /// # Returns
-/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with a `T` precision, or an error message explaining what went wrong.
+/// An [`ICPSuccess`] struct with an [`Isometry`](Isometry) transform with a `T` precision, or an error message explaining what went wrong.
 ///
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 
@@ -36,19 +36,19 @@ pub mod types;
     feature = "tracing",
     tracing::instrument("ICP Algorithm Iteration", skip_all)
 )]
-pub fn icp_iteration<T, const N: usize, O>(
+pub fn icp_iteration<T, R, const N: usize>(
     points_a: &[Point<T, N>],
     transformed_points: &mut [Point<T, N>],
     points_b: &[Point<T, N>],
     target_points_tree: Option<&KDTree<T, N>>,
-    current_transform: &mut O::IsometryType,
+    current_transform: &mut Isometry<T, R, N>,
     current_mse: &mut T,
     config: &ICPConfiguration<T>,
 ) -> Result<T, (Point<T, N>, Point<T, N>)>
 where
-    T: Bounded + Copy + Default + RealField + Sum,
+    T: Bounded + Copy + Default + RealField + Sum + SimdRealField,
     usize: AsPrimitive<T>,
-    O: IsometryAbstraction<T, N>,
+    R: AbstractRotation<T, N> + SVDIsometry<T, N>,
 {
     let closest_points = transformed_points
         .iter()
@@ -64,10 +64,10 @@ where
         get_rotation_matrix_and_centeroids(transformed_points, &closest_points);
     log::trace!("Generated covariance matrix");
 
-    *current_transform = O::update_transform(current_transform, mean_a, mean_b, &rot_mat);
+    *current_transform = R::update_transform(current_transform, mean_a, mean_b, &rot_mat);
 
     for (idx, point_a) in points_a.iter().enumerate() {
-        transformed_points[idx] = O::transform_point(current_transform, point_a)
+        transformed_points[idx] = current_transform.transform_point(point_a);
     }
     let new_mse = calculate_mse(transformed_points, closest_points.as_slice());
     log::trace!("New MSE: {new_mse}");
@@ -95,26 +95,26 @@ where
 ///
 /// # Generics
 /// * `T`: Either [`prim@f32`] or [`prim@f64`]
+/// * `R`: An ['SVDIsometry'] of `T` and `N`
 /// * `N`: a usize, either `2` or `3`
-/// * `O`: An ['IsometryAbstraction'] of `T` and `N`
 ///
 /// # Returns
-/// An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with a `T` precision, or an error message explaining what went wrong.
+/// An [`ICPSuccess`] struct with an [`Isometry`](Isometry) transform with a `T` precision, or an error message explaining what went wrong.
 ///
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Full ICP Algorithm", skip_all)
 )]
-fn icp<T, const N: usize, O>(
+fn icp<T, R, const N: usize>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     config: ICPConfiguration<T>,
-) -> Result<ICPSuccess<T, N, O>, &'static str>
+) -> Result<ICPSuccess<T, R, N>, &'static str>
 where
     T: Bounded + Copy + Default + RealField + Sum,
     usize: AsPrimitive<T>,
-    O: IsometryAbstraction<T, N>,
+    R: SVDIsometry<T, N>,
 {
     if points_a.is_empty() {
         return Err("Source point cloud is empty");
@@ -142,7 +142,7 @@ where
 
     let mut points_to_transform = points_a.to_vec();
     let target_points_tree = config.use_kd_tree.then_some(KDTree::from(points_b));
-    let mut current_transform = O::identity();
+    let mut current_transform = Isometry::identity();
     let mut current_mse = <T as Bounded>::max_value();
 
     for iteration_num in 0..config.max_iterations {
@@ -150,7 +150,7 @@ where
             "Running iteration number {iteration_num}/{}",
             config.max_iterations
         );
-        if let Ok(mse) = icp_iteration::<T, N, O>(
+        if let Ok(mse) = icp_iteration::<T, R, N>(
             points_a,
             &mut points_to_transform,
             points_b,
@@ -172,9 +172,10 @@ where
 }
 
 #[cfg(feature = "pregenerated")]
-macro_rules! impl_icp_algorithm {
-    ($precision:expr, $nd:expr) => {
+macro_rules! impl_icp_for_dimensions {
+    ($nd:expr, $rot:expr, $precision:expr) => {
         ::paste::paste! {
+            ::paste::paste! {
             #[doc = "An ICP algorithm in " $nd "D space."]
             #[doc = "# Arguments"]
             #[doc = "* `points_a`: A slice of [`Point<" $precision ", " $nd ">`](super::Point), representing the source point cloud."]
@@ -185,29 +186,30 @@ macro_rules! impl_icp_algorithm {
             #[doc = "An [`ICPSuccess`](super::ICPSuccess) struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
             #[doc = ""]
             #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
-            pub fn [<icp_$nd d>](points_a: &[nalgebra::Point<$precision, $nd>],
+            pub fn [<icp_ $nd d_ $precision>](points_a: &[nalgebra::Point<$precision, $nd>],
                 points_b: &[nalgebra::Point<$precision, $nd>],
-                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, $nd, nalgebra::Const<$nd>>, &'static str> {
+                config: super::types::ICPConfiguration<$precision>) -> Result<super::ICPSuccess<$precision, nalgebra::$rot <$precision>, $nd>, &'static str> {
                     super::icp(points_a, points_b, config)
             }
         }
+        }
     };
 
-    ($precision:expr, doc $doc:tt) => {
+    ($rot_type:expr, $nd:expr) => {
         ::paste::paste! {
-            #[doc = "A " $doc "-precision implementation of a basic ICP algorithm"]
-            pub mod $precision {
-                impl_icp_algorithm!($precision, 2);
-                impl_icp_algorithm!($precision, 3);
+            #[doc = "A " $nd "D implementation of a basic ICP algorithm"]
+            pub mod [< $rot_type:lower >] {
+                impl_icp_for_dimensions!($nd, $rot_type, f32);
+                impl_icp_for_dimensions!($nd, $rot_type, f64);
             }
         }
-    }
+    };
 }
 
 #[cfg(feature = "pregenerated")]
-impl_icp_algorithm!(f32, doc single);
+impl_icp_for_dimensions!(UnitComplex, 2);
 #[cfg(feature = "pregenerated")]
-impl_icp_algorithm!(f64, doc double);
+impl_icp_for_dimensions!(UnitQuaternion, 3);
 
 #[cfg(test)]
 mod tests {
@@ -221,20 +223,20 @@ mod tests {
         let points = generate_point_cloud(10, -15.0..=15.0);
         let config_builder = ICPConfiguration::builder();
 
-        let res = super::f32::icp_2d(&[], points.as_slice(), config_builder.build());
+        let res = super::unitcomplex::icp_2d_f32(&[], points.as_slice(), config_builder.build());
         assert_eq!(res.unwrap_err(), "Source point cloud is empty");
 
-        let res = super::f32::icp_2d(points.as_slice(), &[], config_builder.build());
+        let res = super::unitcomplex::icp_2d_f32(points.as_slice(), &[], config_builder.build());
         assert_eq!(res.unwrap_err(), "Target point cloud is empty");
 
-        let res = super::f32::icp_2d(
+        let res = super::unitcomplex::icp_2d_f32(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_max_iterations(0).build(),
         );
         assert_eq!(res.unwrap_err(), "Must have more than one iteration");
 
-        let res = super::f32::icp_2d(
+        let res = super::unitcomplex::icp_2d_f32(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_mse_interval_threshold(0.0).build(),
@@ -244,7 +246,7 @@ mod tests {
             "MSE interval threshold too low, convergence impossible"
         );
 
-        let res = super::f32::icp_2d(
+        let res = super::unitcomplex::icp_2d_f32(
             points.as_slice(),
             points.as_slice(),
             config_builder
@@ -265,7 +267,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::f32::icp_2d(
+        let res = super::unitcomplex::icp_2d_f32(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -285,7 +287,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::f32::icp_2d(
+        let res = super::unitcomplex::icp_2d_f32(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -303,7 +305,7 @@ mod tests {
         let isom = nalgebra::Isometry2::new(nalgebra::Vector2::new(-0.8, 1.3), 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::f32::icp_2d(
+        let res = super::unitcomplex::icp_2d_f32(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -324,7 +326,7 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::f32::icp_3d(
+        let res = super::unitquaternion::icp_3d_f32(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -344,7 +346,7 @@ mod tests {
         let isom = nalgebra::Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = super::f32::icp_3d(
+        let res = super::unitquaternion::icp_3d_f32(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
