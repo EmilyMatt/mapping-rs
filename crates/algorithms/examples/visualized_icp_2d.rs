@@ -6,7 +6,7 @@ use mapping_algorithms_rs::{
         calculate_point_cloud_center, generate_point_cloud, transform_point_cloud,
     },
 };
-use nalgebra::{Const, Isometry2, Point2, UnitComplex, Vector2};
+use nalgebra::{Isometry2, Point2, UnitComplex, Vector2};
 use rand::Rng;
 
 #[derive(Copy, Clone)]
@@ -84,7 +84,7 @@ impl eframe::App for VisualizerApp {
                 log::info!("Running iteration");
 
                 self.current_iteration += 1;
-                match icp_iteration::<_, 2, Const<2>>(
+                match icp_iteration::<_, UnitComplex<_>, 2>(
                     &self.points_a,
                     &mut self.transformed_points,
                     &self.points_b,
