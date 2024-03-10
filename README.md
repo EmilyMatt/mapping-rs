@@ -44,6 +44,9 @@ via the [tracing](https://github.com/tokio-rs/tracing) crate.
 
 To use it, simply enable the `tracing` feature in your Cargo.toml, 
 and use your choice of a subscriber.
+Note that different functions have different `tracing::Level`s.
+
+Since each and every function is instrumented, be sure to remember the overhead for enabling tracing.
 
 ## pregenerated
 This crate heavily relies on generics, and therefore suffers performance penalties in `debug`, (but is _very_ fast in `release`).
@@ -64,7 +67,7 @@ Code example:
 let res = icp::icp::<f32, 2>(...);
 
 // Do this(Runs much faster):
-let res = icp::f32::icp_2d(...);
+let res = icp::single_precision::icp_2d(...);
 ```
 
 The `pregenerated` macro is enabled by default.

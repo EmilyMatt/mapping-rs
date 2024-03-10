@@ -22,7 +22,10 @@ use num_traits::{AsPrimitive, NumOps, Zero};
 /// # Returns
 /// A [`T`], representing the sum of all squared distances between each point in `transformed_points_a` and its corresponding point in `points_b`.
 #[inline]
-#[cfg_attr(feature = "tracing", tracing::instrument("Calculate MSE", skip_all))]
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Calculate MSE", skip_all, level = "debug")
+)]
 pub(crate) fn calculate_mse<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],
     closest_points_in_b: &[Point<T, N>],
@@ -54,7 +57,7 @@ where
 #[inline]
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Calculate Outer Product", skip_all)
+    tracing::instrument("Calculate Outer Product", skip_all, level = "trace")
 )]
 pub(crate) fn outer_product<T, const N: usize>(
     point_a: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
@@ -80,7 +83,7 @@ where
 ///
 /// # Returns
 /// A tuple of
-/// * [`SameSizeMat<T, N>`], representing the covariance matrix of the outer products of the centered point clouds.
+/// * [`SameSizeMat`], representing the covariance matrix of the outer products of the centered point clouds.
 /// * [`Point`], representing the `points_a` centeroid.
 /// * [`Point`], representing the `closest_points` centeroid.
 ///
@@ -89,7 +92,7 @@ where
 #[inline]
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Estimate Transform And Means", skip_all)
+    tracing::instrument("Estimate Transform And Means", skip_all, level = "debug")
 )]
 pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],

@@ -1,5 +1,5 @@
 use crate::{mem, utils::calculate_polygon_extents, Vec};
-use nalgebra::{Point, Point2, RealField, Vector2};
+use nalgebra::{Point2, RealField, Vector2};
 use num_traits::Bounded;
 
 /// Check whether a specified ray(with origin at 0) collides with another ray.
@@ -17,7 +17,7 @@ use num_traits::Bounded;
 #[inline]
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Does Ray Intersect Polygon", skip_all)
+    tracing::instrument("Does Ray Intersect Polygon", skip_all, level = "trace")
 )]
 pub fn does_ray_intersect<T>(
     point: &Vector2<T>,
@@ -68,7 +68,11 @@ where
 /// A usize, representing the number of intersections.
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Get Point's Number Of Intersections With Polygon", skip_all)
+    tracing::instrument(
+        "Get Point's Number Of Intersections With Polygon",
+        skip_all,
+        level = "debug"
+    )
 )]
 pub fn get_point_intersections_with_polygon<T>(
     point: &Point2<T>,
@@ -101,7 +105,7 @@ where
 /// A boolean value, specifying if the point is within the polygon.
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Is Point In Polygon", skip_all)
+    tracing::instrument("Is Point In Polygon", skip_all, level = "debug")
 )]
 pub fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
 where
@@ -115,8 +119,8 @@ where
 /// But pre-calculates the polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case.
 ///
 /// # Arguments
-/// * `points`: A slice of [`Point`].
-/// * `polygon`: A slice of [`Point`]s, representing the vertices.
+/// * `points`: A slice of [`Point2`].
+/// * `polygon`: A slice of [`Point2`]s, representing the vertices.
 ///
 /// # Generics:
 /// * `T`: Either an [`prim@f32`] or [`prim@f64`]
@@ -125,12 +129,9 @@ where
 /// A [`Vec`] of booleans, with the same size as `points`, containing the result for each point.
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Are Points In Polygon", skip_all)
+    tracing::instrument("Are Points In Polygon", skip_all, level = "info")
 )]
-pub fn are_multiple_points_in_polygon<T>(
-    points: &[Point<T, 2>],
-    polygon: &[Point<T, 2>],
-) -> Vec<bool>
+pub fn are_multiple_points_in_polygon<T>(points: &[Point2<T>], polygon: &[Point2<T>]) -> Vec<bool>
 where
     T: Bounded + Copy + RealField,
 {
@@ -160,42 +161,45 @@ macro_rules! impl_p_i_p_algorithm {
         ::paste::paste! {
             #[doc = "A " $doc "-precision implementation of a point-in-polygon algorithm."]
             pub mod [<$doc _precision>] {
+                use nalgebra::{Point2, Vector2};
+                use crate::Vec;
+
                 #[doc = "Check whether a specified ray(with origin 0) collides with another ray."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
-                #[doc = "* `ray`: A reference to a [`Vector2`](nalgebra::Vector2), representing a ray, whose origin is [0.0, 0.0]."]
-                #[doc = "* `vertex1`: A [`Point2`](nalgebra::Point2) representing the first vertex of the other ray."]
-                #[doc = "* `vertex2`: A [`Point2`](nalgebra::Point2) representing the second vertex of the other ray."]
+                #[doc = "* `ray`: A reference to a [`Vector2`], representing a ray, whose origin is [0.0, 0.0]."]
+                #[doc = "* `vertex1`: A [`Point2`] representing the first vertex of the other ray."]
+                #[doc = "* `vertex2`: A [`Point2`] representing the second vertex of the other ray."]
                 #[doc = ""]
                 #[doc = "# Returns"]
                 #[doc = "A `bool`, specifying whether the rays intersect"]
-                pub fn does_ray_intersect(ray: &nalgebra::Vector2<$prec>, vertex1: nalgebra::Point2<$prec>, vertex2: nalgebra::Point2<$prec>) -> bool {
+                pub fn does_ray_intersect(ray: &Vector2<$prec>, vertex1: Point2<$prec>, vertex2: Point2<$prec>) -> bool {
                     super::does_ray_intersect(ray, vertex1, vertex2)
                 }
 
                 #[doc = "Get all intersections of this point, with this polygon."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
-                #[doc = "* `point`: A reference to a [`Point2`](nalgebra::Point2)"]
-                #[doc = "* `polygon`: A slice of [`Point2`](nalgebra::Point2)s representing the vertices."]
+                #[doc = "* `point`: A reference to a [`Point2`]"]
+                #[doc = "* `polygon`: A slice of [`Point2`]s representing the vertices."]
                 #[doc = ""]
                 #[doc = "# Returns"]
                 #[doc = "A usize, representing the number of intersections."]
                 pub fn get_point_intersections_with_polygon(
-                        point: &nalgebra::Point2<$prec>,
-                        polygon: &[nalgebra::Point2<$prec>],
-                    ) -> crate::Vec<nalgebra::Point2<$prec>> {
+                        point: &Point2<$prec>,
+                        polygon: &[Point2<$prec>],
+                    ) -> Vec<Point2<$prec>> {
                     super::get_point_intersections_with_polygon(point, polygon)
                 }
 
                 #[doc = "Check if the provided point is within the provided polygon."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
-                #[doc = "* `point`: A reference to a [`Point2`](nalgebra::Point2)."]
-                #[doc = "* `polygon`: A slice of [`Point2`](nalgebra::Point2)s representing the vertices."]
+                #[doc = "* `point`: A reference to a [`Point2`]."]
+                #[doc = "* `polygon`: A slice of [`Point2`]s representing the vertices."]
                 #[doc = "# Returns"]
                 #[doc = "A boolean value, specifying if the point is within the polygon."]
-                pub fn is_single_point_in_polygon(point: &nalgebra::Point2<$prec>, polygon: &[nalgebra::Point2<$prec>]) -> bool {
+                pub fn is_single_point_in_polygon(point: &Point2<$prec>, polygon: &[Point2<$prec>]) -> bool {
                     super::is_single_point_in_polygon(point, polygon)
                 }
 
@@ -203,15 +207,15 @@ macro_rules! impl_p_i_p_algorithm {
                 #[doc = "But pre-calculates the polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
-                #[doc = "* `points`: A slice of [`Point2`](nalgebra::Point2)."]
-                #[doc = "* `polygon`: A slice of [`Point2`](nalgebra::Point2)s, representing the vertices."]
+                #[doc = "* `points`: A slice of [`Point2`]."]
+                #[doc = "* `polygon`: A slice of [`Point2`]s, representing the vertices."]
                 #[doc = ""]
                 #[doc = "# Returns"]
                 #[doc = "A [`Vec`](crate::Vec) of booleans, with the same size as `points`, containing the result for each point."]
                 pub fn are_multiple_points_in_polygon(
-                    points: &[nalgebra::Point2<$prec>],
-                    polygon: &[nalgebra::Point2<$prec>],
-                ) -> crate::Vec<bool> {
+                    points: &[Point2<$prec>],
+                    polygon: &[Point2<$prec>],
+                ) -> Vec<bool> {
                     super::are_multiple_points_in_polygon(points, polygon)
                 }
             }

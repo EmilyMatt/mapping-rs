@@ -38,6 +38,10 @@ where
 {
     type RotType = UnitComplex<T>;
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Update 2D Transform Using SVD", skip_all, level = "debug")
+    )]
     fn update_transform(
         old_transform: &Isometry<T, Self::RotType, 2>,
         mean_a: Point<T, 2>,
@@ -59,6 +63,10 @@ where
 {
     type RotType = UnitQuaternion<T>;
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Update 3D Transform Using SVD", skip_all, level = "debug")
+    )]
     fn update_transform(
         old_transform: &Isometry<T, Self::RotType, 3>,
         mean_a: Point<T, 3>,

@@ -49,7 +49,7 @@ struct VisualizerApp {
 
 impl VisualizerApp {
     fn new(config: RunConfiguration) -> Self {
-        let points_a = generate_point_cloud(config.num_points, -1.0..=1.0);
+        let points_a = generate_point_cloud(config.num_points, std::array::from_fn(|_| -1.0..=1.0));
         let points_b = transform_point_cloud(
             &points_a,
             Isometry2::from_parts(

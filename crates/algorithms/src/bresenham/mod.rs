@@ -82,14 +82,14 @@ macro_rules! impl_bresenham_algorithm {
         ::paste::paste! {
             #[doc = "Bresenham line drawing algorithm, with " $doc "-precision, in " $nd "D space."]
             #[doc = "# Arguments"]
-            #[doc = "* `start_point`: A [`Point<" $precision ", " $nd ">`](nalgebra::Point), representing the starting point of the line."]
-            #[doc = "* `end_point`: A [`Point<" $precision ", " $nd ">`](nalgebra::Point), representing the ending point of the line."]
+            #[doc = "* `start_point`: A [`Point`], representing the starting point of the line."]
+            #[doc = "* `end_point`: A [`Point`], representing the ending point of the line."]
             #[doc = ""]
             #[doc = "# Returns"]
-            #[doc = "A [`Vec`] of [`Point<" $precision ", " $out ">`](nalgebra::Point)s, representing the drawn line, including the starting point and ending point."]
+            #[doc = "A [`Vec`] of [`Point`]s, representing the drawn line, including the starting point and ending point."]
             #[doc = ""]
             #[doc = "NOTE: The returned [`Vec`] will always go from the starting point to the ending point, regardless of direction in axis."]
-            pub fn [<plot_$nd d_$out _bresenham_line>](start_point: nalgebra::Point<$precision, $nd>, end_point: nalgebra::Point<$precision, $nd>) -> crate::Vec<nalgebra::Point<$out, $nd>> {
+            pub fn [<plot_$nd d_$out _bresenham_line>](start_point: Point<$precision, $nd>, end_point: Point<$precision, $nd>) -> Vec<Point<$out, $nd>> {
                     super::plot_bresenham_line::<$precision, $out, $nd>(start_point, end_point)
             }
         }
@@ -112,6 +112,9 @@ macro_rules! impl_bresenham_algorithm {
         ::paste::paste! {
             #[doc = "A " $doc "-precision implementation of a bresenham line-drawing algorithm."]
             pub mod [<$doc _precision>] {
+                use nalgebra::Point;
+                use crate::Vec;
+
                 impl_bresenham_algorithm!($prec, doc $doc, 2);
                 impl_bresenham_algorithm!($prec, doc $doc, 3);
             }
