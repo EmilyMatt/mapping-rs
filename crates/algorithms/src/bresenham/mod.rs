@@ -1,6 +1,6 @@
 use crate::{array, Vec};
-use nalgebra::{ComplexField, Point, Scalar};
-use num_traits::{AsPrimitive, Float};
+use nalgebra::{ComplexField, Point, RealField, Scalar};
+use num_traits::AsPrimitive;
 
 /// This is a free-form version of the bresenham line-drawing algorithm,
 /// allowing for any input, any output, and N dimensions, under the constraints of the function.
@@ -26,10 +26,12 @@ pub fn plot_bresenham_line<F, T, const N: usize>(
     end_point: Point<F, N>,
 ) -> Vec<Point<T, N>>
 where
-    F: ComplexField + Float + AsPrimitive<usize> + AsPrimitive<T>,
+    F: RealField + AsPrimitive<usize> + AsPrimitive<T>,
+    usize: AsPrimitive<F>,
     T: Scalar + Copy,
 {
-    let deltas: [F; N] = array::from_fn(|idx| <F as Float>::abs(end_point[idx] - start_point[idx]));
+    let deltas: [F; N] =
+        array::from_fn(|idx| <F as ComplexField>::abs(end_point[idx] - start_point[idx]));
     let steps: [F; N] = array::from_fn(|idx| {
         if end_point[idx] > start_point[idx] {
             F::one()
@@ -49,8 +51,8 @@ where
     let mut points = Vec::with_capacity(<F as AsPrimitive<usize>>::as_(
         deltas[primary_axis] + F::one(),
     ));
-    while <F as Float>::abs(current_point[primary_axis] - end_point[primary_axis])
-        > Float::epsilon()
+    while <F as ComplexField>::abs(current_point[primary_axis] - end_point[primary_axis])
+        > F::default_epsilon()
     {
         points.push(current_point.map(|element| element.as_()));
 
@@ -61,7 +63,7 @@ where
 
             errors[axis] += deltas[axis] / deltas[primary_axis];
 
-            if errors[axis] >= F::one() - (F::one() / F::from_usize(N + 1).unwrap()) {
+            if errors[axis] >= F::one() - (F::one() / (N + 1).as_()) {
                 current_point[axis] += steps[axis];
                 errors[axis] -= F::one();
             }

@@ -84,7 +84,7 @@ impl eframe::App for VisualizerApp {
                 log::info!("Running iteration");
 
                 self.current_iteration += 1;
-                match icp_iteration::<_, UnitComplex<_>, 2>(
+                match icp_iteration::<_, 2>(
                     &self.points_a,
                     &mut self.transformed_points,
                     &self.points_b,

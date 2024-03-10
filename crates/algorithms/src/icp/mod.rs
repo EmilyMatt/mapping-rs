@@ -1,8 +1,11 @@
 use crate::{
-    kd_tree::KDTree, types::SVDIsometry, utils::point_cloud::find_closest_point, Sum, Vec,
+    kd_tree::KDTree,
+    types::{AbstractIsometry, IsometryAbstractor},
+    utils::point_cloud::find_closest_point,
+    Sum, Vec,
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
-use nalgebra::{AbstractRotation, ComplexField, Isometry, Point, RealField, SimdRealField};
+use nalgebra::{ComplexField, Isometry, Point, RealField, SimdRealField};
 use num_traits::{AsPrimitive, Bounded};
 use types::{ICPConfiguration, ICPSuccess};
 
@@ -28,7 +31,7 @@ pub mod types;
 /// * `N`: a usize, either `2` or `3`.
 ///
 /// # Returns
-/// An [`ICPSuccess`] struct with an [`Isometry`](Isometry) transform with a `T` precision, or an error message explaining what went wrong.
+/// An [`ICPSuccess`] struct with an [`Isometry`] transform with a `T` precision, or an error message explaining what went wrong.
 ///
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 
@@ -36,19 +39,23 @@ pub mod types;
     feature = "tracing",
     tracing::instrument("ICP Algorithm Iteration", skip_all)
 )]
-pub fn icp_iteration<T, R, const N: usize>(
+pub fn icp_iteration<T, const N: usize>(
     points_a: &[Point<T, N>],
     transformed_points: &mut [Point<T, N>],
     points_b: &[Point<T, N>],
     target_points_tree: Option<&KDTree<T, N>>,
-    current_transform: &mut Isometry<T, R, N>,
+    current_transform: &mut Isometry<
+        T,
+        <IsometryAbstractor<T, N> as AbstractIsometry<T, N>>::RotType,
+        N,
+    >,
     current_mse: &mut T,
     config: &ICPConfiguration<T>,
 ) -> Result<T, (Point<T, N>, Point<T, N>)>
 where
     T: Bounded + Copy + Default + RealField + Sum + SimdRealField,
     usize: AsPrimitive<T>,
-    R: AbstractRotation<T, N> + SVDIsometry<T, N>,
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
     let closest_points = transformed_points
         .iter()
@@ -64,7 +71,8 @@ where
         get_rotation_matrix_and_centeroids(transformed_points, &closest_points);
     log::trace!("Generated covariance matrix");
 
-    *current_transform = R::update_transform(current_transform, mean_a, mean_b, &rot_mat);
+    *current_transform =
+        IsometryAbstractor::<T, N>::update_transform(current_transform, mean_a, mean_b, &rot_mat);
 
     for (idx, point_a) in points_a.iter().enumerate() {
         transformed_points[idx] = current_transform.transform_point(point_a);
@@ -99,22 +107,25 @@ where
 /// * `N`: a usize, either `2` or `3`
 ///
 /// # Returns
-/// An [`ICPSuccess`] struct with an [`Isometry`](Isometry) transform with a `T` precision, or an error message explaining what went wrong.
+/// An [`ICPSuccess`] struct with an [`Isometry`] transform with a `T` precision, or an error message explaining what went wrong.
 ///
 /// [^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Full ICP Algorithm", skip_all)
 )]
-fn icp<T, R, const N: usize>(
+pub fn icp<T, const N: usize>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     config: ICPConfiguration<T>,
-) -> Result<ICPSuccess<T, R, N>, &'static str>
+) -> Result<
+    ICPSuccess<T, <IsometryAbstractor<T, N> as AbstractIsometry<T, N>>::RotType, N>,
+    &'static str,
+>
 where
     T: Bounded + Copy + Default + RealField + Sum,
     usize: AsPrimitive<T>,
-    R: SVDIsometry<T, N>,
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
     if points_a.is_empty() {
         return Err("Source point cloud is empty");
@@ -150,7 +161,7 @@ where
             "Running iteration number {iteration_num}/{}",
             config.max_iterations
         );
-        if let Ok(mse) = icp_iteration::<T, R, N>(
+        if let Ok(mse) = icp_iteration::<T, N>(
             points_a,
             &mut points_to_transform,
             points_b,
