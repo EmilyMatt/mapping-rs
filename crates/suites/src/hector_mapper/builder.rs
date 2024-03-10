@@ -1,160 +1,172 @@
 use super::{grid_map::GridMap, HectorMapper};
-use crate::PhantomData;
-use nalgebra::ComplexField;
+use crate::{array, PhantomData};
+use mapping_algorithms_rs::types::{AbstractIsometry, IsometryAbstractor};
+use nalgebra::{AbstractRotation, RealField};
+use num_traits::AsPrimitive;
 
-pub(super) mod odometry {
-    pub(crate) struct WantsOdometryConfig;
-    pub(crate) struct HasOdometryConfig;
+pub mod odometry {
+    pub struct WantsOdometryConfig;
+    pub struct HasOdometryConfig;
 }
 
-pub(super) mod dimensions {
-    pub(crate) struct WantsDimensions;
-    pub(crate) struct HasDimensions;
+pub mod dimensions {
+    pub struct WantsDimensions;
+    pub struct HasDimensions;
 }
 
-pub(super) mod resolution {
-    pub(crate) struct WantsResolution;
-    pub(crate) struct HasResolution;
-}
+pub type EmptyHectorMapperBuilder<T, const N: usize> =
+    HectorMapperBuilder<T, N, odometry::WantsOdometryConfig, dimensions::WantsDimensions>;
 
-pub(super) struct HectorMapperBuilder<
-    T: ComplexField,
+pub struct HectorMapperBuilder<
+    T: RealField,
     const N: usize,
     MaybeCalculatesOdometry,
     MaybeHasDimensions,
-    MaybeHasResolution,
-> {
+> where
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
+{
     pub(super) _internal: HectorMapper<T, N>,
+    pub(super) dimensions: [usize; N],
+    occupied_factor: T,
+    free_factor: T,
+    max_confidence: T,
+
+    // Types Phantom Data
     pub(super) _calculates_odometry: PhantomData<MaybeCalculatesOdometry>,
     pub(super) _has_dimensions: PhantomData<MaybeHasDimensions>,
-    pub(super) _has_resolution: PhantomData<MaybeHasResolution>,
 }
 
-impl<T, const N: usize>
-    HectorMapperBuilder<
-        T,
-        N,
-        odometry::WantsOdometryConfig,
-        dimensions::WantsDimensions,
-        resolution::WantsResolution,
-    >
+impl<T: Copy + Default + RealField, const N: usize>
+    HectorMapperBuilder<T, N, odometry::WantsOdometryConfig, dimensions::WantsDimensions>
 where
-    T: ComplexField,
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
     pub fn default() -> Self {
         Self {
             _internal: HectorMapper {
                 with_odometry: false,
-                grid_map: GridMap::create([0; N]),
-                resolution: T::zero(),
-                current_position: nalgebra::Point::default(),
-                current_angle: T::zero(),
+                grid_map: GridMap::create(&[0; N], T::zero(), T::zero(), T::zero()),
+                resolution: T::one(),
+                current_pose: Default::default(),
                 last_point_cloud: Vec::new(),
+                frame_index: 1,
             },
+            dimensions: [0; N],
+            occupied_factor: T::zero(),
+            free_factor: T::zero(),
+            max_confidence: T::zero(),
             _calculates_odometry: Default::default(),
             _has_dimensions: Default::default(),
-            _has_resolution: Default::default(),
         }
     }
 }
 
-impl<T: ComplexField, const N: usize, MaybeHasDimensions, MaybeHasResolution>
-    HectorMapperBuilder<T, N, odometry::WantsOdometryConfig, MaybeHasDimensions, MaybeHasResolution>
+impl<T: RealField, const N: usize, MaybeHasDimensions>
+    HectorMapperBuilder<T, N, odometry::WantsOdometryConfig, MaybeHasDimensions>
+where
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
     pub fn with_odometry_calculation(
         self,
         calculate_odometry: bool,
-    ) -> HectorMapperBuilder<
-        T,
-        N,
-        odometry::HasOdometryConfig,
-        MaybeHasDimensions,
-        MaybeHasResolution,
-    > {
+    ) -> HectorMapperBuilder<T, N, odometry::HasOdometryConfig, MaybeHasDimensions> {
         HectorMapperBuilder {
             _internal: HectorMapper {
                 with_odometry: calculate_odometry,
                 ..self._internal
             },
+            dimensions: self.dimensions,
+            occupied_factor: self.occupied_factor,
+            free_factor: self.free_factor,
+            max_confidence: self.max_confidence,
             _calculates_odometry: Default::default(),
             _has_dimensions: Default::default(),
-            _has_resolution: Default::default(),
         }
     }
 }
 
-impl<T: ComplexField, const N: usize, MaybeCalculatesOdometry, MaybeHasResolution>
-    HectorMapperBuilder<
-        T,
-        N,
-        MaybeCalculatesOdometry,
-        dimensions::WantsDimensions,
-        MaybeHasResolution,
-    >
+impl<T: RealField, const N: usize, MaybeCalculatesOdometry>
+    HectorMapperBuilder<T, N, MaybeCalculatesOdometry, dimensions::WantsDimensions>
+where
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
     pub fn with_dimensions(
         self,
         dimensions: [usize; N],
-    ) -> HectorMapperBuilder<
-        T,
-        N,
-        MaybeCalculatesOdometry,
-        dimensions::HasDimensions,
-        MaybeHasResolution,
-    > {
+    ) -> HectorMapperBuilder<T, N, MaybeCalculatesOdometry, dimensions::HasDimensions> {
         HectorMapperBuilder {
-            _internal: HectorMapper {
-                grid_map: GridMap::create(dimensions),
-                ..self._internal
-            },
+            _internal: HectorMapper { ..self._internal },
+            dimensions,
+            occupied_factor: self.occupied_factor,
+            free_factor: self.free_factor,
+            max_confidence: self.max_confidence,
             _calculates_odometry: Default::default(),
             _has_dimensions: Default::default(),
-            _has_resolution: Default::default(),
         }
     }
 }
 
-impl<T: ComplexField, const N: usize, MaybeCalculatesOdometry, MaybeHasDimensions>
-    HectorMapperBuilder<
-        T,
-        N,
-        MaybeCalculatesOdometry,
-        MaybeHasDimensions,
-        resolution::WantsResolution,
-    >
+impl<T: RealField, const N: usize, MaybeCalculatesOdometry, MaybeHasDimensions>
+    HectorMapperBuilder<T, N, MaybeCalculatesOdometry, MaybeHasDimensions>
+where
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
-    pub fn with_resolution(
-        self,
-        resolution: T,
-    ) -> HectorMapperBuilder<
-        T,
-        N,
-        MaybeCalculatesOdometry,
-        MaybeHasDimensions,
-        resolution::HasResolution,
-    > {
-        HectorMapperBuilder {
+    pub fn with_resolution(self, resolution: T) -> Self {
+        Self {
             _internal: HectorMapper {
                 resolution,
                 ..self._internal
             },
-            _calculates_odometry: Default::default(),
-            _has_dimensions: Default::default(),
-            _has_resolution: Default::default(),
+            ..self
+        }
+    }
+    pub fn with_occupied_confidence_factor(self, occupied_factor: T) -> Self {
+        Self {
+            occupied_factor,
+            ..self
+        }
+    }
+
+    pub fn with_free_confidence_factor(self, free_factor: T) -> Self {
+        Self {
+            free_factor,
+            ..self
+        }
+    }
+
+    pub fn with_maximum_confidence(self, max_confidence: T) -> Self {
+        Self {
+            max_confidence,
+            ..self
         }
     }
 }
 
-impl<T: ComplexField, const N: usize>
-    HectorMapperBuilder<
-        T,
-        N,
-        odometry::HasOdometryConfig,
-        dimensions::HasDimensions,
-        resolution::HasResolution,
-    >
+impl<T: Copy + Default + RealField, const N: usize>
+    HectorMapperBuilder<T, N, odometry::HasOdometryConfig, dimensions::HasDimensions>
+where
+    IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
+    usize: AsPrimitive<T>,
+    f32: AsPrimitive<T>,
 {
     pub fn build(self) -> HectorMapper<T, N> {
-        self._internal
+        HectorMapper {
+            grid_map: GridMap::create(
+                &self.dimensions,
+                self.occupied_factor,
+                self.free_factor,
+                self.max_confidence,
+            ),
+            current_pose: nalgebra::Similarity::from_parts(
+                nalgebra::Translation::from(nalgebra::OVector::from_array_storage(
+                    nalgebra::ArrayStorage(
+                        [array::from_fn(|idx| self.dimensions[idx].as_() / 2.0.as_()); 1],
+                    ),
+                )),
+                <IsometryAbstractor<T, N> as AbstractIsometry<T, N>>::RotType::identity(),
+                self._internal.resolution,
+            ),
+            ..self._internal
+        }
     }
 }
