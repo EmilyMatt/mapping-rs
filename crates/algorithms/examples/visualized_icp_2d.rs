@@ -49,7 +49,7 @@ struct VisualizerApp {
 
 impl VisualizerApp {
     fn new(config: RunConfiguration) -> Self {
-        let points_a = generate_point_cloud(config.num_points, -1.0..=1.0);
+        let points_a = generate_point_cloud(config.num_points, std::array::from_fn(|_| -1.0..=1.0));
         let points_b = transform_point_cloud(
             &points_a,
             Isometry2::from_parts(
@@ -84,7 +84,7 @@ impl eframe::App for VisualizerApp {
                 log::info!("Running iteration");
 
                 self.current_iteration += 1;
-                match icp_iteration::<_, UnitComplex<_>, 2>(
+                match icp_iteration::<_, 2>(
                     &self.points_a,
                     &mut self.transformed_points,
                     &self.points_b,

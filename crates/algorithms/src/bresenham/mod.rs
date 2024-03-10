@@ -1,6 +1,6 @@
 use crate::{array, Vec};
-use nalgebra::{ComplexField, Point, Scalar};
-use num_traits::{AsPrimitive, Float};
+use nalgebra::{ComplexField, Point, RealField, Scalar};
+use num_traits::AsPrimitive;
 
 /// This is a free-form version of the bresenham line-drawing algorithm,
 /// allowing for any input, any output, and N dimensions, under the constraints of the function.
@@ -26,10 +26,12 @@ pub fn plot_bresenham_line<F, T, const N: usize>(
     end_point: Point<F, N>,
 ) -> Vec<Point<T, N>>
 where
-    F: ComplexField + Float + AsPrimitive<usize> + AsPrimitive<T>,
+    F: RealField + AsPrimitive<usize> + AsPrimitive<T>,
+    usize: AsPrimitive<F>,
     T: Scalar + Copy,
 {
-    let deltas: [F; N] = array::from_fn(|idx| <F as Float>::abs(end_point[idx] - start_point[idx]));
+    let deltas: [F; N] =
+        array::from_fn(|idx| <F as ComplexField>::abs(end_point[idx] - start_point[idx]));
     let steps: [F; N] = array::from_fn(|idx| {
         if end_point[idx] > start_point[idx] {
             F::one()
@@ -49,8 +51,8 @@ where
     let mut points = Vec::with_capacity(<F as AsPrimitive<usize>>::as_(
         deltas[primary_axis] + F::one(),
     ));
-    while <F as Float>::abs(current_point[primary_axis] - end_point[primary_axis])
-        > Float::epsilon()
+    while <F as ComplexField>::abs(current_point[primary_axis] - end_point[primary_axis])
+        > F::default_epsilon()
     {
         points.push(current_point.map(|element| element.as_()));
 
@@ -61,7 +63,7 @@ where
 
             errors[axis] += deltas[axis] / deltas[primary_axis];
 
-            if errors[axis] >= F::one() - (F::one() / F::from_usize(N + 1).unwrap()) {
+            if errors[axis] >= F::one() - (F::one() / (N + 1).as_()) {
                 current_point[axis] += steps[axis];
                 errors[axis] -= F::one();
             }
@@ -76,41 +78,45 @@ where
 
 #[cfg(feature = "pregenerated")]
 macro_rules! impl_bresenham_algorithm {
-    ($precision:expr, $nd:expr, $out:expr) => {
+    ($precision:expr, doc $doc:tt, $nd:expr, $out:expr) => {
         ::paste::paste! {
-            #[doc = "Bresenham line drawing algorithm in " $nd "D space."]
+            #[doc = "Bresenham line drawing algorithm, with " $doc "-precision, in " $nd "D space."]
             #[doc = "# Arguments"]
-            #[doc = "* `start_point`: A [`Point<" $precision ", " $nd ">`](nalgebra::Point), representing the starting point of the line."]
-            #[doc = "* `end_point`: A [`Point<" $precision ", " $nd ">`](nalgebra::Point), representing the ending point of the line."]
+            #[doc = "* `start_point`: A [`Point`], representing the starting point of the line."]
+            #[doc = "* `end_point`: A [`Point`], representing the ending point of the line."]
             #[doc = ""]
             #[doc = "# Returns"]
-            #[doc = "A [`Vec`] of [`Point<" $precision ", " $out ">`](nalgebra::Point)s, representing the drawn line, including the starting point and ending point."]
+            #[doc = "A [`Vec`] of [`Point`]s, representing the drawn line, including the starting point and ending point."]
             #[doc = ""]
             #[doc = "NOTE: The returned [`Vec`] will always go from the starting point to the ending point, regardless of direction in axis."]
-            pub fn [<plot_bresenham_line_$nd d_returns_$out>](start_point: nalgebra::Point<$precision, $nd>, end_point: nalgebra::Point<$precision, $nd>) -> crate::Vec<nalgebra::Point<$out, $nd>> {
+            pub fn [<plot_$nd d_$out _bresenham_line>](start_point: Point<$precision, $nd>, end_point: Point<$precision, $nd>) -> Vec<Point<$out, $nd>> {
                     super::plot_bresenham_line::<$precision, $out, $nd>(start_point, end_point)
             }
         }
     };
 
-    ($prec:expr, $nd:expr) => {
-        impl_bresenham_algorithm!($prec, $nd, i32);
-        impl_bresenham_algorithm!($prec, $nd, i64);
-        impl_bresenham_algorithm!($prec, $nd, isize);
+    ($prec:expr, doc $doc:tt, $nd:expr) => {
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, i32);
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, i64);
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, isize);
 
-        impl_bresenham_algorithm!($prec, $nd, u32);
-        impl_bresenham_algorithm!($prec, $nd, u64);
-        impl_bresenham_algorithm!($prec, $nd, usize);
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, u32);
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, u64);
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, usize);
 
-        impl_bresenham_algorithm!($prec, $nd, $prec);
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, f32);
+        impl_bresenham_algorithm!($prec, doc $doc, $nd, f64);
     };
 
     ($prec:expr, doc $doc:tt) => {
         ::paste::paste! {
             #[doc = "A " $doc "-precision implementation of a bresenham line-drawing algorithm."]
-            pub mod $prec {
-                impl_bresenham_algorithm!($prec, 2);
-                impl_bresenham_algorithm!($prec, 3);
+            pub mod [<$doc _precision>] {
+                use nalgebra::Point;
+                use crate::Vec;
+
+                impl_bresenham_algorithm!($prec, doc $doc, 2);
+                impl_bresenham_algorithm!($prec, doc $doc, 3);
             }
         }
     }
@@ -128,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_2d_nonsteep_pos() {
-        let res = f32::plot_bresenham_line_2d_returns_isize(
+        let res = single_precision::plot_2d_isize_bresenham_line(
             Point2::new(0.0f32, 0.0f32),
             Point2::new(10.0f32, 3.0f32),
         );
@@ -152,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_2d_steep_pos() {
-        let res = f32::plot_bresenham_line_2d_returns_isize(
+        let res = single_precision::plot_2d_isize_bresenham_line(
             Point2::new(0.0f32, 0.0f32),
             Point2::new(3.0f32, 10.0f32),
         );
@@ -176,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_2d_nonsteep_neg() {
-        let res = f32::plot_bresenham_line_2d_returns_isize(
+        let res = single_precision::plot_2d_isize_bresenham_line(
             Point2::new(0.0f32, 0.0f32),
             Point2::new(-10.0f32, -3.0f32),
         );
@@ -200,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_2d_steep_neg() {
-        let res = f32::plot_bresenham_line_2d_returns_isize(
+        let res = single_precision::plot_2d_isize_bresenham_line(
             Point2::new(0.0f32, 0.0f32),
             Point2::new(-3.0f32, -10.0f32),
         );
@@ -224,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_3d_x() {
-        let res = f32::plot_bresenham_line_3d_returns_isize(
+        let res = single_precision::plot_3d_isize_bresenham_line(
             Point3::new(0.0f32, 0.0f32, 0.0f32),
             Point3::new(-3.0f32, -10.0f32, 7.0f32),
         );

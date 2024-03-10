@@ -23,7 +23,10 @@ where
         }
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument("Insert New Point", skip_all))]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Insert New Point", skip_all, level = "trace")
+    )]
     fn insert(&mut self, data: Point<T, N>, depth: usize) {
         let dimension_to_check = depth % N;
 
@@ -44,7 +47,7 @@ where
 
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Branch Nearest Neighbour", skip_all)
+        tracing::instrument("Branch Nearest Neighbour", skip_all, level = "trace")
     )]
     fn nearest(&self, target: &Point<T, N>, depth: usize) -> Option<Point<T, N>> {
         let dimension_to_check = depth % N;
@@ -82,7 +85,7 @@ where
 
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Traverse Branch With Function", skip_all)
+        tracing::instrument("Traverse Branch With Function", skip_all, level = "debug")
     )]
     fn traverse_branch<F: FnMut(&Point<T, N>)>(&self, func: &mut F) {
         if let Some(left) = self.left.as_ref() {
@@ -96,7 +99,7 @@ where
 
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Traverse Branch With Mutable Function)", skip_all)
+        tracing::instrument("Traverse Branch With Mutable Function)", skip_all, level = "debug")
     )]
     fn traverse_branch_mut<F: FnMut(&mut Point<T, N>)>(&mut self, func: &mut F) {
         if let Some(left) = self.left.as_mut() {
@@ -135,7 +138,10 @@ where
     ///
     /// # Arguments
     /// * `data`: a [`Point`], to be inserted into the tree.
-    #[cfg_attr(feature = "tracing", tracing::instrument("Insert To Tree", skip_all))]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Insert To Tree", skip_all, level = "debug")
+    )]
     pub fn insert(&mut self, data: Point<T, N>) {
         if let Some(root) = self.root.as_mut() {
             root.insert(data, 0);
@@ -152,7 +158,7 @@ where
     /// [`None`] if the tree is empty, otherwise returns the closest [`Point`].
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Find Nearest Neighbour", skip_all)
+        tracing::instrument("Find Nearest Neighbour", skip_all, level = "debug")
     )]
     pub fn nearest(&self, target: &Point<T, N>) -> Option<Point<T, N>> {
         self.root.as_ref().and_then(|root| root.nearest(target, 0))
@@ -164,7 +170,7 @@ where
     /// * `func`: a closure of type [`Fn`], it's only parameter is a reference of the branch's [`Point`].
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Traverse Tree With Function", skip_all)
+        tracing::instrument("Traverse Tree With Function", skip_all, level = "info")
     )]
     pub fn traverse_tree<F: FnMut(&Point<T, N>)>(&self, mut func: F) {
         if let Some(root) = self.root.as_ref() {
@@ -178,7 +184,7 @@ where
     /// * func: a closure of type [`FnMut`], it's only parameter is a reference of the branch's [`Point`].
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Traverse Tree With Mutable Function", skip_all)
+        tracing::instrument("Traverse Tree With Mutable Function", skip_all, level = "info")
     )]
     pub fn traverse_tree_mut<F: FnMut(&mut Point<T, N>)>(&mut self, mut func: F) {
         if let Some(root) = self.root.as_mut() {
@@ -193,7 +199,7 @@ where
 {
     #[cfg_attr(
         feature = "tracing",
-        tracing::instrument("Generate Tree From Point Cloud", skip_all)
+        tracing::instrument("Generate Tree From Point Cloud", skip_all, level = "info")
     )]
     fn from(point_cloud: &[Point<T, N>]) -> Self {
         point_cloud

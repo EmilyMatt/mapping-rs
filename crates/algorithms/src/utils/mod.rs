@@ -9,6 +9,10 @@ use num_traits::{Bounded, NumOps};
 /// Various utility functions regarding point clouds of 2 or 3 dimensions.
 pub mod point_cloud;
 
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Calculate Distance Squared", skip_all, level = "trace")
+)]
 pub(crate) fn distance_squared<T, const N: usize>(point_a: &Point<T, N>, point_b: &Point<T, N>) -> T
 where
     T: Copy + Default + NumOps + Scalar,
@@ -30,13 +34,13 @@ where
 /// * `N`: a constant generic of type [`usize`].
 ///
 /// # Arguments
-/// * `polygon`: a slice of [`Point<T, N>`].
+/// * `polygon`: a slice of [`Point`].
 ///
 /// # Returns
 /// See [`PolygonExtents`]
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Calculate Polygon Extents", skip_all)
+    tracing::instrument("Calculate Polygon Extents", skip_all, level = "info")
 )]
 pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> PolygonExtents<T, N>
 where
@@ -57,6 +61,10 @@ where
     extents_accumulator
 }
 
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Verify Matrix Determinant", skip_all, level = "info")
+)]
 pub(crate) fn verify_rotation_matrix_determinant<T, const N: usize>(
     mut u: SameSizeMat<T, N>,
     v_t: SameSizeMat<T, N>,

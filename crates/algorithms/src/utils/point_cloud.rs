@@ -85,17 +85,21 @@ where
 ///
 /// # Arguments
 /// * `num_points`: a [`usize`], specifying the amount of points to generate
-/// * `range`: a [`crate::ops::RangeInclusive<T>`] specifying the normal distribution of points.
+/// * `range`: a [`crate::ops::RangeInclusive`] specifying the normal distribution of points.
 ///
 /// # Generics
 /// * `T`: Either an [`f32`] or [`f64`].
 /// * `N`: A const usize, representing the number of dimensions to use.
 ///
 /// # Returns
-/// A [`Vec`] of [`Point<f32, N>`] representing the point cloud.
+/// A [`Vec`] of [`Point`] representing the point cloud.
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Generate Randomized Point Cloud", skip_all, level = "debug")
+)]
 pub fn generate_point_cloud<T, const N: usize>(
     num_points: usize,
-    range: crate::ops::RangeInclusive<T>,
+    ranges: [crate::ops::RangeInclusive<T>; N],
 ) -> Vec<Point<T, N>>
 where
     T: PartialOrd + rand::distributions::uniform::SampleUniform + Scalar,
@@ -104,7 +108,7 @@ where
     let mut rng = rand::rngs::SmallRng::seed_from_u64(3765665954583626552);
 
     (0..num_points)
-        .map(|_| nalgebra::Point::from(array::from_fn(|_| rng.gen_range(range.clone()))))
+        .map(|_| nalgebra::Point::from(array::from_fn(|idx| rng.gen_range(ranges[idx].clone()))))
         .collect()
 } // Just calls a different function a number of times, no specific test needed
 
@@ -112,8 +116,8 @@ where
 /// This function does not mutate the original point cloud.
 ///
 /// # Arguments
-/// * `source_points`: a slice of [`Point<T, N>`], representing the point cloud
-/// * `isometry_matrix`: a transform that implements [`AbstractRotation<T, N>`], to use for the transformation.
+/// * `source_points`: a slice of [`Point`], representing the point cloud
+/// * `isometry_matrix`: a transform that implements [`AbstractRotation`], to use for the transformation.
 ///
 /// # Generics
 /// * `T`: Either an [`f32`] or [`f64`].
@@ -121,7 +125,7 @@ where
 /// * `R`: An [`AbstractRotation`] for `T` and `N`.
 ///
 /// # Returns
-/// A [`Vec`] of [`Point<f32, N>`] containing the transformed point cloud.
+/// A [`Vec`] of [`Point`] containing the transformed point cloud.
 #[inline]
 #[cfg_attr(
     feature = "tracing",
@@ -144,7 +148,7 @@ where
 /// Downsample a points cloud, returning a new point cloud, with all points within each voxel combined into their mean.
 ///
 /// # Arguments
-/// * `points`: a slice of [`Point<T, N>`], representing the point cloud.
+/// * `points`: a slice of [`Point`], representing the point cloud.
 /// * `voxel_size`: a floating point number, specifying the size for each voxel, all points inside that voxel will be downsampled to their centeroid..
 ///
 /// # Generics
@@ -152,7 +156,7 @@ where
 /// * `N`: A const usize, representing the number of dimensions in the points.
 ///
 /// # Returns
-/// A [`Vec`] of [`Point<f32, N>`] representing the downsampled point cloud.
+/// A [`Vec`] of [`Point`] representing the downsampled point cloud.
 ///
 /// # Warnings
 /// * Point cloud order is *never* guaranteed.
