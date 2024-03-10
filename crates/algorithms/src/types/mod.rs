@@ -5,7 +5,7 @@ use nalgebra::{
 };
 
 /// A shorthand way of specifying a symmetrical [`Matrix`](Matrix) of `N` size.
-/// Kind of similiar to nalgebra's [`nalgebra::SquareMatrix`] but simpler for our usecase
+/// Kind of similiar to nalgebra's [`SquareMatrix`](nalgebra::SquareMatrix) but simpler for our usecase
 pub(crate) type SameSizeMat<T, const N: usize> =
     Matrix<T, Const<N>, Const<N>, ArrayStorage<T, N, N>>;
 

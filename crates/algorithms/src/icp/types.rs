@@ -6,7 +6,7 @@ use num_traits::AsPrimitive;
 #[derive(Debug)]
 pub struct ICPSuccess<T: Scalar, R: AbstractRotation<T, N>, const N: usize> {
     /// An isometric matrix, containing the translation and rotation between the point sets.
-    /// In 2D space, its rotation component would be a [`nalgebra::UnitComplex<T>`](nalgebra::UnitComplex), in 3D space it would be a [`nalgebra::UnitQuaternion<T>`](nalgebra::UnitQuaternion).
+    /// In 2D space, its rotation component would be a [`UnitComplex`](nalgebra::UnitComplex), in 3D space it would be a [`UnitQuaternion`](nalgebra::UnitQuaternion).
     pub transform: Isometry<T, R, N>,
     /// Mean Squared Error, this is the distances between each point in `points_a` and its corresponding point in `points_b`,
     /// This can be used to determine whether the ICP converged correctly, or simply on its local minimum.

@@ -61,7 +61,7 @@ opt-level = 3
 Code example:
 ```rust
 // Instead of doing this:
-let res = icp::icp::<f32, 2, Const<2>>(...);
+let res = icp::icp::<f32, 2>(...);
 
 // Do this(Runs much faster):
 let res = icp::f32::icp_2d(...);
