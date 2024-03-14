@@ -1,10 +1,12 @@
-use crate::{utils::distance_squared, Box};
 use nalgebra::{Point, Scalar};
-use num_traits::NumOps;
+use num_traits::{NumOps, Zero};
 
+use crate::{utils::distance_squared, Box};
+
+#[derive(Clone, Debug, Default)]
 struct KDNode<T, const N: usize>
 where
-    T: Copy + Default + NumOps + PartialOrd + Scalar,
+    T: Copy + Default + NumOps + PartialOrd + Scalar + Zero,
 {
     internal_data: Point<T, N>,
     right: Option<Box<KDNode<T, N>>>,
@@ -13,7 +15,7 @@ where
 
 impl<T, const N: usize> KDNode<T, N>
 where
-    T: Copy + Default + NumOps + PartialOrd + Scalar,
+    T: Copy + Default + NumOps + PartialOrd + Scalar + Zero,
 {
     fn new(data: Point<T, N>) -> Self {
         Self {
@@ -117,22 +119,18 @@ where
 /// # Generics
 /// `T`: Either an [`f32`] or [`f64`]
 /// `N`: a const usize specifying how many dimensions should each point have.
+#[derive(Clone, Debug, Default)]
 pub struct KDTree<T, const N: usize>
 where
-    T: Copy + Default + NumOps + PartialOrd + Scalar,
+    T: Copy + Default + NumOps + PartialOrd + Scalar + Zero,
 {
     root: Option<KDNode<T, N>>,
 }
 
 impl<T, const N: usize> KDTree<T, N>
 where
-    T: Copy + Default + NumOps + PartialOrd + Scalar,
+    T: Copy + Default + NumOps + PartialOrd + Scalar + Zero,
 {
-    /// Returns an empty instance of this tree structure
-    pub fn new() -> Self {
-        Self { root: None }
-    }
-
     /// Inserts a new data points into the tree, taking into consideration it's position.
     ///
     /// # Arguments
@@ -194,7 +192,7 @@ where
 
 impl<T, const N: usize> From<&[Point<T, N>]> for KDTree<T, N>
 where
-    T: Copy + Default + NumOps + PartialOrd + Scalar,
+    T: Copy + Default + NumOps + PartialOrd + Scalar + Zero,
 {
     #[cfg_attr(
         feature = "tracing",
@@ -204,7 +202,7 @@ where
         point_cloud
             .iter()
             .copied()
-            .fold(Self::new(), |mut tree, current_point| {
+            .fold(Self::default(), |mut tree, current_point| {
                 tree.insert(current_point);
                 tree
             })
@@ -213,9 +211,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{utils::point_cloud::find_closest_point, Vec};
     use nalgebra::{Point2, Point3};
+
+    use crate::{utils::point_cloud::find_closest_point, Vec};
+
+    use super::*;
 
     fn generate_tree() -> KDTree<f32, 3> {
         let points = Vec::from([
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn test_insert() {
         // Test an empty tree
-        let mut tree = KDTree::new();
+        let mut tree = KDTree::default();
         tree.insert(Point2::new(0.0f32, 0.0f32));
 
         match tree.root.as_ref() {
@@ -274,7 +274,7 @@ mod tests {
     fn test_nearest() {
         // Test an empty tree
         {
-            let tree = KDTree::<f32, 2>::new();
+            let tree = KDTree::<f32, 2>::default();
             assert!(tree.nearest(&Point2::new(0.0, 0.0)).is_none())
         }
 

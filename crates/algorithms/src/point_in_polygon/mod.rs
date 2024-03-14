@@ -36,45 +36,6 @@ where
     false
 }
 
-/// Get all intersections of this point, with this polygon.
-///
-/// # Arguments
-/// * `point`: A reference to a [`Point2`]
-/// * `polygon`: A slice of [`Point2`]s representing the vertices.
-///
-/// # Generics:
-/// * `T`: Either an [`prim@f32`] or [`prim@f64`]
-///
-/// # Returns
-/// A usize, representing the number of intersections.
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument(
-        "Get Point's Number Of Intersections With Polygon",
-        skip_all,
-        level = "debug"
-    )
-)]
-pub fn get_point_intersections_with_polygon<T>(
-    point: &Point2<T>,
-    polygon: &[Point2<T>],
-) -> Vec<Point2<T>>
-where
-    T: Copy + RealField,
-    f32: AsPrimitive<T>,
-{
-    let polygon_len = polygon.len();
-    (0..polygon_len)
-        .filter_map(|current_vertex_idx| {
-            let current_vertex = polygon[current_vertex_idx];
-            let next_vertex = polygon[(current_vertex_idx + 1) % polygon_len];
-
-            does_ray_intersect_polygon_segment(&point.coords, current_vertex, next_vertex)
-                .then_some(*point)
-        })
-        .collect() // Only returns the intersections as Some()
-}
-
 /// Check if the provided point is within the provided polygon.
 ///
 /// # Arguments
@@ -95,8 +56,18 @@ where
     T: Copy + RealField,
     f32: AsPrimitive<T>,
 {
-    let len: usize = get_point_intersections_with_polygon(point, polygon).len();
-    len % 2 == 1 // If the number of intersections is odd - we didn't exit the polygon, and are therefor in it.
+    let polygon_len = polygon.len();
+    (0..polygon_len)
+        .filter_map(|current_vertex_idx| {
+            let current_vertex = polygon[current_vertex_idx];
+            let next_vertex = polygon[(current_vertex_idx + 1) % polygon_len];
+
+            does_ray_intersect_polygon_segment(&point.coords, current_vertex, next_vertex)
+                .then_some(1)
+        })
+        .sum::<usize>()
+        % 2
+        == 1 // If the number of intersections is odd - we didn't exit the polygon, and are therefor in it.
 }
 
 /// This function will run the [`is_single_point_in_polygon`] for each on of the points given, and the provided polygon,
@@ -149,21 +120,6 @@ macro_rules! impl_p_i_p_algorithm {
                 use nalgebra::{Point2};
                 use crate::Vec;
 
-                #[doc = "Get all intersections of this point, with this polygon."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `point`: A reference to a [`Point2`]"]
-                #[doc = "* `polygon`: A slice of [`Point2`]s representing the vertices."]
-                #[doc = ""]
-                #[doc = "# Returns"]
-                #[doc = "A usize, representing the number of intersections."]
-                pub fn get_point_intersections_with_polygon(
-                        point: &Point2<$prec>,
-                        polygon: &[Point2<$prec>],
-                    ) -> Vec<Point2<$prec>> {
-                    super::get_point_intersections_with_polygon(point, polygon)
-                }
-
                 #[doc = "Check if the provided point is within the provided polygon."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
@@ -208,14 +164,17 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_does_ray_intersect_on_vertex() {
-        let point_a = Vector2::new(3.0, -1.5);
-        let vertex_a1 = Point2::new(5.0, 0.0);
-        let vertex_a2 = Point2::new(1.0, -3.0);
-        assert!(does_ray_intersect_polygon_segment(
-            &point_a, vertex_a1, vertex_a2
-        ));
+    fn get_polygon_for_tests() -> Vec<Point2<f32>> {
+        vec![
+            Point2::from([0.0, 0.0]),
+            Point2::from([1.0, 1.2]),
+            Point2::from([1.4, 1.2]),
+            Point2::from([1.4, 2.0]),
+            Point2::from([0.5, 1.8]),
+            Point2::from([-2.0, 0.2]),
+            Point2::from([-1.2, -0.4]),
+            Point2::from([-0.3, -0.4]),
+        ]
     }
 
     #[test]
@@ -235,24 +194,28 @@ mod tests {
         ));
     }
 
-    // These following tests pretty much test all the functions:
+    #[test]
+    fn test_is_single_points_in_polygon() {
+        let polygon = get_polygon_for_tests();
+
+        let point = Point2::from([0.5, 1.5]);
+
+        assert!(single_precision::is_single_point_in_polygon(
+            &point, &polygon
+        ));
+    }
+
     #[test]
     fn test_multiple_points_in_polygon_clockwise() {
-        // A simple square polygon with vertices (0,0), (0,1), (1,1), (1,0)
-        let polygon = &[
-            Point2::from([0.0, 0.0]),
-            Point2::from([0.0, 1.0]),
-            Point2::from([1.0, 1.0]),
-            Point2::from([1.0, 0.0]),
-        ];
+        let polygon = get_polygon_for_tests();
 
         // One point inside the polygon and one outside.
         let points = &[
-            Point2::from([0.5, 0.5]), // Inside
+            Point2::from([0.5, 1.5]), // Inside
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = single_precision::are_multiple_points_in_polygon(points, polygon);
+        let result = single_precision::are_multiple_points_in_polygon(points, &polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
         assert_eq!(result, Vec::from([true, false]));
@@ -260,21 +223,15 @@ mod tests {
 
     #[test]
     fn test_multiple_points_in_polygon_counter_clockwise() {
-        // A simple square polygon with vertices (0,0), (0,1), (1,1), (1,0)
-        let polygon = &[
-            Point2::from([0.0, 0.0]),
-            Point2::from([0.0, 1.0]),
-            Point2::from([1.0, 1.0]),
-            Point2::from([1.0, 0.0]),
-        ];
+        let polygon = get_polygon_for_tests();
 
         // One point inside the polygon and one outside.
         let points = &[
-            Point2::from([0.5, 0.5]), // Inside
+            Point2::from([0.5, 1.5]), // Inside
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = single_precision::are_multiple_points_in_polygon(points, polygon);
+        let result = single_precision::are_multiple_points_in_polygon(points, &polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
         assert_eq!(result, Vec::from([true, false]));
