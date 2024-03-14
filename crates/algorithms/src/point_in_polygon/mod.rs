@@ -146,7 +146,7 @@ macro_rules! impl_p_i_p_algorithm {
         ::paste::paste! {
             #[doc = "A " $doc "-precision implementation of a point-in-polygon algorithm."]
             pub mod [<$doc _precision>] {
-                use nalgebra::{Point2, Vector2};
+                use nalgebra::{Point2};
                 use crate::Vec;
 
                 #[doc = "Get all intersections of this point, with this polygon."]
