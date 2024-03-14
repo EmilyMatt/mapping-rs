@@ -1,6 +1,7 @@
-use crate::{mem, utils::calculate_polygon_extents, Vec};
 use nalgebra::{Point2, RealField, Vector2};
-use num_traits::Bounded;
+use num_traits::{AsPrimitive, Bounded};
+
+use crate::{utils::calculate_polygon_extents, Vec};
 
 /// Check whether a specified ray(with origin at 0) collides with another ray.
 ///
@@ -19,40 +20,28 @@ use num_traits::Bounded;
     feature = "tracing",
     tracing::instrument("Does Ray Intersect Polygon", skip_all, level = "trace")
 )]
-pub fn does_ray_intersect<T>(
-    point: &Vector2<T>,
-    mut vertex1: Point2<T>,
-    mut vertex2: Point2<T>,
-) -> bool
+pub fn does_ray_intersect<T>(point: &Vector2<T>, vertex1: Point2<T>, vertex2: Point2<T>) -> bool
 where
     T: Copy + RealField,
+    f32: AsPrimitive<T>,
 {
-    // Reverse direction, we assume a rising line function, the simplest solution to avoid a different one is simply to reverse the order of vertices.
-    if vertex1.y > vertex2.y {
-        mem::swap(&mut vertex1, &mut vertex2);
+    if point.y > vertex1.y.min(vertex2.y)
+        && point.y <= vertex1.y.max(vertex2.y)
+        && point.x <= vertex1.x.max(vertex2.x)
+    {
+        let origin_x = (vertex1.y != vertex2.y)
+            .then(|| {
+                (point.y - vertex1.y) * (vertex2.x - vertex1.x) / (vertex2.y - vertex1.y)
+                    + vertex1.x
+            })
+            .unwrap_or(point.x);
+
+        if vertex1.x == vertex2.x || point.x <= origin_x {
+            return false;
+        }
     }
 
-    // Handle case where difference is too small and will cause issues, by simply adding an epsilon ;)
-    if point.y == vertex1.y || point.y == vertex2.y {
-        return does_ray_intersect(
-            &Vector2::from([point.x, point.y + T::default_epsilon()]),
-            vertex1,
-            vertex2,
-        );
-    }
-
-    // Check if out of extents, no need to continue checking then.
-    if point.y > vertex2.y || point.y < vertex1.y || point.x > vertex1.x.max(vertex2.x) {
-        return false;
-    }
-
-    if point.x < vertex1.x.min(vertex2.x) {
-        return true;
-    }
-
-    (((vertex2.x - vertex1.x) * (point.y - vertex1.y))
-        - ((vertex2.y - vertex1.y) * (point.x - vertex1.x)))
-        < T::zero()
+    true
 }
 
 /// Get all intersections of this point, with this polygon.
@@ -80,6 +69,7 @@ pub fn get_point_intersections_with_polygon<T>(
 ) -> Vec<Point2<T>>
 where
     T: Copy + RealField,
+    f32: AsPrimitive<T>,
 {
     let polygon_len = polygon.len();
     (0..polygon_len)
@@ -110,6 +100,7 @@ where
 pub fn is_single_point_in_polygon<T>(point: &Point2<T>, polygon: &[Point2<T>]) -> bool
 where
     T: Copy + RealField,
+    f32: AsPrimitive<T>,
 {
     let len: usize = get_point_intersections_with_polygon(point, polygon).len();
     len % 2 == 1 // If the number of intersections is odd - we didn't exit the polygon, and are therefor in it.
@@ -134,6 +125,7 @@ where
 pub fn are_multiple_points_in_polygon<T>(points: &[Point2<T>], polygon: &[Point2<T>]) -> Vec<bool>
 where
     T: Bounded + Copy + RealField,
+    f32: AsPrimitive<T>,
 {
     let polygon_extents = calculate_polygon_extents(polygon);
 
@@ -230,9 +222,21 @@ impl_p_i_p_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::Vec;
     use nalgebra::{Point2, Vector2};
+
+    use crate::Vec;
+
+    use super::*;
+
+    #[test]
+    fn test_does_ray_intersect_on_vertex() {
+        let point_a = Vector2::new(4.0, -3.0);
+        let vertex_a1 = Point2::new(5.0, 0.0);
+        let vertex_a2 = Point2::new(1.0, -3.0);
+        assert!(single_precision::does_ray_intersect(
+            &point_a, vertex_a1, vertex_a2
+        ));
+    }
 
     #[test]
     fn test_does_ray_intersect() {
@@ -246,7 +250,7 @@ mod tests {
         let point_b = Vector2::new(-4.0, 4.0);
         let vertex_b1 = Point2::new(0.0, 0.0);
         let vertex_b2 = Point2::new(1.0, 5.0);
-        assert!(single_precision::does_ray_intersect(
+        assert!(!single_precision::does_ray_intersect(
             &point_b, vertex_b1, vertex_b2
         ));
     }
