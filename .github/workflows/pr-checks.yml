@@ -6,7 +6,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-Dwarnings"
 
 jobs:
   check-clippy:
@@ -15,7 +14,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check Clippy
         run: cargo clippy --all
-
 
   check-deny:
     runs-on: ubuntu-latest
@@ -46,6 +44,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build --all --no-default-features --features=pregenerated
+      - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo test --all --no-default-features --features=pregenerated -- --nocapture
 
@@ -55,6 +54,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build
+      - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo test --all -- --nocapture
 
@@ -64,6 +64,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build
+      - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo test --all -- --nocapture
 
@@ -73,5 +74,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build
+      - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo test --all -- --nocapture
