@@ -165,7 +165,7 @@ mod tests {
     use super::*;
 
     fn get_polygon_for_tests() -> Vec<Point2<f32>> {
-        vec![
+        Vec::from([
             Point2::from([0.0, 0.0]),
             Point2::from([1.0, 1.2]),
             Point2::from([1.4, 1.2]),
@@ -174,7 +174,7 @@ mod tests {
             Point2::from([-2.0, 0.2]),
             Point2::from([-1.2, -0.4]),
             Point2::from([-0.3, -0.4]),
-        ]
+        ])
     }
 
     #[test]
