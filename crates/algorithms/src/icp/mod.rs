@@ -274,7 +274,6 @@ mod tests {
 
     #[test]
     fn test_no_convegence() {
-
         let points = generate_point_cloud(1000, array::from_fn(|_| -15.0..=15.0));
         let translation = Vector2::new(-12.5, 7.3);
         let isom = Isometry2::new(translation, 90.0f32.to_radians());
@@ -284,7 +283,7 @@ mod tests {
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
-                .with_max_iterations(1)// No chance something like this could converge, and definitely not in 1 iteration
+                .with_max_iterations(1) // No chance something like this could converge, and definitely not in 1 iteration
                 .with_mse_interval_threshold(0.001)
                 .build(),
         );
