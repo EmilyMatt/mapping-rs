@@ -16,4 +16,4 @@ jobs:
         run: cargo build --all
       - uses: taiki-e/install-action@nextest
       - name: Test
-        run: cargo nextest run --all -- --nocapture
+        run: cargo nextest run --all
