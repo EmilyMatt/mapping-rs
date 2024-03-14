@@ -3,24 +3,16 @@ use num_traits::{AsPrimitive, Bounded};
 
 use crate::{utils::calculate_polygon_extents, Vec};
 
-/// Check whether a specified ray(with origin at 0) collides with another ray.
-///
-/// # Arguments
-/// * `ray`: A reference to a [`Vector2`], representing a ray, whose origin is [0.0, 0.0].
-/// * `vertex1`: A [`Point2`] representing the first vertex of the other ray.
-/// * `vertex2`: A [`Point2`] representing the second vertex of the other ray.
-///
-/// # Generics:
-/// * `T`: Either an [`prim@f32`] or [`prim@f64`]
-///
-/// # Returns
-/// A `bool`, specifying whether the rays intersect
 #[inline]
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Does Ray Intersect Polygon", skip_all, level = "trace")
 )]
-pub fn does_ray_intersect<T>(point: &Vector2<T>, vertex1: Point2<T>, vertex2: Point2<T>) -> bool
+fn does_ray_intersect_polygon_segment<T>(
+    point: &Vector2<T>,
+    vertex1: Point2<T>,
+    vertex2: Point2<T>,
+) -> bool
 where
     T: Copy + RealField,
     f32: AsPrimitive<T>,
@@ -37,11 +29,11 @@ where
             .unwrap_or(point.x);
 
         if vertex1.x == vertex2.x || point.x <= origin_x {
-            return false;
+            return true;
         }
     }
 
-    true
+    false
 }
 
 /// Get all intersections of this point, with this polygon.
@@ -77,7 +69,8 @@ where
             let current_vertex = polygon[current_vertex_idx];
             let next_vertex = polygon[(current_vertex_idx + 1) % polygon_len];
 
-            does_ray_intersect(&point.coords, current_vertex, next_vertex).then_some(*point)
+            does_ray_intersect_polygon_segment(&point.coords, current_vertex, next_vertex)
+                .then_some(*point)
         })
         .collect() // Only returns the intersections as Some()
 }
@@ -156,19 +149,6 @@ macro_rules! impl_p_i_p_algorithm {
                 use nalgebra::{Point2, Vector2};
                 use crate::Vec;
 
-                #[doc = "Check whether a specified ray(with origin 0) collides with another ray."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `ray`: A reference to a [`Vector2`], representing a ray, whose origin is [0.0, 0.0]."]
-                #[doc = "* `vertex1`: A [`Point2`] representing the first vertex of the other ray."]
-                #[doc = "* `vertex2`: A [`Point2`] representing the second vertex of the other ray."]
-                #[doc = ""]
-                #[doc = "# Returns"]
-                #[doc = "A `bool`, specifying whether the rays intersect"]
-                pub fn does_ray_intersect(ray: &Vector2<$prec>, vertex1: Point2<$prec>, vertex2: Point2<$prec>) -> bool {
-                    super::does_ray_intersect(ray, vertex1, vertex2)
-                }
-
                 #[doc = "Get all intersections of this point, with this polygon."]
                 #[doc = ""]
                 #[doc = "# Arguments"]
@@ -230,27 +210,27 @@ mod tests {
 
     #[test]
     fn test_does_ray_intersect_on_vertex() {
-        let point_a = Vector2::new(4.0, -3.0);
+        let point_a = Vector2::new(3.0, -1.5);
         let vertex_a1 = Point2::new(5.0, 0.0);
         let vertex_a2 = Point2::new(1.0, -3.0);
-        assert!(single_precision::does_ray_intersect(
+        assert!(does_ray_intersect_polygon_segment(
             &point_a, vertex_a1, vertex_a2
         ));
     }
 
     #[test]
     fn test_does_ray_intersect() {
-        let point_a = Vector2::new(4.0, -3.0);
+        let point_a = Vector2::new(0.5, -1.5);
         let vertex_a1 = Point2::new(5.0, 0.0);
         let vertex_a2 = Point2::new(1.0, -4.0);
-        assert!(single_precision::does_ray_intersect(
+        assert!(does_ray_intersect_polygon_segment(
             &point_a, vertex_a1, vertex_a2
         ));
 
-        let point_b = Vector2::new(-4.0, 4.0);
+        let point_b = Vector2::new(-0.5, -1.5);
         let vertex_b1 = Point2::new(0.0, 0.0);
         let vertex_b2 = Point2::new(1.0, 5.0);
-        assert!(!single_precision::does_ray_intersect(
+        assert!(!does_ray_intersect_polygon_segment(
             &point_b, vertex_b1, vertex_b2
         ));
     }
