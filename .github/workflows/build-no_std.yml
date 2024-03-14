@@ -14,5 +14,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build --all --no-default-features --features=pregenerated
+      - uses: taiki-e/install-action@nextest
       - name: Test
-        run: cargo test --all --no-default-features --features=pregenerated -- --nocapture
+        run: cargo nextest run --all --no-default-features --features=pregenerated

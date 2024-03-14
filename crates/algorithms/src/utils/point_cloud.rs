@@ -202,6 +202,11 @@ mod tests {
     use nalgebra::{Point, Point2, Point3};
 
     #[test]
+    fn test_empty_point_cloud_center() {
+        assert_eq!(calculate_point_cloud_center(&[]), Point2::new(0.0, 0.0));
+    }
+
+    #[test]
     fn test_find_closest_point() {
         // Given:
         // A set of target points

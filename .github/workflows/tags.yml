@@ -46,7 +46,7 @@ jobs:
       - name: Build
         run: cargo build --all --no-default-features --features=pregenerated
       - name: Test
-        run: cargo test --all --no-default-features --features=pregenerated -- --nocapture
+        run: cargo nextest run --all --no-default-features --features=pregenerated
 
   build-linux:
     runs-on: ubuntu-latest
@@ -55,7 +55,7 @@ jobs:
       - name: Build
         run: cargo build
       - name: Test
-        run: cargo test --all -- --nocapture
+        run: cargo nextest run --all
 
   build-win:
     runs-on: windows-latest
@@ -64,7 +64,7 @@ jobs:
       - name: Build
         run: cargo build
       - name: Test
-        run: cargo test --all -- --nocapture
+        run: cargo nextest run --all
 
   build-macos:
     runs-on: macos-latest
@@ -73,7 +73,7 @@ jobs:
       - name: Build
         run: cargo build
       - name: Test
-        run: cargo test --all -- --nocapture
+        run: cargo nextest run --all
 
   publish-crate:
     runs-on: ubuntu-latest
