@@ -138,13 +138,13 @@ where
         return Err("Must have more than one iteration");
     }
 
-    if config.mse_interval_threshold < T::default_epsilon() {
+    if config.mse_interval_threshold <= T::default_epsilon() {
         return Err("MSE interval threshold too low, convergence impossible");
     }
 
     if config
         .mse_absolute_threshold
-        .map(|thres| thres < T::default_epsilon())
+        .map(|thres| thres <= T::default_epsilon())
         .unwrap_or_default()
     {
         return Err("Absolute MSE threshold too low, convergence impossible");

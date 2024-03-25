@@ -52,7 +52,7 @@ where
         deltas[primary_axis] + F::one(),
     ));
     while <F as ComplexField>::abs(current_point[primary_axis] - end_point[primary_axis])
-        > F::default_epsilon()
+        >= F::one()
     {
         points.push(current_point.map(|element| element.as_()));
 
@@ -132,12 +132,19 @@ mod tests {
     use super::*;
     use nalgebra::{Point2, Point3};
 
+    fn calculate_expected_vec_size<const N: usize>(
+        start: Point<f32, N>,
+        end: Point<f32, N>,
+    ) -> usize {
+        let arr: [f32; N] = array::from_fn(|idx| f32::abs(end[idx] - start[idx]));
+        arr.into_iter().max_by(|a, b| a.total_cmp(b)).unwrap() as usize + 1
+    }
+
     #[test]
     fn test_plot_bresenham_line_2d_nonsteep_pos() {
-        let res = single_precision::plot_2d_isize_bresenham_line(
-            Point2::new(0.0f32, 0.0f32),
-            Point2::new(10.0f32, 3.0f32),
-        );
+        let start = Point2::new(0.0f32, 0.0f32);
+        let end = Point2::new(10.0f32, 3.0f32);
+        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
         assert_eq!(
             res,
             Vec::<Point2<isize>>::from([
@@ -158,10 +165,10 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_2d_steep_pos() {
-        let res = single_precision::plot_2d_isize_bresenham_line(
-            Point2::new(0.0f32, 0.0f32),
-            Point2::new(3.0f32, 10.0f32),
-        );
+        let start = Point2::new(0.0f32, 0.0f32);
+        let end = Point2::new(3.0f32, 10.0f32);
+        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
+        assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
             Vec::<Point2<isize>>::from([
@@ -182,10 +189,10 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_2d_nonsteep_neg() {
-        let res = single_precision::plot_2d_isize_bresenham_line(
-            Point2::new(0.0f32, 0.0f32),
-            Point2::new(-10.0f32, -3.0f32),
-        );
+        let start = Point2::new(0.0f32, 0.0f32);
+        let end = Point2::new(-10.0f32, -3.0f32);
+        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
+        assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
             Vec::<Point2<isize>>::from([
@@ -206,10 +213,10 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_2d_steep_neg() {
-        let res = single_precision::plot_2d_isize_bresenham_line(
-            Point2::new(0.0f32, 0.0f32),
-            Point2::new(-3.0f32, -10.0f32),
-        );
+        let start = Point2::new(0.0f32, 0.0f32);
+        let end = Point2::new(-3.0f32, -10.0f32);
+        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
+        assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
             Vec::<Point2<isize>>::from([
@@ -230,10 +237,10 @@ mod tests {
 
     #[test]
     fn test_plot_bresenham_line_3d_x() {
-        let res = single_precision::plot_3d_isize_bresenham_line(
-            Point3::new(0.0f32, 0.0f32, 0.0f32),
-            Point3::new(-3.0f32, -10.0f32, 7.0f32),
-        );
+        let start = Point3::new(0.0f32, 0.0f32, 0.0f32);
+        let end = Point3::new(-3.0f32, -10.0f32, 7.0f32);
+        let res = single_precision::plot_3d_isize_bresenham_line(start, end);
+        assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
             Vec::<Point3<isize>>::from([
@@ -250,5 +257,14 @@ mod tests {
                 Point3::new(-3, -10, 7),
             ])
         );
+    }
+
+    #[test]
+    fn test_small_deltas() {
+        let start = Point3::new(512.0, 512.0, 512.0);
+        let end = Point3::new(512.5, 511.294, 512.1);
+
+        let res: Vec<Point3<usize>> = plot_bresenham_line(start, end);
+        assert_eq!(res.len(), 1)
     }
 }
