@@ -52,7 +52,7 @@ where
         deltas[primary_axis] + F::one(),
     ));
     while <F as ComplexField>::abs(current_point[primary_axis] - end_point[primary_axis])
-        > F::default_epsilon()
+        > F::one()
     {
         points.push(current_point.map(|element| element.as_()));
 
@@ -250,5 +250,14 @@ mod tests {
                 Point3::new(-3, -10, 7),
             ])
         );
+    }
+
+    #[test]
+    fn test_small_deltas() {
+        let start = Point3::new(512.0, 512.0, 512.0);
+        let end = Point3::new(512.5, 511.294, 512.1);
+
+        let res: Vec<Point3<usize>> = plot_bresenham_line(start, end);
+        assert_eq!(res.len(), 1)
     }
 }
