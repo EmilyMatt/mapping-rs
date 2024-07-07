@@ -34,7 +34,7 @@ tracing = { version = "0.1.40", default-features = false, features = ["attribute
 
 [dev-dependencies]
 eframe = { version = "0.27.2", default-features = false, features = ["glow"] }
-simple_logger = { version = "4.3.3", default-features = false, features = ["timestamps", "threads"]}
+simple_logger = { version = "5.0.0", default-features = false, features = ["timestamps", "threads"]}
 
 [build-dependencies]
 bindgen = { version = "0.69.4", default-features = false, optional = true }
