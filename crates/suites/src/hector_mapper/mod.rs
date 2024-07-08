@@ -75,7 +75,7 @@ where
                         .with_mse_interval_threshold(0.01.as_())
                         .build(),
                 )
-                .map_err(|err| println!("{err}"))
+                    .map_err(|err| println!("{err}"))
                 {
                     self.current_pose
                         .append_translation_mut(&res.transform.translation);
