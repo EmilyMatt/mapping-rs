@@ -29,5 +29,18 @@
 
 #![doc = include_str!("../../../README.md")]
 
-/// A Hector Mapper, Utilizing Lidar And Wheel Odometry
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+extern crate core;
+
+#[cfg(feature = "std")]
+use std::{array, iter::Sum, marker::PhantomData, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {
+    alloc::vec::Vec,
+    core::{array, iter::Sum, marker::PhantomData},
+};
+
+/// A SLAM suite that uses LIDAR point clouds to determine the vehicle's velocity and map its surroundings.
 pub mod hector_mapper;
