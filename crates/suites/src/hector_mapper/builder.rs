@@ -23,7 +23,7 @@
 
 use super::{grid_map::GridMap, HectorMapper};
 use crate::{array, PhantomData};
-use mapping_algorithms_rs::types::{AbstractIsometry, IsometryAbstractor};
+use mapping_algorithms::types::{AbstractIsometry, IsometryAbstractor};
 use nalgebra::{AbstractRotation, RealField};
 use num_traits::AsPrimitive;
 
