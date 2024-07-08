@@ -25,7 +25,7 @@ tracing = ["dep:tracing"]
 cuda = ["nalgebra/cuda", "bindgen", "cc"]
 
 [dependencies]
-log = { version = "0.4.21", default-features = false }
+log = { version = "0.4.22", default-features = false }
 nalgebra = { version = "0.32.6", default-features = false, features = ["libm"] }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 paste = { version = "1.0.15", default-features = false, optional = true }
