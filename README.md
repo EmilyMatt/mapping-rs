@@ -9,7 +9,7 @@
 ![GitHub Watchers](https://img.shields.io/github/watchers/EmilyMatt/mapping-rs)
 [![GitHub Forks](https://img.shields.io/github/forks/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/fork)
 [![GitHub Issues](https://img.shields.io/github/issues/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/issues)
-[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/EmilyMatt/mapping-rs?tab=License-1-ov-file)
 
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
@@ -23,7 +23,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mapping-algorithms-rs = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
+mapping-algorithms = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
+mapping-suites = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
 ```
 
 # Features
@@ -38,7 +39,10 @@ provided that a memory allocator is configured
 It can be easily achieved like so:
 
 ```toml
-[dependencies.mapping-algorithms-rs]
+[dependencies.mapping-algorithms]
+default-features = false
+
+[dependencies.mapping-suites]
 default-features = false
 ```
 
@@ -68,7 +72,7 @@ In your Cargo.toml:
 
 ```toml
 # Compiles this crate with max optimizations
-[profile.dev.package.mapping-algorithms-rs]
+[profile.dev.package.mapping-algorithms]
 opt-level = 3
 ```
 
@@ -93,7 +97,7 @@ as well as the CUDA toolkit build tools.
 To enable CUDA, use the `cuda` feature:
 
 ```toml
-[dependencies.mapping-algorithms-rs]
+[dependencies.mapping-algorithms]
 features = ["cuda"]
 ```
 

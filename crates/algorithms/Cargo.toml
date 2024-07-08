@@ -1,5 +1,5 @@
 [package]
-name = "mapping-algorithms-rs"
+name = "mapping-algorithms"
 version = "0.0.1"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of pure-rust algorithms in popular use for SLAM purposes"
@@ -43,17 +43,3 @@ cc = { version = "1.0.106", default-features = false, optional = true }
 [[example]]
 name = "visualized_icp_2d"
 required-features = ["std", "pregenerated"]
-
-# Compilation Profiles
-[profile.dev]
-opt-level = 1
-
-# Compile external dependencies with higher opt level
-[profile.dev.package."*"]
-opt-level = 3
-
-[profile.test]
-opt-level = 3
-
-[profile.release]
-opt-level = 3

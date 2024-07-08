@@ -1048,7 +1048,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mapping-algorithms-rs"
+name = "mapping-algorithms"
 version = "0.0.1"
 dependencies = [
  "bindgen",
@@ -1064,13 +1064,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "mapping-suites-rs"
+name = "mapping-suites"
 version = "0.0.1"
 dependencies = [
  "bindgen",
  "cc",
  "log",
- "mapping-algorithms-rs",
+ "mapping-algorithms",
  "nalgebra",
  "num-traits",
  "rand",
