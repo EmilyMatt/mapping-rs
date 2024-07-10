@@ -26,7 +26,6 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
-
 #![doc = include_str!("../../../README.md")]
 
 /// A Hector Mapper, Utilizing Lidar And Wheel Odometry
