@@ -20,7 +20,6 @@ exceptions = [
     { name = "unicode-ident", allow = ["Unicode-DFS-2016"] }, # unique license
 ]
 unused-allowed-license = "allow"
-confidence-threshold = 0.93
 allow = [
     "Apache-2.0 WITH LLVM-exception",
     "Apache-2.0",
