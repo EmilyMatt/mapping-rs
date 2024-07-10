@@ -1,8 +1,8 @@
-name: Mandatory Pull Request Checks
+name: Main Build
 
 on:
-  pull_request:
-    branches: [ "main" ]
+  push:
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always

@@ -1,11 +1,15 @@
 [advisories]
 
+# The various windows crates should be safe
+# For nalgebra simba, bitflags are required
+# For syn, it is a dev dependency
 [bans]
 multiple-versions = "deny"
-skip = ["windows_x86_64_msvc", "windows_x86_64_gnu", "windows_x86_64_gnullvm",
+skip = ["bitflags", "syn",
+    "windows_x86_64_msvc", "windows_x86_64_gnu", "windows_x86_64_gnullvm",
     "windows_i686_msvc", "windows_i686_gnu", "windows_i686_gnullvm",
     "windows_aarch64_msvc", "windows_aarch64_gnullvm",
-    "windows-targets", "windows-sys"] # Windows crates are all using various versions in `mio`, but should be fine
+    "windows-targets", "windows-sys"]
 
 [sources]
 unknown-registry = "deny"
@@ -16,7 +20,6 @@ exceptions = [
     { name = "unicode-ident", allow = ["Unicode-DFS-2016"] }, # unique license
 ]
 unused-allowed-license = "allow"
-confidence-threshold = 0.93
 allow = [
     "Apache-2.0 WITH LLVM-exception",
     "Apache-2.0",
