@@ -231,7 +231,7 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(|_cc| {
             let mut rng = rand::thread_rng();
-            Box::new(VisualizerApp::new(RunConfiguration {
+            Ok(Box::new(VisualizerApp::new(RunConfiguration {
                 num_points: 500,
                 offset_x: rng.gen_range(-0.1..=0.1),
                 offset_y: rng.gen_range(-0.1..=0.1),
@@ -240,7 +240,7 @@ fn main() -> eframe::Result<()> {
                 mse_threshold: None,
                 mse_interval_threshold: 0.01,
                 with_kd: false,
-            }))
+            })))
         }),
     )
 }
