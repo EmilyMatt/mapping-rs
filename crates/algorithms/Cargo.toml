@@ -4,12 +4,10 @@ version = "0.0.1"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of pure-rust algorithms in popular use for SLAM purposes"
 edition = "2021"
-rust-version = "1.72"
 license = "MIT"
-readme = "../../README.md"
 categories = ["algorithms", "science", "science::robotics"]
 keywords = ["algorithms", "mathematics", "science"]
-include = ["../LICENSE", "**/*.rs", "Cargo.toml"]
+repository = "https://github.com/EmilyMatt/mapping-rs"
 
 [package.metadata.docs.rs]
 all-features = true
