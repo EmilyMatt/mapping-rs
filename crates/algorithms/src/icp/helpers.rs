@@ -28,7 +28,7 @@ use crate::{
     Sum,
 };
 use nalgebra::{
-    ArrayStorage, ClosedAdd, ClosedDiv, ClosedSub, Const, Matrix, Point, Scalar, Vector,
+    ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, Scalar, Vector,
 };
 use num_traits::{AsPrimitive, NumOps, Zero};
 
@@ -122,7 +122,7 @@ pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     closest_points: &[Point<T, N>],
 ) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
 where
-    T: ClosedAdd + ClosedDiv + ClosedSub + Copy + NumOps + Scalar + Zero,
+    T: ClosedAddAssign + ClosedDivAssign + ClosedSubAssign + Copy + NumOps + Scalar + Zero,
     usize: AsPrimitive<T>,
 {
     let (mean_transformed_a, mean_closest) = (

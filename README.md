@@ -9,6 +9,9 @@
 
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
+# mapping-rs
+### A SLAM ecosystem for Rust
+
 ## ⚠️ Unstable API ⚠️
 
 ### Warning: this crate is in early development, breaking API changes are to be expected.
@@ -100,4 +103,4 @@ features = ["cuda"]
 ## Contributing
 
 If you would like to contribute, we welcome your contributions.
-Please be sure to check out our [CONTRIBUTING.md](CONTRIBUTING.md)
+Please be sure to check out our [CONTRIBUTING.md](https://github.com/EmilyMatt/mapping-rs/blob/main/CONTRIBUTING.md)

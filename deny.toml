@@ -1,12 +1,9 @@
 [advisories]
 
 # The various windows crates should be safe
-# For nalgebra simba, bitflags are required
-# For syn, it is a dev dependency
 [bans]
 multiple-versions = "deny"
-skip = ["bitflags", "syn",
-    "windows_x86_64_msvc", "windows_x86_64_gnu", "windows_x86_64_gnullvm",
+skip = ["windows_x86_64_msvc", "windows_x86_64_gnu", "windows_x86_64_gnullvm",
     "windows_i686_msvc", "windows_i686_gnu", "windows_i686_gnullvm",
     "windows_aarch64_msvc", "windows_aarch64_gnullvm",
     "windows-targets", "windows-sys"]
