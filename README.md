@@ -1,15 +1,11 @@
-[![Windows Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-win.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-win.yml)
-[![Linux Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-linux.yml)
-[![MacOS Build](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/build-macos.yml)
-[![Documentation](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/doc.yml)
-[![CVEs and Licenses](https://github.com/EmilyMatt/mapping-rs/actions/workflows/deny.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/deny.yml)
+[![Build Pipeline](https://github.com/EmilyMatt/mapping-rs/actions/workflows/main.yml/badge.svg)](https://github.com/EmilyMatt/mapping-rs/actions/workflows/main.yml)
 [![codecov](https://codecov.io/gh/EmilyMatt/mapping-rs/graph/badge.svg)](https://codecov.io/gh/EmilyMatt/mapping-rs)
+[![GitHub Issues](https://img.shields.io/github/issues/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/issues)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/EmilyMatt/mapping-rs?tab=License-1-ov-file)
 
 ![GitHub Stars](https://img.shields.io/github/stars/EmilyMatt/mapping-rs)
 ![GitHub Watchers](https://img.shields.io/github/watchers/EmilyMatt/mapping-rs)
 [![GitHub Forks](https://img.shields.io/github/forks/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/fork)
-[![GitHub Issues](https://img.shields.io/github/issues/EmilyMatt/mapping-rs)](https://github.com/EmilyMatt/mapping-rs/issues)
-[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/EmilyMatt/mapping-rs?tab=License-1-ov-file)
 
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
