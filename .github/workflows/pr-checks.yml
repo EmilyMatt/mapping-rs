@@ -18,21 +18,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check formatting
-        run: cargo fmt --all --check
+        run: cargo fmt --check
 
   build-and-test:
     name: Build and Test
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: cargo build --all-features
+        run: cargo build --features=std,pregenerated,tracing
       - uses: taiki-e/install-action@nextest
       - name: Test
-        run: cargo nextest run --all-features
+        run: cargo nextest run --features=std,pregenerated,tracing
 
   build-no-std:
     name: Build `no_std` Version
@@ -40,10 +40,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build no_std version
-        run: cargo build --no-default-features
+        run: cargo build --no-default-features --features=pregenerated,tracing
       - uses: taiki-e/install-action@nextest
       - name: Test `no_std` version
-        run: cargo nextest run --no-default-features
+        run: cargo nextest run --no-default-features --features=pregenerated,tracing
+
+  build-cuda:
+    name: Build With CUDA Support
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Jimver/cuda-toolkit@master
+      - name: Build CUDA-Enabled version
+        run: cargo build --no-default-features --features=std,cuda
+      - uses: taiki-e/install-action@nextest
+      - name: Test CUDA-Enabled version
+        run: cargo nextest run --no-default-features --features=std,cuda
 
   clippy:
     name: Check Clippy
@@ -51,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check Clippy
-        run: cargo clippy --all
+        run: cargo clippy
 
   doc:
     name: Check Documentation
@@ -59,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check Documentation
-        run: cargo doc --all
+        run: cargo doc
 
   deny:
     name: Check Licenses and CVEs

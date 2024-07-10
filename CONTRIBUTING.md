@@ -60,10 +60,10 @@ We use GitHub issues to track bugs and errors. If you run into an issue with the
 
 - Before beginning the process, set up your environment, with your favorite IDE/Code Editor, and have the relevant Rust extensions/plugins installed.
 - In order to save your precious time, and shorten the process for your PRs to be acknowledged, reviewed, and approved, please add the following jobs to your IDE.
-  * Compile the project: `cargo build --all`
-  * Run the 'Clippy' linter on the project: `cargo clippy --all`
-  * Generate the project documentation: `cargo doc --all`
-  * Run the project tests: `cargo test --all`
+  * Compile the project: `cargo build`
+  * Run the 'Clippy' linter on the project: `cargo clippy`
+  * Generate the project documentation: `cargo doc`
+  * Run the project tests: `cargo <test/nextest>`
 - Please ensure these jobs pass on your local machine with both:
   - The standard library and all required features (by adding `--all-features` after the job)
   - Without the standard library (by adding `--no-default-features --features=pregenerated` after the job)
