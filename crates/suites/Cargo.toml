@@ -4,12 +4,10 @@ version = "0.0.1"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of SLAM suites, based on mapping-algorithms"
 edition = "2021"
-rust-version = "1.72"
 license = "MIT"
-readme = "../../README.md"
 categories = ["algorithms", "science", "science::robotics"]
 keywords = ["algorithms", "mathematics", "science"]
-include = ["../LICENSE", "**/*.rs", "Cargo.toml"]
+repository = "https://github.com/EmilyMatt/mapping-rs"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -23,7 +21,7 @@ tracing = ["dep:tracing"]
 cuda = ["mapping-algorithms/cuda", "bindgen", "cc"]
 
 [dependencies]
-mapping-algorithms = { path = "../algorithms", default-features = false, features = ["pregenerated"] }
+mapping-algorithms = { path = "../algorithms", version = "0.0.1", default-features = false, features = ["pregenerated"] }
 log = { version = "0.4.22", default-features = false }
 nalgebra = { version = "0.33.0", default-features = false, features = ["libm", "libm-force"] }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }

@@ -22,8 +22,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mapping-algorithms = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
-mapping-suites = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
+mapping-algorithms = { "0.0.1", .. }
+mapping-suites = { version = "0.0.1", .. }
 ```
 
 # Features
