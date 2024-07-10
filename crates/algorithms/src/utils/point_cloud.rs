@@ -23,7 +23,8 @@
 
 use crate::{array, utils::distance_squared, HashMap, Vec};
 use nalgebra::{
-    AbstractRotation, ClosedAddAssign, ClosedDivAssign, ComplexField, Isometry, Point, RealField, Scalar,
+    AbstractRotation, ClosedAddAssign, ClosedDivAssign, ComplexField, Isometry, Point, RealField,
+    Scalar,
 };
 use num_traits::{AsPrimitive, Bounded, NumOps, Zero};
 

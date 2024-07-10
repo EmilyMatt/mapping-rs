@@ -28,7 +28,8 @@ use crate::{
     Sum,
 };
 use nalgebra::{
-    ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, Scalar, Vector,
+    ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, Scalar,
+    Vector,
 };
 use num_traits::{AsPrimitive, NumOps, Zero};
 
