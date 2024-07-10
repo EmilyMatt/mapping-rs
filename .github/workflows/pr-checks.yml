@@ -46,7 +46,8 @@ jobs:
   coverage:
     name: Code Coverage
     needs:
-      - build
+      - build-and-test
+      - build-no-std
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
