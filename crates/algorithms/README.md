@@ -9,8 +9,8 @@
 
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
-# mapping-rs
-### A SLAM ecosystem for Rust
+# mapping-algorithms
+### Various computational geometry and spatial algorithms
 
 ## ⚠️ Unstable API ⚠️
 
@@ -23,7 +23,6 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 mapping-algorithms = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
-mapping-suites = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
 ```
 
 # Features
@@ -31,23 +30,20 @@ mapping-suites = { git = "https://github.com/EmilyMatt/mapping-rs.git" }
 ## no_std support
 
 While the `std` feature is enabled by default,
-these crates were designed with `no_std` support in mind,\
+this crate was designed with `no_std` support in mind,\
 provided that a memory allocator is configured
-(these crate __do__ use the `alloc` crate).
+(this crate __does__ use the `alloc` crate).
 
 It can be easily achieved like so:
 
 ```toml
 [dependencies.mapping-algorithms]
 default-features = false
-
-[dependencies.mapping-suites]
-default-features = false
 ```
 
 ## tracing
 
-These crates provides profiling and instrumentation insight
+This crate provides profiling and instrumentation insight
 via the [tracing](https://github.com/tokio-rs/tracing) crate.
 
 To use it, simply enable the `tracing` feature in your Cargo.toml,
@@ -58,7 +54,7 @@ Since each and every function is instrumented, be sure to remember the overhead 
 
 ## pregenerated
 
-These crates heavily rely on generics, and suffers severe performance penalties in `debug`\
+This crate heavily rely on generics, and suffers severe performance penalties in `debug`\
 (We strive to be _very_ fast in `release` though).
 
 For this purpose, a `pregenerated` feature exists, which provides access to public pre-generated functions for most use
@@ -76,9 +72,6 @@ features = ["pregenerated"]
 
 # Compiles these crates with max optimizations
 [profile.dev.package.mapping-algorithms]
-opt-level = 3
-
-[profile.dev.package.mapping-suites]
 opt-level = 3
 ```
 

@@ -26,7 +26,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../..", "/README.md"))]
+#![doc = include_str!("../README.md")]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
