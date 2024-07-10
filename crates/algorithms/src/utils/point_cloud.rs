@@ -23,7 +23,8 @@
 
 use crate::{array, utils::distance_squared, HashMap, Vec};
 use nalgebra::{
-    AbstractRotation, ClosedAdd, ClosedDiv, ComplexField, Isometry, Point, RealField, Scalar,
+    AbstractRotation, ClosedAddAssign, ClosedDivAssign, ComplexField, Isometry, Point, RealField,
+    Scalar,
 };
 use num_traits::{AsPrimitive, Bounded, NumOps, Zero};
 
@@ -46,7 +47,7 @@ use num_traits::{AsPrimitive, Bounded, NumOps, Zero};
 )]
 pub fn calculate_point_cloud_center<T, const N: usize>(points: &[Point<T, N>]) -> Point<T, N>
 where
-    T: ClosedAdd + ClosedDiv + Copy + Scalar + Zero,
+    T: ClosedAddAssign + ClosedDivAssign + Copy + Scalar + Zero,
     usize: AsPrimitive<T>,
 {
     if points.is_empty() {
