@@ -30,6 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build
         run: cargo build --all-features
+      - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo nextest run --all-features
 
@@ -40,6 +41,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build no_std version
         run: cargo build --no-default-features
+      - uses: taiki-e/install-action@nextest
       - name: Test `no_std` version
         run: cargo nextest run --no-default-features
 
