@@ -21,13 +21,19 @@
  * SOFTWARE.
  */
 
-mod is_nan;
-mod isometry;
+use num_traits::{Float, Num};
 
-use crate::ops::RangeInclusive;
+/// This trait is used to check if a number is NaN.
+/// For integer types, this will always return false.
+pub trait IsNan: Num {
+    /// Returns true if self is NaN.
+    fn is_nan(&self) -> bool {
+        false
+    }
+}
 
-pub use is_nan::IsNan;
-pub use isometry::{AbstractIsometry, IsometryAbstractor};
-
-/// A type which is simply an `N` length array of [`RangeInclusive`]s, representing the minimum and maximum coordinates for each dimension.
-pub type PolygonExtents<T, const N: usize> = [RangeInclusive<T>; N];
+impl<T: Copy + Float> IsNan for T {
+    fn is_nan(&self) -> bool {
+        T::is_nan(*self)
+    }
+}

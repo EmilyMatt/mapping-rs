@@ -23,10 +23,10 @@
 
 use eframe::{egui, epaint};
 use mapping_algorithms::{
-    icp::{icp_iteration, types::ICPConfiguration},
     kd_tree::KDTree,
-    utils::point_cloud::{
-        calculate_point_cloud_center, generate_point_cloud, transform_point_cloud,
+    point_clouds::{
+        calculate_point_cloud_center, generate_point_cloud, icp_iteration, transform_point_cloud,
+        ICPConfiguration,
     },
 };
 use nalgebra::{Isometry2, Point2, UnitComplex, Vector2};

@@ -21,15 +21,10 @@
  * SOFTWARE.
  */
 
-use crate::{
-    array,
-    types::SameSizeMat,
-    utils::{distance_squared, point_cloud::calculate_point_cloud_center},
-    Sum,
-};
+use crate::{array, point_clouds::calculate_point_cloud_center, utils::distance_squared, Sum};
 use nalgebra::{
-    ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, Scalar,
-    Vector,
+    ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, SMatrix,
+    Scalar, Vector,
 };
 use num_traits::{AsPrimitive, NumOps, Zero};
 
@@ -86,7 +81,7 @@ where
 pub(crate) fn outer_product<T, const N: usize>(
     point_a: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
     point_b: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
-) -> SameSizeMat<T, N>
+) -> SMatrix<T, N, N>
 where
     T: NumOps + Copy,
 {
@@ -121,7 +116,7 @@ where
 pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],
     closest_points: &[Point<T, N>],
-) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
+) -> (SMatrix<T, N, N>, Point<T, N>, Point<T, N>)
 where
     T: ClosedAddAssign + ClosedDivAssign + ClosedSubAssign + Copy + NumOps + Scalar + Zero,
     usize: AsPrimitive<T>,
@@ -204,7 +199,7 @@ mod tests {
         let result = outer_product(&point_a, &point_b);
         assert_eq!(
             result,
-            SameSizeMat::from_data(ArrayStorage([
+            SMatrix::from_data(ArrayStorage([
                 [4.0, 5.0, 6.0],
                 [8.0, 10.0, 12.0],
                 [12.0, 15.0, 18.0]

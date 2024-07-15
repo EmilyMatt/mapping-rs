@@ -116,8 +116,7 @@ where
 macro_rules! impl_haversine_formula {
     ($prec:expr, doc $doc:tt) => {
         ::paste::paste! {
-            #[doc = "A " $doc "-precision implementation of the Haversine formula and adjacent utilities"]
-            pub mod [<$doc _precision>] {
+            pub(super) mod [<$doc _precision>] {
                 #[doc = "Calculates the Haversine distance between two points on a sphere using " $doc "-precision floating-point arithmetic."]
                 #[doc = ""]
                 #[doc = "# Arguments"]

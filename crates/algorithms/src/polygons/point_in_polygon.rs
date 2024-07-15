@@ -24,7 +24,8 @@
 use nalgebra::{Point2, RealField, Vector2};
 use num_traits::{AsPrimitive, Bounded};
 
-use crate::{utils::calculate_polygon_extents, Vec};
+use super::calculate_polygon_extents;
+use crate::Vec;
 
 #[inline]
 #[cfg_attr(
@@ -138,8 +139,7 @@ where
 macro_rules! impl_p_i_p_algorithm {
     ($prec:expr, doc $doc:tt) => {
         ::paste::paste! {
-            #[doc = "A " $doc "-precision implementation of a point-in-polygon algorithm."]
-            pub mod [<$doc _precision>] {
+            pub(super) mod [<$doc _precision>] {
                 use nalgebra::{Point2};
                 use crate::Vec;
 

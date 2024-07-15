@@ -23,19 +23,18 @@
 
 use crate::{
     kd_tree::KDTree,
+    point_clouds::find_nearest_neighbour_naive,
     types::{AbstractIsometry, IsometryAbstractor},
-    utils::point_cloud::find_closest_point,
     Sum, Vec,
 };
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
 use nalgebra::{ComplexField, Isometry, Point, RealField, SimdRealField};
 use num_traits::{AsPrimitive, Bounded};
-use types::{ICPConfiguration, ICPSuccess};
 
 mod helpers;
+mod types;
 
-/// Structs in use as part of the public API of the ICP algorithm.
-pub mod types;
+pub use types::{ICPConfiguration, ICPConfigurationBuilder, ICPSuccess};
 
 /// A single iteration of the ICP function, allowing for any input and output, usually used for debugging or visualization
 ///
@@ -84,7 +83,7 @@ where
         .map(|transformed_point_a| {
             target_points_tree
                 .and_then(|kd_tree| kd_tree.nearest(transformed_point_a))
-                .unwrap_or(find_closest_point(transformed_point_a, points_b))
+                .unwrap_or_else(|| find_nearest_neighbour_naive(transformed_point_a, points_b))
         })
         .collect::<Vec<_>>();
     log::trace!("Found nearest neighbours");
@@ -228,8 +227,7 @@ macro_rules! impl_icp_algorithm {
 
     ($precision:expr, doc $doc:tt) => {
         ::paste::paste! {
-            #[doc = "A " $doc "-precision implementation of a basic ICP algorithm"]
-            pub mod [<$doc _precision>] {
+            pub(super) mod [<$doc _precision>] {
                 use nalgebra::{Point, UnitComplex, UnitQuaternion};
                 use super::{ICPConfiguration, ICPSuccess};
 
@@ -250,7 +248,7 @@ mod tests {
     use super::*;
     use crate::{
         array,
-        utils::point_cloud::{generate_point_cloud, transform_point_cloud},
+        point_clouds::{generate_point_cloud, transform_point_cloud},
     };
     use nalgebra::{Isometry2, Isometry3, Vector2, Vector3};
 

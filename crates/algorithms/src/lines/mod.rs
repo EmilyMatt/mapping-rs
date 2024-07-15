@@ -21,13 +21,18 @@
  * SOFTWARE.
  */
 
-mod is_nan;
-mod isometry;
+mod bresenham;
 
-use crate::ops::RangeInclusive;
+pub use bresenham::plot_bresenham_line;
 
-pub use is_nan::IsNan;
-pub use isometry::{AbstractIsometry, IsometryAbstractor};
+#[cfg(feature = "pregenerated")]
+#[doc = "A module containing pregenerated functions for single-precision line algorithms."]
+pub mod single_precision {
+    pub use super::bresenham::single_precision::*;
+}
 
-/// A type which is simply an `N` length array of [`RangeInclusive`]s, representing the minimum and maximum coordinates for each dimension.
-pub type PolygonExtents<T, const N: usize> = [RangeInclusive<T>; N];
+#[cfg(feature = "pregenerated")]
+#[doc = "A module containing pregenerated functions for double-precision line algorithms."]
+pub mod double_precision {
+    pub use super::bresenham::double_precision::*;
+}

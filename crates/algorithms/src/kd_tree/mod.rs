@@ -40,9 +40,9 @@ impl<T, const N: usize> KDNode<T, N>
 where
     T: Copy + Default + NumOps + PartialOrd + Scalar + Zero,
 {
-    fn new(data: Point<T, N>) -> Self {
+    fn new(root: Point<T, N>) -> Self {
         Self {
-            internal_data: data,
+            internal_data: root,
             left: None,
             right: None,
         }
@@ -234,11 +234,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::{Point2, Point3};
-
-    use crate::{utils::point_cloud::find_closest_point, Vec};
-
     use super::*;
+    use crate::{point_clouds::find_nearest_neighbour_naive, Vec};
+    use nalgebra::{Point2, Point3};
 
     fn generate_tree() -> KDTree<f32, 3> {
         let points = Vec::from([
@@ -348,7 +346,7 @@ mod tests {
 
         let closest_points_naive = points_a
             .iter()
-            .map(|point_a| find_closest_point(point_a, points_b.as_slice()))
+            .map(|point_a| find_nearest_neighbour_naive(point_a, points_b.as_slice()))
             .collect::<Vec<_>>();
         let closest_point_kd = points_a
             .iter()

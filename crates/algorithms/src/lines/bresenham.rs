@@ -133,8 +133,7 @@ macro_rules! impl_bresenham_algorithm {
 
     ($prec:expr, doc $doc:tt) => {
         ::paste::paste! {
-            #[doc = "A " $doc "-precision implementation of a bresenham line-drawing algorithm."]
-            pub mod [<$doc _precision>] {
+            pub(super) mod [<$doc _precision>] {
                 use nalgebra::Point;
                 use crate::Vec;
 

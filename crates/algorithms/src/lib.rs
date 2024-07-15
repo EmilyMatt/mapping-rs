@@ -34,41 +34,37 @@ extern crate alloc;
 extern crate core;
 
 #[cfg(feature = "std")]
-use std::{array, boxed::Box, collections::HashMap, fmt::Debug, iter::Sum, marker, ops, vec::Vec};
+use std::{
+    array, boxed::Box, cmp::Ordering, collections::HashMap, fmt::Debug, iter::Sum, marker, ops,
+    vec::Vec,
+};
 
 #[cfg(not(feature = "std"))]
 use {
     alloc::{boxed::Box, collections::BTreeMap as HashMap, vec::Vec},
-    core::{array, fmt::Debug, iter::Sum, marker, ops},
+    core::{array, cmp::Ordering, fmt::Debug, iter::Sum, marker, ops},
 };
-
-/// An Iterative Closest Point algorithm, useful in matching Point Clouds.
-/// Contains a 2D implementation when using the `2d` feature, and a 3D implementation when using the `3d` feature.
-pub mod icp;
 
 ///A module containing common and interfacing structs and types.
 pub mod types;
 
-/// Implementation of an Ackerman vehicle steering model.
-pub mod ackermann;
-
-/// Implementations of Bresenham line algorithms.
-pub mod bresenham;
-
-/// Implementations of a Point-In-Polygon algorithm for both the singular and plural cases.
-pub mod point_in_polygon;
-
-/// Implementation of a Point-In-Convex-Hull algorithm, for both the singular and plural cases.
-pub mod point_in_convex_hull;
-
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
 
-/// Implementation of the Haversine formula, which calculate the distance and bearing between two points
-pub mod haversine;
+/// A module containing various algorithms for convex hulls.
+pub mod convex_hulls;
 
-/// A Collection of pathfinding algorithms
-pub mod pathfinding;
+/// A module containing various algorithms for point clouds.
+pub mod point_clouds;
+
+/// A module containing various algorithms for polygons.
+pub mod polygons;
+
+/// A module containing various geospatial algorithms.
+pub mod geo;
+
+/// A module containing various line algorithms.
+pub mod lines;
 
 /// Various utility functions that are commonly used by these algorithms.
 pub mod utils;
