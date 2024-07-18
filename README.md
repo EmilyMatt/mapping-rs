@@ -10,6 +10,7 @@
 [![Discord Channel](https://dcbadge.vercel.app/api/server/hKFKTaMKkq/)](https://discord.gg/j4z4WM3ZNV)
 
 # mapping-rs
+
 ### A SLAM ecosystem for Rust
 
 ## ⚠️ Unstable API ⚠️
@@ -84,12 +85,14 @@ opt-level = 3
 
 Code example:
 
-```rust
+```rust,ignore
+use mapping_algorithms::point_clouds;
+
 // Instead of doing this:
-let res = icp::icp::<f32, 2 > (...); // Uses generics, uses your project's optimization level
+let res = point_clouds::icp::<f32, 2 > (...); // Uses generics, uses your project's optimization level
 
 // Do this(Runs much faster):
-let res = icp::single_precision::icp_2d(...); // Is a regular function, uses the crate's optimization level
+let res = point_clouds::single_precision::icp_2d(...); // Is a regular function, uses the crate's optimization level
 ```
 
 The `pregenerated` macro is enabled by default.

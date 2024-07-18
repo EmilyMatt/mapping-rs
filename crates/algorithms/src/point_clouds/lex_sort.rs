@@ -66,7 +66,7 @@ pub fn lex_sort_in_place<T: Scalar + PartialOrd + IsNan, const N: usize>(
 ///
 /// # Returns
 /// [`Some`] containing a vector of [`Point`]s, if the operation was successful.
-/// Otherwise returns [`None`].
+/// Otherwise, returns [`None`].
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Lexicographical Sort With Copy", skip_all)

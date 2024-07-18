@@ -35,13 +35,23 @@ extern crate core;
 
 #[cfg(feature = "std")]
 use std::{
-    array, boxed::Box, cmp::Ordering, collections::HashMap, fmt::Debug, iter::Sum, marker, ops,
+    array,
+    boxed::Box,
+    cmp::Ordering,
+    collections::{HashMap, VecDeque},
+    fmt::Debug,
+    iter::Sum,
+    marker, ops,
     vec::Vec,
 };
 
 #[cfg(not(feature = "std"))]
 use {
-    alloc::{boxed::Box, collections::BTreeMap as HashMap, vec::Vec},
+    alloc::{
+        boxed::Box,
+        collections::{BTreeMap as HashMap, VecDeque},
+        vec::Vec,
+    },
     core::{array, cmp::Ordering, fmt::Debug, iter::Sum, marker, ops},
 };
 

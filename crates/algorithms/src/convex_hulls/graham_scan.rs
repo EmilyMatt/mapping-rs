@@ -1,4 +1,3 @@
-use std::ops;
 // SPDX-License-Identifier: MIT
 /*
  * Copyright (c) [2023 - Present] Emily Matheys <emilymatt96@gmail.com>
@@ -21,38 +20,95 @@ use std::ops;
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-use crate::types::IsNan;
-use nalgebra::{Point, Scalar};
+
+use crate::{types::IsNan, VecDeque};
+use nalgebra::{ComplexField, Dyn, Point, Scalar, SquareMatrix, VecStorage};
+use num_traits::{AsPrimitive, NumAssignOps, NumOps};
+
+// Hopefully the compiler does all of this in compile time TBH
+fn calculate_determinant<
+    O: ComplexField + Copy,
+    T: Copy + Scalar + PartialOrd + IsNan + NumOps + NumAssignOps + AsPrimitive<O>,
+    const N: usize,
+>(
+    points: [&Point<T, N>; 3],
+) -> O {
+    assert!(N >= 2);
+    SquareMatrix::from_vec_storage(VecStorage::new(
+        Dyn(N + 1),
+        Dyn(N + 1),
+        (0..=N).fold(vec![O::one(); (N + 1).pow(2)], |mut acc, idx| {
+            let row = idx / (N + 1);
+            let col = idx % (N + 1);
+            acc[row * (N + 1) + col] = match (row, col) {
+                (row, col) if row < 3 && col < N => points[row].coords[col].as_(),
+                _ => O::one(),
+            };
+
+            acc
+        }),
+    ))
+    .determinant()
+}
 
 pub fn graham_scan<
-    T: Copy + Scalar + PartialOrd + IsNan + num_traits::NumOps + num_traits::NumAssignOps,
+    O: ComplexField + Copy + PartialOrd,
+    T: Copy + Scalar + PartialOrd + IsNan + NumOps + NumAssignOps + AsPrimitive<O>,
     const N: usize,
 >(
     points: &[Point<T, N>],
-) -> Option<()> {
+) -> Option<Vec<Point<T, N>>> {
     let sorted = crate::point_clouds::lex_sort(points)?;
 
-    let upper_hull = sorted
-        .iter()
-        .fold(vec![], |mut acc: Vec<&Point<T, N>>, it| {
-            loop {
-                if acc.len() < 2 {
-                    break;
-                }
+    let upper_hull = sorted.iter().fold(VecDeque::new(), |mut acc, it| {
+        while acc.len() >= 2
+            && calculate_determinant([acc[acc.len() - 2], acc[acc.len() - 1], it]) > O::zero()
+        {
+            acc.pop_back();
+        }
 
-                let a = acc[acc.len() - 2];
-                let b = acc[acc.len() - 1];
-                let c = it;
+        // Push the new point
+        acc.push_back(it);
+        acc
+    });
 
-                // pop if cross product is to the left
-            }
+    let lower_hull = sorted.iter().rev().fold(VecDeque::new(), |mut acc, it| {
+        while acc.len() >= 2
+            && calculate_determinant([acc[acc.len() - 2], acc[acc.len() - 1], it]) > O::zero()
+        {
+            acc.pop_back();
+        }
 
-            // Push the new point
-            acc.push(it);
-            acc
-        });
+        // Push the new point
+        acc.push_back(it);
+        acc
+    });
 
-    // Do the same thing for the lower hull but in reverse, kinda
+    Some(
+        upper_hull
+            .into_iter()
+            .skip(1)
+            .chain(lower_hull.into_iter().skip(1))
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>(),
+    )
+}
 
-    Some(())
+#[cfg(test)]
+mod tests {
+    use crate::convex_hulls::graham_scan::graham_scan;
+    use nalgebra::Point2;
+
+    #[test]
+    fn test_graham_scan() {
+        let a = graham_scan::<f32, f32, 2>(&[
+            Point2::new(1.0, 2.0),
+            Point2::new(-1.0, 3.0),
+            Point2::new(-0.5, -4.0),
+            Point2::new(0.0, 0.0),
+            Point2::new(-5.0, 1.5),
+        ]);
+
+        panic!("{a:?}");
+    }
 }
