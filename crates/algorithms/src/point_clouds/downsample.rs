@@ -21,8 +21,8 @@
  * SOFTWARE.
  */
 
-use nalgebra::{ComplexField, Point};
-use num_traits::AsPrimitive;
+use nalgebra::{ComplexField, Point, Scalar};
+use num_traits::{AsPrimitive, NumAssign};
 
 use crate::{array, HashMap, Vec};
 
@@ -46,20 +46,24 @@ use crate::{array, HashMap, Vec};
     feature = "tracing",
     tracing::instrument("Downsample Point Cloud Using Voxels", skip_all)
 )]
-pub fn downsample_point_cloud_voxel<T, const N: usize>(
+pub fn downsample_point_cloud_voxel<T, O, const N: usize>(
     points: &[Point<T, N>],
-    voxel_size: T,
+    voxel_size: O,
 ) -> Vec<Point<T, N>>
 where
-    T: ComplexField + Copy + AsPrimitive<isize>,
+    O: AsPrimitive<isize> + ComplexField + Copy,
+    T: AsPrimitive<O> + Scalar + NumAssign,
     usize: AsPrimitive<T>,
 {
     let mut voxel_map: HashMap<[isize; N], Vec<Point<T, N>>> = HashMap::new();
 
     // Assign points to voxels
     for point in points {
-        let voxel_coords: [isize; N] =
-            array::from_fn(|idx| (point[idx] / voxel_size).floor().as_());
+        let voxel_coords: [isize; N] = array::from_fn(|idx| {
+            (AsPrimitive::<O>::as_(point[idx]) / voxel_size)
+                .floor()
+                .as_()
+        });
         voxel_map.entry(voxel_coords).or_default().push(*point);
     }
 

@@ -21,10 +21,15 @@
  * SOFTWARE.
  */
 
+use core::fmt::Debug;
 use nalgebra::{ComplexField, Point2, Scalar};
-use num_traits::{AsPrimitive, Float, NumOps};
+use num_traits::{AsPrimitive, NumAssign, NumOps};
 
-use crate::{point_clouds::lex_sort, types::IsNan, ToOwned, Vec, VecDeque};
+use crate::{
+    point_clouds::{downsample_point_cloud_voxel, lex_sort},
+    types::IsNan,
+    ToOwned, Vec, VecDeque,
+};
 
 fn calculate_determinant<O: ComplexField + Copy, T: Scalar + NumOps + AsPrimitive<O>>(
     point_a: &Point2<T>,
@@ -44,7 +49,7 @@ fn calculate_determinant<O: ComplexField + Copy, T: Scalar + NumOps + AsPrimitiv
 fn build_hull_segment<
     'a,
     O: ComplexField + Copy + PartialOrd,
-    T: AsPrimitive<O> + Default + NumOps + Scalar,
+    T: AsPrimitive<O> + Debug + IsNan + NumAssign + PartialOrd,
 >(
     mut accumulator: VecDeque<&'a Point2<T>>,
     current_point: &'a Point2<T>,
@@ -69,8 +74,10 @@ fn build_hull_segment<
 ///
 /// # Arguments
 /// * `points` - A slice of points to compute the convex hull of
+/// * `assume_sorted` - A boolean indicating whether the points are already sorted lexicographically, this is critical for correctness so make sure you don't set this to `true` unless you are sure the points are sorted
+/// * `voxel_size` - An optional parameter specifying the voxel size by which to downsample the point cloud before computing the convex hull, useful in reducing errors due to close or identical vertices.
 ///
-/// # Generics
+/// # Genericsoc -
 /// * `O` - The output type of the trigonometric functions, essentially the precision of the calculations
 /// * `T` - The type of the points, can be of any scalar type
 ///
@@ -80,23 +87,36 @@ fn build_hull_segment<
     feature = "tracing",
     tracing::instrument("Construct Convex Hull Using Graham Scan", skip_all)
 )]
-pub fn graham_scan<
-    O: ComplexField + Float,
-    T: AsPrimitive<O> + Default + IsNan + NumOps + PartialOrd + Scalar,
->(
+pub fn graham_scan<O, T>(
     points: &[Point2<T>],
     assume_sorted: bool,
-) -> Option<Vec<Point2<T>>> {
+    voxel_size: Option<O>,
+) -> Option<Vec<Point2<T>>>
+where
+    O: AsPrimitive<isize> + ComplexField + Copy + PartialOrd,
+    T: AsPrimitive<O> + Debug + IsNan + NumAssign + PartialOrd,
+    usize: AsPrimitive<T>,
+{
     if points.len() < 3 {
         return None;
     }
 
     let points_sorted;
-    let points_sorted_slice = if assume_sorted {
-        points
-    } else {
-        points_sorted = lex_sort(points)?;
-        points_sorted.as_slice()
+    let points_sorted_slice = match (assume_sorted, voxel_size) {
+        (true, None) => points,
+        (true, Some(voxel_size)) => {
+            points_sorted = downsample_point_cloud_voxel(points, voxel_size);
+            points_sorted.as_slice()
+        }
+        (false, None) => {
+            points_sorted = lex_sort(points)?;
+            points_sorted.as_slice()
+        }
+        (false, Some(voxel_size)) => {
+            let downsampled_points = downsample_point_cloud_voxel(points, voxel_size);
+            points_sorted = lex_sort(downsampled_points.as_slice())?;
+            points_sorted.as_slice()
+        }
     };
 
     let upper_hull = points_sorted_slice
@@ -130,8 +150,8 @@ macro_rules! impl_graham_scan {
         ::paste::paste! {
 
             #[doc = "A premade variant of the Graham Scan algorithm function, made for " $doc " precision floating-point arithmetic, using " $t " as the point type."]
-            pub fn [<graham_scan_ $t>](input: &[Point2<$t>], assume_sorted: bool) -> Option<Vec<Point2<$t>>> {
-                super::graham_scan::<$prec, $t>(input, assume_sorted)
+            pub fn [<graham_scan_ $t>](input: &[Point2<$t>], assume_sorted: bool, voxel_size: Option<$prec>) -> Option<Vec<Point2<$t>>> {
+                super::graham_scan::<$prec, $t>(input, assume_sorted, voxel_size)
             }
         }
     };
@@ -221,7 +241,7 @@ mod tests {
             Point2::new(-2.1599998, 7.8314323),
             Point2::new(6.1809216, -6.801429),
         ]);
-        let hull = graham_scan::<f32, f32>(&point_cloud, false);
+        let hull = graham_scan::<f32, f32>(&point_cloud, false, None);
 
         assert!(hull.is_some());
         assert_eq!(
@@ -242,13 +262,13 @@ mod tests {
 
     #[test]
     fn test_not_enough_points() {
-        assert_eq!(graham_scan::<f32, f32>(&[], false), None);
+        assert_eq!(graham_scan::<f32, f32>(&[], false, None), None);
         assert_eq!(
-            graham_scan::<f32, f32>(&[Point2::new(1.0, 1.0)], false),
+            graham_scan::<f32, f32>(&[Point2::new(1.0, 1.0)], false, None),
             None
         );
         assert_eq!(
-            graham_scan::<f32, f32>(&[Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)], false),
+            graham_scan::<f32, f32>(&[Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)], false, None),
             None
         );
     }
@@ -260,7 +280,7 @@ mod tests {
             Point2::new(1.0, 1.0),
             Point2::new(2.0, 2.0),
         ]);
-        assert_eq!(graham_scan::<f32, f32>(&points, false), None);
+        assert_eq!(graham_scan::<f32, f32>(&points, false, None), None);
     }
 
     #[test]
@@ -278,6 +298,9 @@ mod tests {
             Point2::new(1.0, 1.0),
             Point2::new(1.0, 0.0),
         ]);
-        assert_eq!(graham_scan::<f32, f32>(&points, false), Some(expected));
+        assert_eq!(
+            graham_scan::<f32, f32>(&points, false, None),
+            Some(expected)
+        );
     }
 }
