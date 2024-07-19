@@ -70,83 +70,35 @@ impl_is_nan!(f64);
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_is_nan_f32() {
-        assert!(!<f32 as IsNan>::is_nan(0.0));
-        assert!(!<f32 as IsNan>::is_nan(1.0));
-        assert!(!<f32 as IsNan>::is_nan(f32::INFINITY));
-        assert!(!<f32 as IsNan>::is_nan(f32::NEG_INFINITY));
+    macro_rules! impl_test {
+        ($(fl $t:expr),*) => {
+            $(
+                ::paste::paste! {
+                    #[test]
+                    fn [<test_is_nan_ $t>]() {
+                        assert!(!<$t as IsNan>::is_nan(0.0));
+                        assert!(!<$t as IsNan>::is_nan(1.0));
+                        assert!(!<$t as IsNan>::is_nan($t::INFINITY));
+                        assert!(!<$t as IsNan>::is_nan($t::NEG_INFINITY));
 
-        assert!(<f32 as IsNan>::is_nan(f32::NAN));
+                        assert!(<$t as IsNan>::is_nan($t::NAN));
+                    }
+                }
+            )*
+        };
+        ($($t:expr),*) => {
+            $(
+                ::paste::paste! {
+                    #[test]
+                    fn [<test_is_nan_ $t>]() {
+                        assert!(!<$t as IsNan>::is_nan(0));
+                        assert!(!<$t as IsNan>::is_nan(1));
+                    }
+                }
+            )*
+        }
     }
 
-    #[test]
-    fn test_is_nan_f64() {
-        assert!(!<f64 as IsNan>::is_nan(0.0));
-        assert!(!<f64 as IsNan>::is_nan(1.0));
-        assert!(!<f64 as IsNan>::is_nan(f64::INFINITY));
-        assert!(!<f64 as IsNan>::is_nan(f64::NEG_INFINITY));
-
-        assert!(<f64 as IsNan>::is_nan(f64::NAN));
-    }
-
-    #[test]
-    fn test_is_nan_u8() {
-        assert!(!0u8.is_nan());
-        assert!(!1u8.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_u16() {
-        assert!(!0u16.is_nan());
-        assert!(!1u16.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_u32() {
-        assert!(!0u32.is_nan());
-        assert!(!1u32.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_u64() {
-        assert!(!0u64.is_nan());
-        assert!(!1u64.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_usize() {
-        assert!(!0usize.is_nan());
-        assert!(!1usize.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_i8() {
-        assert!(!0i8.is_nan());
-        assert!(!1i8.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_i16() {
-        assert!(!0i16.is_nan());
-        assert!(!1i16.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_i32() {
-        assert!(!0i32.is_nan());
-        assert!(!1i32.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_i64() {
-        assert!(!0i64.is_nan());
-        assert!(!1i64.is_nan());
-    }
-
-    #[test]
-    fn test_is_nan_isize() {
-        assert!(!0isize.is_nan());
-        assert!(!1isize.is_nan());
-    }
+    impl_test!(fl f32, fl f64);
+    impl_test!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 }
