@@ -25,13 +25,14 @@ use nalgebra::{ComplexField, Isometry, Point, RealField, SimdRealField};
 use num_traits::{AsPrimitive, Bounded};
 
 use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
+
 pub use types::{ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess};
 
 use crate::{
     kd_tree::KDTree,
     point_clouds::find_nearest_neighbour_naive,
-    Sum,
-    types::{AbstractIsometry, IsNan, IsometryAbstractor}, Vec,
+    types::{AbstractIsometry, IsNan, IsometryAbstractor},
+    Sum, Vec,
 };
 
 mod helpers;
@@ -92,11 +93,9 @@ where
             Ok(accumulator)
         },
     )?;
-    log::trace!("Found nearest neighbours");
 
     let (rot_mat, mean_a, mean_b) =
         get_rotation_matrix_and_centeroids(transformed_points, &closest_points);
-    log::trace!("Generated covariance matrix");
 
     *current_transform =
         IsometryAbstractor::<T, N>::update_transform(current_transform, mean_a, mean_b, &rot_mat);

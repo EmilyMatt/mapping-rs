@@ -24,49 +24,7 @@
 use nalgebra::{ComplexField, Point2, Scalar};
 use num_traits::{AsPrimitive, Float, NumAssignOps, NumOps};
 
-use crate::{
-    point_clouds::lex_sort_ref, ToOwned, types::IsNan, utils::distance_squared, Vec, VecDeque,
-};
-
-fn find_pivot<T: IsNan + PartialOrd + Scalar>(points: &[Point2<T>]) -> Option<Point2<T>> {
-    // Verify we don't get into trouble with the ordering
-    for point in points {
-        if point.x.is_nan() || point.y.is_nan() {
-            return None;
-        }
-    }
-
-    points
-        .iter()
-        .min_by(|a, b| {
-            a.x.partial_cmp(&b.x)
-                .unwrap()
-                .then(a.y.partial_cmp(&b.y).unwrap())
-        })
-        .cloned()
-}
-
-fn sort_by_polar_angle<
-    O: ComplexField + Copy + Float + PartialOrd,
-    T: AsPrimitive<O> + Default + IsNan + PartialOrd + Scalar + NumAssignOps,
->(
-    points: &mut [Point2<T>],
-    pivot: Point2<T>,
-) {
-    points.sort_by(|a, b| {
-        let a_vector = a - pivot;
-        let a_angle = a_vector.y.as_().atan2(a_vector.x.as_());
-
-        let b_vector = b - pivot;
-        let b_angle = b_vector.y.as_().atan2(a_vector.x.as_());
-
-        a_angle.partial_cmp(&b_angle).unwrap().then(
-            distance_squared(a, &pivot)
-                .partial_cmp(&distance_squared(b, &pivot))
-                .unwrap(),
-        )
-    })
-}
+use crate::{point_clouds::lex_sort_ref, types::IsNan, ToOwned, Vec, VecDeque};
 
 fn calculate_determinant<O: ComplexField + Copy, T: Scalar + NumOps + AsPrimitive<O>>(
     point_a: &Point2<T>,
@@ -101,6 +59,18 @@ fn check_hull_segment<
     accumulator
 }
 
+/// Computes the convex hull of a set of points using the Graham scan algorithm.
+/// Specifically the Monotone Chain variant
+///
+/// # Arguments
+/// * `points` - A slice of points to compute the convex hull of
+///
+/// # Generics
+/// * `O` - The output type of the trigonometric functions, essentially the precision of the calculations
+/// * `T` - The type of the points, can be of any scalar type
+///
+/// # Returns
+/// An [`Option`] of [`Vec<Point2<T>>`] representing the convex hull, or [`None`] if there were not enough points to compute a convex hull, or if all points are collinear
 pub fn graham_scan<
     O: ComplexField + Float,
     T: AsPrimitive<O> + Default + IsNan + NumAssignOps + PartialOrd + Scalar,

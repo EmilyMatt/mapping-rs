@@ -24,6 +24,7 @@
 use nalgebra::{Point, RealField};
 use num_traits::Bounded;
 
+pub use graham_scan::graham_scan;
 pub use point_in_polygon::{are_multiple_points_in_polygon, is_single_point_in_polygon};
 
 use crate::{array, ops::RangeInclusive, types::PolygonExtents};

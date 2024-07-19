@@ -105,7 +105,7 @@ impl eframe::App for VisualizerApp {
             ctx.request_repaint();
 
             if self.run_next_iteration {
-                log::info!("Running iteration");
+                log::info!("Running ICP iteration");
 
                 self.current_iteration += 1;
                 match icp_iteration::<_, 2>(
