@@ -209,16 +209,7 @@ where
 macro_rules! impl_icp_algorithm {
     ($precision:expr, $doc:tt, $nd:expr, $rot_type:expr) => {
         ::paste::paste! {
-            #[doc = "An ICP algorithm in " $nd "D space."]
-            #[doc = "# Arguments"]
-            #[doc = "* `points_a`: A slice of [`Point`], representing the source point cloud."]
-            #[doc = "* `points_b`: A slice of [`Point`], representing the target point cloud."]
-            #[doc = "* `config`: a reference to an [`ICPConfiguration`], specifying the behaviour of the algorithm."]
-            #[doc = ""]
-            #[doc = "# Returns"]
-            #[doc = "An [`ICPResult`] struct with the relevant data, or an error message explaining what went wrong."]
-            #[doc = ""]
-            #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
+            #[doc = "A premade variant of the ICP algorithm function, in " $nd "D space and " $doc "-precision floats."]
             pub fn [<icp_$nd d>](points_a: &[Point<$precision, $nd>],
                 points_b: &[Point<$precision, $nd>],
                 config: ICPConfiguration<$precision>) -> ICPResult<$precision, $rot_type<$precision>, $nd> {

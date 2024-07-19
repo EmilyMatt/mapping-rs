@@ -117,33 +117,12 @@ macro_rules! impl_haversine_formula {
     ($prec:expr, doc $doc:tt) => {
         ::paste::paste! {
             pub(super) mod [<$doc _precision>] {
-                #[doc = "Calculates the Haversine distance between two points on a sphere using " $doc "-precision floating-point arithmetic."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `point_a`: A [`Point2'](nalgebra::Point2) representing the first geographical point."]
-                #[doc = "* `point_b`: A [`Point2`](nalgebra::Point2) representing the second geographical point."]
-                #[doc = "* `sphere_radius`: The radius of the sphere, typically the Earth's radius in kilometers or miles."]
-                #[doc = ""]
-                #[doc = "# Returns"]
-                #[doc = "A '" $prec "', the distance between `point_a` and `point_b` along the surface of the sphere, using the Haversine formula."]
+                #[doc = "A premade variant of the haversine distance calculation function, made for " $doc " precision floating-point arithmetic."]
                 pub fn calculate_haversine_distance(point_a: nalgebra::Point2<$prec>, point_b: nalgebra::Point2<$prec>, sphere_radius: $prec) -> $prec {
                     super::calculate_haversine_distance(point_a,point_b,sphere_radius)
                 }
 
-                #[doc = "Calculates the initial bearing (forward azimuth) from the first point to the second point."]
-                #[doc = ""]
-                #[doc = "This function computes the initial bearing, or forward azimuth, between two points on the surface"]
-                #[doc = "of a sphere, assuming a spherical model. The bearing is the direction one must travel"]
-                #[doc = "from the first point to reach the second point, expressed as an angle from North (0 radians)"]
-                #[doc = "in a clockwise direction."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `point_a`: A [`Point2`](nalgebra::Point2) representing the starting geographical point (latitude and longitude)."]
-                #[doc = "* `point_b`: A [`Point2`](nalgebra::Point2) representing the destination geographical point (latitude and longitude)."]
-                #[doc = ""]
-                #[doc = "# Returns"]
-                #[doc = "* A value that representing the initial bearing from `point_a` to `point_b`, in radians. The result is normalized"]
-                #[doc = "  to a range of 0 to 2 PI radians."]
+                #[doc = "A premade variant of the sphere bearing calculation function, made for " $doc " precision floating-point arithmetic."]
                 pub fn calculate_sphere_bearing(point_a: nalgebra::Point2<$prec>, point_b: nalgebra::Point2<$prec>) -> $prec {
                     super::calculate_sphere_bearing(point_a,point_b)}
                 }

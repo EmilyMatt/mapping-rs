@@ -104,15 +104,7 @@ where
 macro_rules! impl_bresenham_algorithm {
     ($precision:expr, doc $doc:tt, $nd:expr, $out:expr) => {
         ::paste::paste! {
-            #[doc = "Bresenham line drawing algorithm, with " $doc "-precision, in " $nd "D space."]
-            #[doc = "# Arguments"]
-            #[doc = "* `start_point`: A [`Point`], representing the starting point of the line."]
-            #[doc = "* `end_point`: A [`Point`], representing the ending point of the line."]
-            #[doc = ""]
-            #[doc = "# Returns"]
-            #[doc = "A [`Vec`] of [`Point`]s, representing the drawn line, including the starting point and ending point."]
-            #[doc = ""]
-            #[doc = "NOTE: The returned [`Vec`] will always go from the starting point to the ending point, regardless of direction in axis."]
+            #[doc = "A premade variant of the bresenham line function for " $doc "-precision floating-point arithmetic, returns a [`Vec`] of [`Point`]s with inner type " $out "."]
             pub fn [<plot_$nd d_$out _bresenham_line>](start_point: Point<$precision, $nd>, end_point: Point<$precision, $nd>) -> Vec<Point<$out, $nd>> {
                     super::plot_bresenham_line::<$precision, $out, $nd>(start_point, end_point)
             }

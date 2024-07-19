@@ -43,13 +43,13 @@ mod nearest_neighbour;
 #[cfg(feature = "pregenerated")]
 #[doc = "Contains pregenerated functions for single precision point cloud algorithms."]
 pub mod single_precision {
-    pub use super::icp::single_precision::{icp_2d, icp_3d};
+    pub use super::icp::single_precision::*;
 }
 
 #[cfg(feature = "pregenerated")]
 #[doc = "Contains pregenerated functions for double precision point cloud algorithms."]
 pub mod double_precision {
-    pub use super::icp::double_precision::{icp_2d, icp_3d};
+    pub use super::icp::double_precision::*;
 }
 
 /// Calculates the mean(centeroid) of the point cloud.

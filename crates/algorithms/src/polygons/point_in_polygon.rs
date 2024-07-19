@@ -141,29 +141,15 @@ macro_rules! impl_p_i_p_algorithm {
     ($prec:expr, doc $doc:tt) => {
         ::paste::paste! {
             pub(super) mod [<$doc _precision>] {
-                use nalgebra::{Point2};
+                use nalgebra::Point2;
                 use crate::Vec;
 
-                #[doc = "Check if the provided point is within the provided polygon."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `point`: A reference to a [`Point2`]."]
-                #[doc = "* `polygon`: A slice of [`Point2`]s representing the vertices."]
-                #[doc = "# Returns"]
-                #[doc = "A boolean value, specifying if the point is within the polygon."]
+                #[doc = "A premade variant of the single point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
                 pub fn is_single_point_in_polygon(point: &Point2<$prec>, polygon: &[Point2<$prec>]) -> bool {
                     super::is_single_point_in_polygon(point, polygon)
                 }
 
-                #[doc = "This function will run the [`is_single_point_in_polygon`] for each on of the points given, and the provided polygon,"]
-                #[doc = "But pre-calculates the polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `points`: A slice of [`Point2`]."]
-                #[doc = "* `polygon`: A slice of [`Point2`]s, representing the vertices."]
-                #[doc = ""]
-                #[doc = "# Returns"]
-                #[doc = "A [`Vec`](crate::Vec) of booleans, with the same size as `points`, containing the result for each point."]
+                #[doc = "A premade variant of the multiple point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
                 pub fn are_multiple_points_in_polygon(
                     points: &[Point2<$prec>],
                     polygon: &[Point2<$prec>],

@@ -30,7 +30,7 @@ use crate::{array, HashMap, Vec};
 ///
 /// # Arguments
 /// * `points`: a slice of [`Point`], representing the point cloud.
-/// * `voxel_size`: a floating point number, specifying the size for each voxel, all points inside that voxel will be downsampled to their centeroid..
+/// * `voxel_size`: a floating point number, specifying the size for each voxel, all points inside that voxel will be downsampled to their centeroid.
 ///
 /// # Generics
 /// * `T`: Either an [`f32`] or [`f64`].

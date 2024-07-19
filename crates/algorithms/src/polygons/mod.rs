@@ -35,17 +35,15 @@ mod point_in_polygon;
 #[cfg(feature = "pregenerated")]
 #[doc = "This module contains polygon algorithms that are pregenerated for single precision floating points."]
 pub mod single_precision {
-    pub use super::point_in_polygon::single_precision::{
-        are_multiple_points_in_polygon, is_single_point_in_polygon,
-    };
+    pub use super::graham_scan::single_precision::*;
+    pub use super::point_in_polygon::single_precision::*;
 }
 
 #[cfg(feature = "pregenerated")]
 #[doc = "This module contains polygon algorithms that are pregenerated for double precision floating points."]
 pub mod double_precision {
-    pub use super::point_in_polygon::double_precision::{
-        are_multiple_points_in_polygon, is_single_point_in_polygon,
-    };
+    pub use super::graham_scan::double_precision::*;
+    pub use super::point_in_polygon::double_precision::*;
 }
 
 /// This function calculates the extents of the polygon, i.e., the minimum and maximum values for each coordinate dimension.
