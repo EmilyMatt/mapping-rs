@@ -22,7 +22,7 @@
  */
 
 use nalgebra::{ComplexField, Point2, Scalar};
-use num_traits::{AsPrimitive, Float, NumAssignOps, NumOps};
+use num_traits::{AsPrimitive, Float, NumOps};
 
 use crate::{point_clouds::lex_sort_ref, types::IsNan, ToOwned, Vec, VecDeque};
 
@@ -73,7 +73,7 @@ fn check_hull_segment<
 /// An [`Option`] of [`Vec<Point2<T>>`] representing the convex hull, or [`None`] if there were not enough points to compute a convex hull, or if all points are collinear
 pub fn graham_scan<
     O: ComplexField + Float,
-    T: AsPrimitive<O> + Default + IsNan + NumAssignOps + PartialOrd + Scalar,
+    T: AsPrimitive<O> + Default + IsNan + NumOps + PartialOrd + Scalar,
 >(
     points: &[Point2<T>],
 ) -> Option<Vec<Point2<T>>> {

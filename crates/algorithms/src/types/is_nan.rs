@@ -21,19 +21,132 @@
  * SOFTWARE.
  */
 
-use num_traits::{Float, Num};
-
 /// This trait is used to check if a number is NaN.
 /// For integer types, this will always return false.
-pub trait IsNan: Num {
+pub trait IsNan: Copy {
     /// Returns true if self is NaN.
-    fn is_nan(&self) -> bool {
-        false
+    fn is_nan(self) -> bool;
+}
+
+macro_rules! impl_is_nan {
+    ($(($t:ty)),*) => {
+        $(
+            impl IsNan for $t {
+                #[inline]
+                fn is_nan(self) -> bool {
+                    false
+                }
+            }
+        )*
+    };
+    ($t:ty) => {
+        impl IsNan for $t {
+            #[inline]
+            fn is_nan(self) -> bool {
+                self.is_nan()
+            }
+        }
     }
 }
 
-impl<T: Copy + Float> IsNan for T {
-    fn is_nan(&self) -> bool {
-        T::is_nan(*self)
+impl_is_nan!(
+    (u8),
+    (u16),
+    (u32),
+    (u64),
+    (u128),
+    (usize),
+    (i8),
+    (i16),
+    (i32),
+    (i64),
+    (i128),
+    (isize)
+);
+impl_is_nan!(f32);
+impl_is_nan!(f64);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_nan_f32() {
+        assert!(!<f32 as IsNan>::is_nan(0.0));
+        assert!(!<f32 as IsNan>::is_nan(1.0));
+        assert!(!<f32 as IsNan>::is_nan(f32::INFINITY));
+        assert!(!<f32 as IsNan>::is_nan(f32::NEG_INFINITY));
+
+        assert!(<f32 as IsNan>::is_nan(f32::NAN));
+    }
+
+    #[test]
+    fn test_is_nan_f64() {
+        assert!(!<f64 as IsNan>::is_nan(0.0));
+        assert!(!<f64 as IsNan>::is_nan(1.0));
+        assert!(!<f64 as IsNan>::is_nan(f64::INFINITY));
+        assert!(!<f64 as IsNan>::is_nan(f64::NEG_INFINITY));
+
+        assert!(<f64 as IsNan>::is_nan(f64::NAN));
+    }
+
+    #[test]
+    fn test_is_nan_u8() {
+        assert!(!0u8.is_nan());
+        assert!(!1u8.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_u16() {
+        assert!(!0u16.is_nan());
+        assert!(!1u16.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_u32() {
+        assert!(!0u32.is_nan());
+        assert!(!1u32.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_u64() {
+        assert!(!0u64.is_nan());
+        assert!(!1u64.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_usize() {
+        assert!(!0usize.is_nan());
+        assert!(!1usize.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_i8() {
+        assert!(!0i8.is_nan());
+        assert!(!1i8.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_i16() {
+        assert!(!0i16.is_nan());
+        assert!(!1i16.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_i32() {
+        assert!(!0i32.is_nan());
+        assert!(!1i32.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_i64() {
+        assert!(!0i64.is_nan());
+        assert!(!1i64.is_nan());
+    }
+
+    #[test]
+    fn test_is_nan_isize() {
+        assert!(!0isize.is_nan());
+        assert!(!1isize.is_nan());
     }
 }
