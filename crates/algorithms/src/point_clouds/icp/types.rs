@@ -21,9 +21,10 @@
  * SOFTWARE.
  */
 
-use crate::Debug;
-use nalgebra::{AbstractRotation, Isometry, Scalar};
+use nalgebra::{AbstractRotation, Isometry, Point, Scalar};
 use num_traits::AsPrimitive;
+
+use crate::Debug;
 
 /// Contains the resulting transform, the resulting Mean Squared Error, and the number of iterations taken for a successful ICP convergence.
 #[derive(Debug)]
@@ -37,6 +38,31 @@ pub struct ICPSuccess<T: Scalar, R: AbstractRotation<T, N>, const N: usize> {
     /// The amount of iterations passed until convergence.
     pub iteration_num: usize,
 }
+
+/// An error type containing the various errors that might arise during an ICP algorithm, when compiling with the `std` feature, it will also derive [`thiserror::Error`].
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+pub enum ICPError<T: Scalar, const N: usize> {
+    /// The source point cloud is empty.
+    SourcePointCloudEmpty,
+    /// The target point cloud is empty.
+    TargetPointCloudEmpty,
+    /// A source point had no nearest neighbour in the target point cloud.
+    NoNearestNeighbour,
+    /// The amount of iterations was set to zero.
+    IterationNumIsZero,
+    /// The Mean Squared Error interval threshold was set to zero.
+    MSEIntervalThreshold,
+    /// The Mean Squared Error absolute threshold was set to zero.
+    MSEAbsoluteThreshold,
+    /// The Current iteration did not converge, returns the current mean points.
+    IterationDidNotConverge((Point<T, N>, Point<T, N>)),
+    /// The algorithm did not converge after the maximum amount of iterations.
+    AlrogithmDidNotConverge,
+}
+
+/// A type alias for the result of an ICP algorithm, containing either the successful result or an error.
+pub type ICPResult<T, R, const N: usize> = Result<ICPSuccess<T, R, N>, ICPError<T, N>>;
 
 /// A struct specifying configuration options for an ICP algorithm.
 #[derive(Clone, Debug)]

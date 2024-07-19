@@ -8,3 +8,4 @@
 **/.idea/
 **/.vs/
 **/codecov.json
+**/Cargo.lock

@@ -24,7 +24,9 @@
 use nalgebra::{Point2, RealField, Vector2};
 use num_traits::{AsPrimitive, Bounded};
 
-use crate::{utils::calculate_polygon_extents, Vec};
+use crate::Vec;
+
+use super::calculate_polygon_extents;
 
 #[inline]
 #[cfg_attr(
@@ -109,64 +111,57 @@ where
     feature = "tracing",
     tracing::instrument("Are Points In Polygon", skip_all, level = "info")
 )]
-pub fn are_multiple_points_in_polygon<T>(points: &[Point2<T>], polygon: &[Point2<T>]) -> Vec<bool>
+pub fn are_multiple_points_in_polygon<T>(
+    points: &[Point2<T>],
+    polygon: &[Point2<T>],
+) -> Option<Vec<bool>>
 where
     T: Bounded + Copy + RealField,
     f32: AsPrimitive<T>,
 {
-    let polygon_extents = calculate_polygon_extents(polygon);
+    if polygon.len() < 3 {
+        return None;
+    }
+    let polygon_extents = calculate_polygon_extents(polygon)?;
 
-    points
-        .iter()
-        .map(|current_point| {
-            // Verify that each coordinate is within the bounds of the polygon, will save a lot of computational load for large polygons
-            polygon_extents
-                .iter()
-                .zip(current_point.coords.iter())
-                .fold(
-                    true,
-                    |is_in_extents, (extent_for_dimension, vertex_coord)| {
-                        is_in_extents && extent_for_dimension.contains(vertex_coord)
-                    },
-                )
-                && is_single_point_in_polygon(current_point, polygon)
-        })
-        .collect()
+    Some(
+        points
+            .iter()
+            .map(|current_point| {
+                // Verify that each coordinate is within the bounds of the polygon, will save a lot of computational load for large polygons
+                polygon_extents
+                    .iter()
+                    .zip(current_point.coords.iter())
+                    .fold(
+                        true,
+                        |is_in_extents, (extent_for_dimension, vertex_coord)| {
+                            is_in_extents && extent_for_dimension.contains(vertex_coord)
+                        },
+                    )
+                    && is_single_point_in_polygon(current_point, polygon)
+            })
+            .collect(),
+    )
 }
 
 #[cfg(feature = "pregenerated")]
 macro_rules! impl_p_i_p_algorithm {
     ($prec:expr, doc $doc:tt) => {
         ::paste::paste! {
-            #[doc = "A " $doc "-precision implementation of a point-in-polygon algorithm."]
-            pub mod [<$doc _precision>] {
-                use nalgebra::{Point2};
+            pub(super) mod [<$doc _precision>] {
+                use nalgebra::Point2;
                 use crate::Vec;
 
-                #[doc = "Check if the provided point is within the provided polygon."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `point`: A reference to a [`Point2`]."]
-                #[doc = "* `polygon`: A slice of [`Point2`]s representing the vertices."]
-                #[doc = "# Returns"]
-                #[doc = "A boolean value, specifying if the point is within the polygon."]
+                #[doc = "A premade variant of the single point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
                 pub fn is_single_point_in_polygon(point: &Point2<$prec>, polygon: &[Point2<$prec>]) -> bool {
                     super::is_single_point_in_polygon(point, polygon)
                 }
 
-                #[doc = "This function will run the [`is_single_point_in_polygon`] for each on of the points given, and the provided polygon,"]
-                #[doc = "But pre-calculates the polygon extents to reduce workloads for larger datasets, please profile this for you specific use-case."]
-                #[doc = ""]
-                #[doc = "# Arguments"]
-                #[doc = "* `points`: A slice of [`Point2`]."]
-                #[doc = "* `polygon`: A slice of [`Point2`]s, representing the vertices."]
-                #[doc = ""]
-                #[doc = "# Returns"]
-                #[doc = "A [`Vec`](crate::Vec) of booleans, with the same size as `points`, containing the result for each point."]
+                #[doc = "A premade variant of the multiple point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
                 pub fn are_multiple_points_in_polygon(
                     points: &[Point2<$prec>],
                     polygon: &[Point2<$prec>],
-                ) -> Vec<bool> {
+                ) -> Option<Vec<bool>> {
                     super::are_multiple_points_in_polygon(points, polygon)
                 }
             }
@@ -223,9 +218,7 @@ mod tests {
 
         let point = Point2::from([0.5, 1.5]);
 
-        assert!(single_precision::is_single_point_in_polygon(
-            &point, &polygon
-        ));
+        assert!(is_single_point_in_polygon(&point, &polygon));
     }
 
     #[test]
@@ -238,10 +231,10 @@ mod tests {
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = single_precision::are_multiple_points_in_polygon(points, &polygon);
+        let result = are_multiple_points_in_polygon(points, &polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, Vec::from([true, false]));
+        assert_eq!(result, Some(Vec::from([true, false])));
     }
 
     #[test]
@@ -254,9 +247,9 @@ mod tests {
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = single_precision::are_multiple_points_in_polygon(points, &polygon);
+        let result = are_multiple_points_in_polygon(points, &polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, Vec::from([true, false]));
+        assert_eq!(result, Some(Vec::from([true, false])));
     }
 }

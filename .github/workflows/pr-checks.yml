@@ -24,7 +24,7 @@ jobs:
     name: Build and Test
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -36,14 +36,17 @@ jobs:
 
   build-no-std:
     name: Build `no_std` Version
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Build no_std version
-        run: cargo build --no-default-features
+        run: cargo build --no-default-features --features=pregenerated
       - uses: taiki-e/install-action@nextest
       - name: Test `no_std` version
-        run: cargo nextest run --no-default-features
+        run: cargo nextest run --no-default-features --features=pregenerated
 
   clippy:
     name: Check Clippy

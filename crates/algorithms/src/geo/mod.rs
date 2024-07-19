@@ -20,3 +20,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+pub use haversine::{calculate_haversine_distance, calculate_sphere_bearing};
+
+mod haversine;
+
+#[cfg(feature = "pregenerated")]
+#[doc = "Contains pregenerated functions for single precision geographical algorithms."]
+pub mod single_precision {
+    pub use super::haversine::single_precision::*;
+}
+
+#[cfg(feature = "pregenerated")]
+#[doc = "Contains pregenerated functions for double precision geographical algorithms."]
+pub mod double_precision {
+    pub use super::haversine::double_precision::*;
+}

@@ -21,17 +21,13 @@
  * SOFTWARE.
  */
 
-use crate::{
-    array,
-    types::SameSizeMat,
-    utils::{distance_squared, point_cloud::calculate_point_cloud_center},
-    Sum,
-};
 use nalgebra::{
-    ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, Scalar,
-    Vector,
+    ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, SMatrix,
+    Scalar, Vector,
 };
 use num_traits::{AsPrimitive, NumOps, Zero};
+
+use crate::{array, point_clouds::calculate_point_cloud_center, utils::distance_squared, Sum};
 
 /// Calculates the Mean Squared Error between two point clouds.
 ///
@@ -86,7 +82,7 @@ where
 pub(crate) fn outer_product<T, const N: usize>(
     point_a: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
     point_b: &Vector<T, Const<N>, ArrayStorage<T, N, 1>>,
-) -> SameSizeMat<T, N>
+) -> SMatrix<T, N, N>
 where
     T: NumOps + Copy,
 {
@@ -108,8 +104,8 @@ where
 /// # Returns
 /// A tuple of
 /// * [`SameSizeMat`], representing the covariance matrix of the outer products of the centered point clouds.
-/// * [`Point`], representing the `points_a` centeroid.
-/// * [`Point`], representing the `closest_points` centeroid.
+/// * [`Point`], representing the `points_a` centroid.
+/// * [`Point`], representing the `closest_points` centroid.
 ///
 /// # Panics
 /// See [`calculate_mean`]
@@ -118,10 +114,10 @@ where
     feature = "tracing",
     tracing::instrument("Estimate Transform And Means", skip_all, level = "debug")
 )]
-pub(crate) fn get_rotation_matrix_and_centeroids<T, const N: usize>(
+pub(crate) fn get_rotation_matrix_and_centroids<T, const N: usize>(
     transformed_points_a: &[Point<T, N>],
     closest_points: &[Point<T, N>],
-) -> (SameSizeMat<T, N>, Point<T, N>, Point<T, N>)
+) -> (SMatrix<T, N, N>, Point<T, N>, Point<T, N>)
 where
     T: ClosedAddAssign + ClosedDivAssign + ClosedSubAssign + Copy + NumOps + Scalar + Zero,
     usize: AsPrimitive<T>,
@@ -134,12 +130,12 @@ where
     let rot_mat = transformed_points_a.iter().zip(closest_points.iter()).fold(
         Matrix::from_array_storage(ArrayStorage([[T::zero(); N]; N])),
         |rot_mat, (transformed_point_a, closest_point)| {
-            let a_distance_from_centeroid = transformed_point_a - mean_transformed_a;
-            let closest_point_distance_from_centeroid = closest_point - mean_closest;
+            let a_distance_from_centroid = transformed_point_a - mean_transformed_a;
+            let closest_point_distance_from_centroid = closest_point - mean_closest;
             rot_mat
                 + outer_product(
-                    &a_distance_from_centeroid,
-                    &closest_point_distance_from_centeroid,
+                    &a_distance_from_centroid,
+                    &closest_point_distance_from_centroid,
                 )
         },
     );
@@ -204,7 +200,7 @@ mod tests {
         let result = outer_product(&point_a, &point_b);
         assert_eq!(
             result,
-            SameSizeMat::from_data(ArrayStorage([
+            SMatrix::from_data(ArrayStorage([
                 [4.0, 5.0, 6.0],
                 [8.0, 10.0, 12.0],
                 [12.0, 15.0, 18.0]
@@ -214,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_rotation_matrix_and_centeroids() {
+    fn test_get_rotation_matrix_and_centroids() {
         // Define two sets of points
         let points_a: [Point<f64, 3>; 3] = [
             Point::from([6.0, 4.0, 20.0]),
@@ -229,7 +225,7 @@ mod tests {
         ];
 
         // Compute transform using centroids
-        let (rot_mat, mean_a, mean_b) = get_rotation_matrix_and_centeroids(&points_a, &points_b);
+        let (rot_mat, mean_a, mean_b) = get_rotation_matrix_and_centroids(&points_a, &points_b);
         assert_eq!(
             mean_a,
             Point3::new(37.0, 28.0, 11.0),

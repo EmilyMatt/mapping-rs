@@ -22,15 +22,16 @@
  */
 
 use eframe::{egui, epaint};
-use mapping_algorithms::{
-    icp::{icp_iteration, types::ICPConfiguration},
-    kd_tree::KDTree,
-    utils::point_cloud::{
-        calculate_point_cloud_center, generate_point_cloud, transform_point_cloud,
-    },
-};
 use nalgebra::{Isometry2, Point2, UnitComplex, Vector2};
 use rand::Rng;
+
+use mapping_algorithms::{
+    kd_tree::KDTree,
+    point_clouds::{
+        calculate_point_cloud_center, generate_point_cloud, icp_iteration, transform_point_cloud,
+        ICPConfiguration, ICPError,
+    },
+};
 
 #[derive(Copy, Clone)]
 struct RunConfiguration {
@@ -104,7 +105,7 @@ impl eframe::App for VisualizerApp {
             ctx.request_repaint();
 
             if self.run_next_iteration {
-                log::info!("Running iteration");
+                log::info!("Running ICP iteration");
 
                 self.current_iteration += 1;
                 match icp_iteration::<_, 2>(
@@ -123,9 +124,12 @@ impl eframe::App for VisualizerApp {
                         );
                         self.converged = true;
                     }
-                    Err(means) => {
+                    Err(ICPError::IterationDidNotConverge(means)) => {
                         log::info!("MSE {}", self.current_mse);
                         self.current_means = means;
+                    }
+                    Err(err) => {
+                        log::error!("Error: {:?}", err);
                     }
                 }
 
@@ -140,9 +144,9 @@ impl eframe::App for VisualizerApp {
 
             let painter = ui.painter();
 
-            // Draw centeroids
+            // Draw centroids
             {
-                // Draw transformed source centeroid
+                // Draw transformed source centroid
                 painter.add(egui::Shape::Rect(epaint::RectShape::filled(
                     egui::Rect::from_center_size(
                         center + egui::Vec2::from(self.current_means.0.coords.data.0[0]) * scale,
@@ -152,7 +156,7 @@ impl eframe::App for VisualizerApp {
                     egui::Color32::from_rgb(0, 0, 255),
                 )));
 
-                // Draw source centeroid
+                // Draw source centroid
                 painter.add(egui::Shape::Rect(epaint::RectShape::filled(
                     egui::Rect::from_center_size(
                         center + egui::Vec2::from(self.original_mean.coords.data.0[0]) * scale,
@@ -162,7 +166,7 @@ impl eframe::App for VisualizerApp {
                     egui::Color32::from_rgb(255, 0, 0),
                 )));
 
-                // Draw target centeroid
+                // Draw target centroid
                 painter.add(egui::Shape::Rect(epaint::RectShape::filled(
                     egui::Rect::from_center_size(
                         center + egui::Vec2::from(self.current_means.1.coords.data.0[0]) * scale,

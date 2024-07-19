@@ -21,21 +21,22 @@
  * SOFTWARE.
  */
 
-use crate::{
-    kd_tree::KDTree,
-    types::{AbstractIsometry, IsometryAbstractor},
-    utils::point_cloud::find_closest_point,
-    Sum, Vec,
-};
-use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
+pub use types::{ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess};
+
 use nalgebra::{ComplexField, Isometry, Point, RealField, SimdRealField};
 use num_traits::{AsPrimitive, Bounded};
-use types::{ICPConfiguration, ICPSuccess};
+
+use crate::{
+    kd_tree::KDTree,
+    point_clouds::find_nearest_neighbour_naive,
+    types::{AbstractIsometry, IsNan, IsometryAbstractor},
+    Sum, Vec,
+};
+
+use helpers::{calculate_mse, get_rotation_matrix_and_centroids};
 
 mod helpers;
-
-/// Structs in use as part of the public API of the ICP algorithm.
-pub mod types;
+mod types;
 
 /// A single iteration of the ICP function, allowing for any input and output, usually used for debugging or visualization
 ///
@@ -73,25 +74,28 @@ pub fn icp_iteration<T, const N: usize>(
     >,
     current_mse: &mut T,
     config: &ICPConfiguration<T>,
-) -> Result<T, (Point<T, N>, Point<T, N>)>
+) -> Result<T, ICPError<T, N>>
 where
     T: Bounded + Copy + Default + RealField + Sum + SimdRealField,
     usize: AsPrimitive<T>,
     IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
-    let closest_points = transformed_points
-        .iter()
-        .map(|transformed_point_a| {
-            target_points_tree
-                .and_then(|kd_tree| kd_tree.nearest(transformed_point_a))
-                .unwrap_or(find_closest_point(transformed_point_a, points_b))
-        })
-        .collect::<Vec<_>>();
-    log::trace!("Found nearest neighbours");
+    let closest_points = transformed_points.iter().try_fold(
+        Vec::with_capacity(transformed_points.len()),
+        |mut accumulator, transformed_point_a| {
+            accumulator.push(
+                target_points_tree
+                    .and_then(|kd_tree| kd_tree.nearest(transformed_point_a))
+                    .or_else(|| find_nearest_neighbour_naive(transformed_point_a, points_b))
+                    .ok_or(ICPError::NoNearestNeighbour)?,
+            );
+
+            Ok(accumulator)
+        },
+    )?;
 
     let (rot_mat, mean_a, mean_b) =
-        get_rotation_matrix_and_centeroids(transformed_points, &closest_points);
-    log::trace!("Generated covariance matrix");
+        get_rotation_matrix_and_centroids(transformed_points, &closest_points);
 
     *current_transform =
         IsometryAbstractor::<T, N>::update_transform(current_transform, mean_a, mean_b, &rot_mat);
@@ -113,7 +117,7 @@ where
     }
 
     *current_mse = new_mse;
-    Err((mean_a, mean_b))
+    Err(ICPError::IterationDidNotConverge((mean_a, mean_b)))
 }
 
 /// A free-form version of the ICP function, allowing for any input and output, under the constraints of the function
@@ -140,37 +144,34 @@ pub fn icp<T, const N: usize>(
     points_a: &[Point<T, N>],
     points_b: &[Point<T, N>],
     config: ICPConfiguration<T>,
-) -> Result<
-    ICPSuccess<T, <IsometryAbstractor<T, N> as AbstractIsometry<T, N>>::RotType, N>,
-    &'static str,
->
+) -> ICPResult<T, <IsometryAbstractor<T, N> as AbstractIsometry<T, N>>::RotType, N>
 where
-    T: Bounded + Copy + Default + RealField + Sum,
+    T: Bounded + Copy + Default + IsNan + RealField + Sum,
     usize: AsPrimitive<T>,
     IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
     if points_a.is_empty() {
-        return Err("Source point cloud is empty");
+        return Err(ICPError::SourcePointCloudEmpty);
     }
 
     if points_b.is_empty() {
-        return Err("Target point cloud is empty");
+        return Err(ICPError::TargetPointCloudEmpty);
     }
 
     if config.max_iterations == 0 {
-        return Err("Must have more than one iteration");
+        return Err(ICPError::IterationNumIsZero);
     }
 
     if config.mse_interval_threshold <= T::default_epsilon() {
-        return Err("MSE interval threshold too low, convergence impossible");
+        return Err(ICPError::MSEIntervalThreshold);
     }
 
     if config
         .mse_absolute_threshold
-        .map(|thres| thres <= T::default_epsilon())
+        .map(|thres| thres.is_nan() || thres <= T::default_epsilon())
         .unwrap_or_default()
     {
-        return Err("Absolute MSE threshold too low, convergence impossible");
+        return Err(ICPError::MSEAbsoluteThreshold);
     }
 
     let mut points_to_transform = points_a.to_vec();
@@ -201,26 +202,17 @@ where
         }
     }
 
-    Err("Could not converge")
+    Err(ICPError::AlrogithmDidNotConverge)
 }
 
 #[cfg(feature = "pregenerated")]
 macro_rules! impl_icp_algorithm {
     ($precision:expr, $doc:tt, $nd:expr, $rot_type:expr) => {
         ::paste::paste! {
-            #[doc = "An ICP algorithm in " $nd "D space."]
-            #[doc = "# Arguments"]
-            #[doc = "* `points_a`: A slice of [`Point`], representing the source point cloud."]
-            #[doc = "* `points_b`: A slice of [`Point`], representing the target point cloud."]
-            #[doc = "* `config`: a reference to an [`ICPConfiguration`], specifying the behaviour of the algorithm."]
-            #[doc = ""]
-            #[doc = "# Returns"]
-            #[doc = "An [`ICPSuccess`] struct with an [`Isometry`](nalgebra::Isometry) transform with an `" $precision "` precision, or an error message explaining what went wrong."]
-            #[doc = ""]
-            #[doc = "[^convergence_note]: This does not guarantee that the transformation is correct, only that no further benefit can be gained by running another iteration."]
+            #[doc = "A premade variant of the ICP algorithm function, in " $nd "D space and " $doc "-precision floats."]
             pub fn [<icp_$nd d>](points_a: &[Point<$precision, $nd>],
                 points_b: &[Point<$precision, $nd>],
-                config: ICPConfiguration<$precision>) -> Result<ICPSuccess<$precision, $rot_type<$precision>, $nd>, &'static str> {
+                config: ICPConfiguration<$precision>) -> ICPResult<$precision, $rot_type<$precision>, $nd> {
                     super::icp(points_a, points_b, config)
             }
         }
@@ -228,10 +220,9 @@ macro_rules! impl_icp_algorithm {
 
     ($precision:expr, doc $doc:tt) => {
         ::paste::paste! {
-            #[doc = "A " $doc "-precision implementation of a basic ICP algorithm"]
-            pub mod [<$doc _precision>] {
+            pub(super) mod [<$doc _precision>] {
                 use nalgebra::{Point, UnitComplex, UnitQuaternion};
-                use super::{ICPConfiguration, ICPSuccess};
+                use super::{ICPConfiguration, ICPResult};
 
                 impl_icp_algorithm!($precision, $doc, 2, UnitComplex);
                 impl_icp_algorithm!($precision, $doc, 3, UnitQuaternion);
@@ -247,52 +238,49 @@ impl_icp_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use nalgebra::{Isometry2, Isometry3, UnitComplex, Vector2, Vector3};
+
     use crate::{
         array,
-        utils::point_cloud::{generate_point_cloud, transform_point_cloud},
+        point_clouds::{generate_point_cloud, transform_point_cloud},
     };
-    use nalgebra::{Isometry2, Isometry3, Vector2, Vector3};
+
+    use super::*;
 
     #[test]
     fn test_icp_errors() {
         let points = generate_point_cloud(10, array::from_fn(|_| -15.0..=15.0));
         let config_builder = ICPConfiguration::builder();
 
-        let res = single_precision::icp_2d(&[], points.as_slice(), config_builder.build());
-        assert_eq!(res.unwrap_err(), "Source point cloud is empty");
+        let mut res: ICPResult<f32, UnitComplex<f32>, 2> =
+            icp(&[], points.as_slice(), config_builder.build());
+        assert_eq!(res.unwrap_err(), ICPError::SourcePointCloudEmpty);
 
-        let res = single_precision::icp_2d(points.as_slice(), &[], config_builder.build());
-        assert_eq!(res.unwrap_err(), "Target point cloud is empty");
+        res = icp(points.as_slice(), &[], config_builder.build());
+        assert_eq!(res.unwrap_err(), ICPError::TargetPointCloudEmpty);
 
-        let res = single_precision::icp_2d(
+        res = icp(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_max_iterations(0).build(),
         );
-        assert_eq!(res.unwrap_err(), "Must have more than one iteration");
+        assert_eq!(res.unwrap_err(), ICPError::IterationNumIsZero);
 
-        let res = single_precision::icp_2d(
+        res = icp(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_mse_interval_threshold(0.0).build(),
         );
-        assert_eq!(
-            res.unwrap_err(),
-            "MSE interval threshold too low, convergence impossible"
-        );
+        assert_eq!(res.unwrap_err(), ICPError::MSEIntervalThreshold);
 
-        let res = single_precision::icp_2d(
+        res = icp(
             points.as_slice(),
             points.as_slice(),
             config_builder
                 .with_absolute_mse_threshold(Some(0.0))
                 .build(),
         );
-        assert_eq!(
-            res.unwrap_err(),
-            "Absolute MSE threshold too low, convergence impossible"
-        );
+        assert_eq!(res.unwrap_err(), ICPError::MSEAbsoluteThreshold);
     }
 
     #[test]
@@ -302,7 +290,7 @@ mod tests {
         let isom = Isometry2::new(translation, 90.0f32.to_radians());
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -311,7 +299,7 @@ mod tests {
                 .build(),
         );
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err(), "Could not converge");
+        assert_eq!(res.unwrap_err(), ICPError::AlrogithmDidNotConverge);
     }
 
     #[test]
@@ -322,7 +310,7 @@ mod tests {
         let isom = Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -342,7 +330,7 @@ mod tests {
         let isom = Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -360,7 +348,7 @@ mod tests {
         let isom = Isometry2::new(Vector2::new(-0.8, 1.3), 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -381,7 +369,7 @@ mod tests {
         let isom = Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_3d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -401,7 +389,7 @@ mod tests {
         let isom = Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_3d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
