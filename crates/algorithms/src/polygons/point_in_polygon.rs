@@ -24,8 +24,9 @@
 use nalgebra::{Point2, RealField, Vector2};
 use num_traits::{AsPrimitive, Bounded};
 
-use super::calculate_polygon_extents;
 use crate::Vec;
+
+use super::calculate_polygon_extents;
 
 #[inline]
 #[cfg_attr(

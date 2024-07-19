@@ -63,9 +63,6 @@ pub mod types;
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
 
-/// A module containing various algorithms for convex hulls.
-pub mod convex_hulls;
-
 /// A module containing various algorithms for point clouds.
 pub mod point_clouds;
 

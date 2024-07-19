@@ -32,6 +32,3 @@
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core;
-
-/// A Hector Mapper, Utilizing Lidar And Wheel Odometry
-pub mod hector_mapper;

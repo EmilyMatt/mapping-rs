@@ -21,10 +21,11 @@
  * SOFTWARE.
  */
 
-use crate::{marker::PhantomData, utils::verify_rotation_matrix_determinant};
 use nalgebra::{
     AbstractRotation, Isometry, Point, RealField, SMatrix, UnitComplex, UnitQuaternion,
 };
+
+use crate::{marker::PhantomData, utils::verify_rotation_matrix_determinant};
 
 /// This struct allows us to write functions in a generic way for both 2D and 3D dimensions, by implementing
 pub struct IsometryAbstractor<T: RealField, const N: usize> {

@@ -24,7 +24,7 @@
 use nalgebra::{Point, Scalar};
 use num_traits::Zero;
 
-use crate::{Ordering, types::IsNan, Vec};
+use crate::{types::IsNan, Ordering, Vec};
 
 fn validate_input<T: Scalar + PartialOrd + IsNan, const N: usize>(input: &[Point<T, N>]) -> bool {
     !(N.is_zero() || input.iter().any(|a| a.coords.iter().any(|b| b.is_nan())))

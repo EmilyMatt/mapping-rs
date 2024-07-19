@@ -21,9 +21,10 @@
  * SOFTWARE.
  */
 
-use crate::{array, HashMap, Vec};
 use nalgebra::{ComplexField, Point};
 use num_traits::AsPrimitive;
+
+use crate::{array, HashMap, Vec};
 
 /// Downsample a points cloud, returning a new point cloud, with all points within each voxel combined into their mean.
 ///

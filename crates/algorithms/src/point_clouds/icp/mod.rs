@@ -21,12 +21,10 @@
  * SOFTWARE.
  */
 
+pub use types::{ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess};
+
 use nalgebra::{ComplexField, Isometry, Point, RealField, SimdRealField};
 use num_traits::{AsPrimitive, Bounded};
-
-use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
-
-pub use types::{ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess};
 
 use crate::{
     kd_tree::KDTree,
@@ -34,6 +32,8 @@ use crate::{
     types::{AbstractIsometry, IsNan, IsometryAbstractor},
     Sum, Vec,
 };
+
+use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
 
 mod helpers;
 mod types;

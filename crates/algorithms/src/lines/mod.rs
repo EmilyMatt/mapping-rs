@@ -21,9 +21,9 @@
  * SOFTWARE.
  */
 
-mod bresenham;
-
 pub use bresenham::plot_bresenham_line;
+
+mod bresenham;
 
 #[cfg(feature = "pregenerated")]
 #[doc = "A module containing pregenerated functions for single-precision line algorithms."]

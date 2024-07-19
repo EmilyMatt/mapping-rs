@@ -21,12 +21,13 @@
  * SOFTWARE.
  */
 
-use crate::{array, point_clouds::calculate_point_cloud_center, utils::distance_squared, Sum};
 use nalgebra::{
     ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, SMatrix,
     Scalar, Vector,
 };
 use num_traits::{AsPrimitive, NumOps, Zero};
+
+use crate::{array, point_clouds::calculate_point_cloud_center, utils::distance_squared, Sum};
 
 /// Calculates the Mean Squared Error between two point clouds.
 ///

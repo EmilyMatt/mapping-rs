@@ -989,7 +989,6 @@ dependencies = [
  "mapping-algorithms",
  "nalgebra",
  "num-traits",
- "rand",
  "thiserror",
  "tracing",
 ]
@@ -1670,7 +1669,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a386a501cd104797982c15ae17aafe8b9261315b5d07e3ec803f2ea26be0fa"
 dependencies = [
  "approx",
- "libm",
  "num-complex",
  "num-traits",
  "paste",

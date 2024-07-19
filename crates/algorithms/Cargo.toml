@@ -2,7 +2,7 @@
 name = "mapping-algorithms"
 version = "0.0.1"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
-description = "A collection of pure-rust algorithms in popular use for SLAM purposes"
+description = "A collection of pure-rust algorithms, for spatial and SLAM purposes"
 edition = "2021"
 license = "MIT"
 categories = ["algorithms", "science", "science::robotics"]
@@ -16,7 +16,7 @@ all-features = true
 
 [features]
 default = ["std", "pregenerated"]
-std = ["nalgebra/std", "tracing?/std", "num-traits/std", "rand/std", "rand/std_rng"]
+std = ["nalgebra/std", "num-traits/std", "rand/std", "rand/std_rng", "thiserror", "tracing?/std"]
 
 pregenerated = ["dep:paste"]
 tracing = ["dep:tracing"]
@@ -28,7 +28,7 @@ nalgebra = { version = "0.33.0", default-features = false, features = ["libm"] }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 paste = { version = "1.0.15", default-features = false, optional = true }
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
-thiserror = { version = "1.0.63", default-features = false }
+thiserror = { version = "1.0.63", default-features = false, optional = true }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
 [dev-dependencies]
