@@ -44,6 +44,12 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - name: Test `no_std` version
         run: cargo nextest run --no-default-features --features=pregenerated
+      - name: Upload Cargo.lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock
+          path: Cargo.lock
+          retention-days: 90
 
   clippy:
     name: Check Clippy
