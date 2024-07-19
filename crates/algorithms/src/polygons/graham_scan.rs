@@ -37,7 +37,11 @@ fn calculate_determinant<O: ComplexField + Copy, T: Scalar + NumOps + AsPrimitiv
     )
 }
 
-fn check_hull_segment<
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Build Hull Segment", skip_all)
+)]
+fn build_hull_segment<
     'a,
     O: ComplexField + Copy + PartialOrd,
     T: AsPrimitive<O> + Default + NumOps + Scalar,
@@ -72,6 +76,10 @@ fn check_hull_segment<
 ///
 /// # Returns
 /// An [`Option`] of [`Vec<Point2<T>>`] representing the convex hull, or [`None`] if there were not enough points to compute a convex hull, or if all points are collinear
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Construct Convex Hull Using Graham Scan", skip_all)
+)]
 pub fn graham_scan<
     O: ComplexField + Float,
     T: AsPrimitive<O> + Default + IsNan + NumOps + PartialOrd + Scalar,
@@ -94,7 +102,7 @@ pub fn graham_scan<
     let upper_hull = points_sorted_slice
         .iter()
         .fold(VecDeque::new(), |accumulator, point| {
-            check_hull_segment(accumulator, point)
+            build_hull_segment(accumulator, point)
         });
     let upper_hull_len = upper_hull.len();
 
@@ -102,7 +110,7 @@ pub fn graham_scan<
         .iter()
         .rev()
         .fold(VecDeque::new(), |accumulator, point| {
-            check_hull_segment(accumulator, point)
+            build_hull_segment(accumulator, point)
         });
     let lower_hull_len = lower_hull.len();
 
