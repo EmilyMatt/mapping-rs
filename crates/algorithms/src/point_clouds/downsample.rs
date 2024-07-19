@@ -30,7 +30,7 @@ use crate::{array, HashMap, Vec};
 ///
 /// # Arguments
 /// * `points`: a slice of [`Point`], representing the point cloud.
-/// * `voxel_size`: a floating point number, specifying the size for each voxel, all points inside that voxel will be downsampled to their centeroid.
+/// * `voxel_size`: a floating point number, specifying the size for each voxel, all points inside that voxel will be downsampled to their centroid.
 ///
 /// # Generics
 /// * `T`: Either an [`f32`] or [`f64`].
@@ -98,7 +98,7 @@ mod tests {
         assert_eq!(res.len(), 5);
 
         // Moreover, the most negative voxel had two points, (-5.9, -5.0, -4.0) and (-6.0, -5.0, -4.0)
-        // Meaning there should be a voxel resulting in the elements' centeroid
+        // Meaning there should be a voxel resulting in the elements' centroid
         assert!(res
             .iter()
             .any(|element| *element == Point3::new(-5.95, -5.0, -3.95)));

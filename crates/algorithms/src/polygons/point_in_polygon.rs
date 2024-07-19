@@ -111,29 +111,37 @@ where
     feature = "tracing",
     tracing::instrument("Are Points In Polygon", skip_all, level = "info")
 )]
-pub fn are_multiple_points_in_polygon<T>(points: &[Point2<T>], polygon: &[Point2<T>]) -> Vec<bool>
+pub fn are_multiple_points_in_polygon<T>(
+    points: &[Point2<T>],
+    polygon: &[Point2<T>],
+) -> Option<Vec<bool>>
 where
     T: Bounded + Copy + RealField,
     f32: AsPrimitive<T>,
 {
-    let polygon_extents = calculate_polygon_extents(polygon);
+    if polygon.len() < 3 {
+        return None;
+    }
+    let polygon_extents = calculate_polygon_extents(polygon)?;
 
-    points
-        .iter()
-        .map(|current_point| {
-            // Verify that each coordinate is within the bounds of the polygon, will save a lot of computational load for large polygons
-            polygon_extents
-                .iter()
-                .zip(current_point.coords.iter())
-                .fold(
-                    true,
-                    |is_in_extents, (extent_for_dimension, vertex_coord)| {
-                        is_in_extents && extent_for_dimension.contains(vertex_coord)
-                    },
-                )
-                && is_single_point_in_polygon(current_point, polygon)
-        })
-        .collect()
+    Some(
+        points
+            .iter()
+            .map(|current_point| {
+                // Verify that each coordinate is within the bounds of the polygon, will save a lot of computational load for large polygons
+                polygon_extents
+                    .iter()
+                    .zip(current_point.coords.iter())
+                    .fold(
+                        true,
+                        |is_in_extents, (extent_for_dimension, vertex_coord)| {
+                            is_in_extents && extent_for_dimension.contains(vertex_coord)
+                        },
+                    )
+                    && is_single_point_in_polygon(current_point, polygon)
+            })
+            .collect(),
+    )
 }
 
 #[cfg(feature = "pregenerated")]
@@ -153,7 +161,7 @@ macro_rules! impl_p_i_p_algorithm {
                 pub fn are_multiple_points_in_polygon(
                     points: &[Point2<$prec>],
                     polygon: &[Point2<$prec>],
-                ) -> Vec<bool> {
+                ) -> Option<Vec<bool>> {
                     super::are_multiple_points_in_polygon(points, polygon)
                 }
             }
@@ -210,9 +218,7 @@ mod tests {
 
         let point = Point2::from([0.5, 1.5]);
 
-        assert!(single_precision::is_single_point_in_polygon(
-            &point, &polygon
-        ));
+        assert!(is_single_point_in_polygon(&point, &polygon));
     }
 
     #[test]
@@ -225,10 +231,10 @@ mod tests {
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = single_precision::are_multiple_points_in_polygon(points, &polygon);
+        let result = are_multiple_points_in_polygon(points, &polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, Vec::from([true, false]));
+        assert_eq!(result, Some(Vec::from([true, false])));
     }
 
     #[test]
@@ -241,9 +247,9 @@ mod tests {
             Point2::from([1.5, 1.5]), // Outside
         ];
 
-        let result = single_precision::are_multiple_points_in_polygon(points, &polygon);
+        let result = are_multiple_points_in_polygon(points, &polygon);
 
         // Expecting [true, false] since the first point is inside and the second is outside.
-        assert_eq!(result, Vec::from([true, false]));
+        assert_eq!(result, Some(Vec::from([true, false])));
     }
 }

@@ -159,7 +159,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_nonsteep_pos() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(10.0f32, 3.0f32);
-        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end);
         assert_eq!(
             res,
             Vec::<Point2<isize>>::from([
@@ -182,7 +182,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_steep_pos() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(3.0f32, 10.0f32);
-        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end);
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
@@ -206,7 +206,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_nonsteep_neg() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(-10.0f32, -3.0f32);
-        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end);
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
@@ -230,7 +230,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_steep_neg() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(-3.0f32, -10.0f32);
-        let res = single_precision::plot_2d_isize_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end);
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
@@ -254,7 +254,7 @@ mod tests {
     fn test_plot_bresenham_line_3d_x() {
         let start = Point3::new(0.0f32, 0.0f32, 0.0f32);
         let end = Point3::new(-3.0f32, -10.0f32, 7.0f32);
-        let res = single_precision::plot_3d_isize_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end);
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,

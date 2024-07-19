@@ -52,7 +52,7 @@ pub mod double_precision {
     pub use super::icp::double_precision::*;
 }
 
-/// Calculates the mean(centeroid) of the point cloud.
+/// Calculates the mean(centroid) of the point cloud.
 ///
 /// # Arguments
 /// * points: a slice of [`Point`], representing the point cloud.
@@ -62,7 +62,7 @@ pub mod double_precision {
 /// * `N`: A const usize, representing the number of dimensions in the points.
 ///
 /// # Returns
-/// A [`Point`], representing the point cloud centeroid.
+/// A [`Point`], representing the point cloud centroid.
 /// Returns Point::default() if point cloud is empty.
 #[inline]
 #[cfg_attr(

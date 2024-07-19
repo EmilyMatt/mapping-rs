@@ -145,8 +145,7 @@ mod tests {
         let point_b = Point2::new(48.8566, 2.3522); // Paris, France
 
         let earth_radius_km = 6371.0;
-        let distance =
-            double_precision::calculate_haversine_distance(point_a, point_b, earth_radius_km);
+        let distance = calculate_haversine_distance(point_a, point_b, earth_radius_km);
         let expected_distance = 877.46; // Approximate distance in km
         assert!(
             (distance - expected_distance).abs() < 0.01,
@@ -160,7 +159,7 @@ mod tests {
         let point_a = Point2::new(39.099_91, -94.581213); // Kansas City
         let point_b = Point2::new(38.627_09, -90.200_2); // St Louis
 
-        let bearing = single_precision::calculate_sphere_bearing(point_a, point_b);
+        let bearing = calculate_sphere_bearing(point_a, point_b);
         let expected_bearing = 96.51; // Approximate bearing in degrees
         assert!(
             (bearing - expected_bearing.to_radians()).abs() < 0.01,

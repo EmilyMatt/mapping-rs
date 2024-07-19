@@ -144,9 +144,9 @@ impl eframe::App for VisualizerApp {
 
             let painter = ui.painter();
 
-            // Draw centeroids
+            // Draw centroids
             {
-                // Draw transformed source centeroid
+                // Draw transformed source centroid
                 painter.add(egui::Shape::Rect(epaint::RectShape::filled(
                     egui::Rect::from_center_size(
                         center + egui::Vec2::from(self.current_means.0.coords.data.0[0]) * scale,
@@ -156,7 +156,7 @@ impl eframe::App for VisualizerApp {
                     egui::Color32::from_rgb(0, 0, 255),
                 )));
 
-                // Draw source centeroid
+                // Draw source centroid
                 painter.add(egui::Shape::Rect(epaint::RectShape::filled(
                     egui::Rect::from_center_size(
                         center + egui::Vec2::from(self.original_mean.coords.data.0[0]) * scale,
@@ -166,7 +166,7 @@ impl eframe::App for VisualizerApp {
                     egui::Color32::from_rgb(255, 0, 0),
                 )));
 
-                // Draw target centeroid
+                // Draw target centroid
                 painter.add(egui::Shape::Rect(epaint::RectShape::filled(
                     egui::Rect::from_center_size(
                         center + egui::Vec2::from(self.current_means.1.coords.data.0[0]) * scale,

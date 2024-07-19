@@ -33,7 +33,7 @@ use crate::{
     Sum, Vec,
 };
 
-use helpers::{calculate_mse, get_rotation_matrix_and_centeroids};
+use helpers::{calculate_mse, get_rotation_matrix_and_centroids};
 
 mod helpers;
 mod types;
@@ -95,7 +95,7 @@ where
     )?;
 
     let (rot_mat, mean_a, mean_b) =
-        get_rotation_matrix_and_centeroids(transformed_points, &closest_points);
+        get_rotation_matrix_and_centroids(transformed_points, &closest_points);
 
     *current_transform =
         IsometryAbstractor::<T, N>::update_transform(current_transform, mean_a, mean_b, &rot_mat);
@@ -238,7 +238,7 @@ impl_icp_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::{Isometry2, Isometry3, Vector2, Vector3};
+    use nalgebra::{Isometry2, Isometry3, UnitComplex, Vector2, Vector3};
 
     use crate::{
         array,
@@ -252,27 +252,28 @@ mod tests {
         let points = generate_point_cloud(10, array::from_fn(|_| -15.0..=15.0));
         let config_builder = ICPConfiguration::builder();
 
-        let res = single_precision::icp_2d(&[], points.as_slice(), config_builder.build());
+        let mut res: ICPResult<f32, UnitComplex<f32>, 2> =
+            icp(&[], points.as_slice(), config_builder.build());
         assert_eq!(res.unwrap_err(), ICPError::SourcePointCloudEmpty);
 
-        let res = single_precision::icp_2d(points.as_slice(), &[], config_builder.build());
+        res = icp(points.as_slice(), &[], config_builder.build());
         assert_eq!(res.unwrap_err(), ICPError::TargetPointCloudEmpty);
 
-        let res = single_precision::icp_2d(
+        res = icp(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_max_iterations(0).build(),
         );
         assert_eq!(res.unwrap_err(), ICPError::IterationNumIsZero);
 
-        let res = single_precision::icp_2d(
+        res = icp(
             points.as_slice(),
             points.as_slice(),
             config_builder.with_mse_interval_threshold(0.0).build(),
         );
         assert_eq!(res.unwrap_err(), ICPError::MSEIntervalThreshold);
 
-        let res = single_precision::icp_2d(
+        res = icp(
             points.as_slice(),
             points.as_slice(),
             config_builder
@@ -289,7 +290,7 @@ mod tests {
         let isom = Isometry2::new(translation, 90.0f32.to_radians());
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -309,7 +310,7 @@ mod tests {
         let isom = Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -329,7 +330,7 @@ mod tests {
         let isom = Isometry2::new(translation, 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -347,7 +348,7 @@ mod tests {
         let isom = Isometry2::new(Vector2::new(-0.8, 1.3), 0.1);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_2d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -368,7 +369,7 @@ mod tests {
         let isom = Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_3d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()
@@ -388,7 +389,7 @@ mod tests {
         let isom = Isometry3::new(translation, rotation);
         let points_transformed = transform_point_cloud(&points, isom);
 
-        let res = single_precision::icp_3d(
+        let res = icp(
             points.as_slice(),
             points_transformed.as_slice(),
             ICPConfiguration::builder()

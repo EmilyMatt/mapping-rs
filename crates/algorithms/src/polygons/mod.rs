@@ -61,14 +61,20 @@ pub mod double_precision {
     feature = "tracing",
     tracing::instrument("Calculate Polygon Extents", skip_all, level = "info")
 )]
-pub fn calculate_polygon_extents<T, const N: usize>(polygon: &[Point<T, N>]) -> PolygonExtents<T, N>
+pub fn calculate_polygon_extents<T, const N: usize>(
+    polygon: &[Point<T, N>],
+) -> Option<PolygonExtents<T, N>>
 where
     T: Bounded + Copy + RealField,
 {
     let mut extents_accumulator: [RangeInclusive<T>; N] =
         array::from_fn(|_| <T as Bounded>::max_value()..=<T as Bounded>::min_value());
 
-    for vertex in polygon.iter() {
+    if polygon.len() < 3 {
+        return None;
+    }
+
+    for vertex in polygon {
         for (extent_for_dimension, vertex_coord) in
             extents_accumulator.iter_mut().zip(vertex.coords.iter())
         {
@@ -77,7 +83,7 @@ where
         }
     }
 
-    extents_accumulator
+    Some(extents_accumulator)
 }
 
 #[cfg(test)]
@@ -104,7 +110,7 @@ mod tests {
         let extents = calculate_polygon_extents(&polygon);
         assert_eq!(
             extents,
-            [RangeInclusive::new(1.0, 5.0), RangeInclusive::new(1.0, 4.0)]
+            Some([RangeInclusive::new(1.0, 5.0), RangeInclusive::new(1.0, 4.0)])
         );
     }
 
@@ -117,12 +123,6 @@ mod tests {
         let extents = calculate_polygon_extents(&polygon);
 
         // Expect the extents to be [max_value..=min_value] for x and y respectively
-        assert_eq!(
-            extents,
-            [
-                RangeInclusive::new(f64::MAX, f64::MIN),
-                RangeInclusive::new(f64::MAX, f64::MIN)
-            ]
-        );
+        assert_eq!(extents, None);
     }
 }

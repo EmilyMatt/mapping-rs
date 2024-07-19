@@ -38,7 +38,7 @@ pub trait AbstractIsometry<T: RealField, const N: usize> {
     /// This type is a placeholder for either [`UnitComplex`] or [`UnitQuaternion`] depending on number of dimensions.
     type RotType: AbstractRotation<T, N> + Copy;
 
-    /// This function receives the old transform, the centeroids of both point clouds, and the covariance rotation mat
+    /// This function receives the old transform, the centroids of both point clouds, and the covariance rotation mat
     /// It then performs [`SVD`](nalgebra::SVD) on the covariance matrix, and uses the resulting matrics
     /// and the translation between the two points to construct a new transform.
     /// This transform is multiplied by the old transform, and the result is returned
