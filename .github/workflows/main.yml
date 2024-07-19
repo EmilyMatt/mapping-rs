@@ -33,10 +33,19 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo nextest run --all-features
+      - name: Upload Cargo.lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock-std-${{ matrix.os }}
+          path: Cargo.lock
+          retention-days: 90
 
   build-no-std:
     name: Build `no_std` Version
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Build no_std version
@@ -47,7 +56,7 @@ jobs:
       - name: Upload Cargo.lock
         uses: actions/upload-artifact@v4
         with:
-          name: cargo-lock
+          name: cargo-lock-nostd-${{ matrix.os }}
           path: Cargo.lock
           retention-days: 90
 

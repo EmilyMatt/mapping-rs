@@ -36,7 +36,10 @@ jobs:
 
   build-no-std:
     name: Build `no_std` Version
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Build no_std version
