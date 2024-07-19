@@ -21,9 +21,10 @@
  * SOFTWARE.
  */
 
-use crate::{types::IsNan, Ordering, Vec};
 use nalgebra::{Point, Scalar};
 use num_traits::Zero;
+
+use crate::{Ordering, types::IsNan, Vec};
 
 fn validate_input<T: Scalar + PartialOrd + IsNan, const N: usize>(input: &[Point<T, N>]) -> bool {
     !(N.is_zero() || input.iter().any(|a| a.coords.iter().any(|b| b.is_nan())))
@@ -74,7 +75,7 @@ pub fn lex_sort_in_place<T: Scalar + PartialOrd + IsNan, const N: usize>(
 pub fn lex_sort<T: Scalar + PartialOrd + IsNan, const N: usize>(
     input: &[Point<T, N>],
 ) -> Option<Vec<Point<T, N>>> {
-    if N.is_zero() || input.iter().any(|a| a.coords.iter().any(|b| b.is_nan())) {
+    if !validate_input(input) {
         return None;
     }
 
@@ -83,10 +84,36 @@ pub fn lex_sort<T: Scalar + PartialOrd + IsNan, const N: usize>(
     Some(input)
 }
 
+/// Sorts the point cloud in lexicographical order, returning a [`Vec`] of references to the original points, in order..
+/// # Arguments
+/// * `input`: a slice of [`Point`], representing the point cloud.
+///
+/// # Returns
+/// [`Some`] containing a vector of &[`Point`]s, if the operation was successful.
+/// Otherwise, returns [`None`].
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument("Lexicographical Sort With References", skip_all)
+)]
+pub fn lex_sort_ref<T: Scalar + PartialOrd + IsNan, const N: usize>(
+    input: &[Point<T, N>],
+) -> Option<Vec<&Point<T, N>>> {
+    if !validate_input(input) {
+        return None;
+    }
+
+    let mut refs = input.iter().collect::<Vec<_>>();
+    refs.sort_by(|&a, &b| lex_sort_func(a, b));
+    Some(refs)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::Point3;
+
+    use crate::point_clouds::generate_point_cloud;
+
+    use super::*;
 
     #[test]
     fn test_lex_sort_in_place() {
@@ -134,6 +161,19 @@ mod tests {
     }
 
     #[test]
+    fn ensure_starting_point() {
+        let input = generate_point_cloud(100, [-10.0..=10.0, -10.0..=10.0]);
+        let sorted = lex_sort(&input).unwrap();
+
+        assert_eq!(
+            sorted
+                .iter()
+                .fold(f64::INFINITY, |acc, it| { acc.min(it.x) }),
+            sorted[0].x
+        );
+    }
+
+    #[test]
     fn test_lex_sort_nan() {
         let input = Vec::from([
             Point3::new(1.0, 2.0, 3.0),
@@ -141,5 +181,23 @@ mod tests {
             Point3::new(1.0, 2.0, f32::NAN),
         ]);
         assert_eq!(lex_sort(&input), None);
+    }
+
+    // Test coplanar points
+    #[test]
+    fn test_lex_sort_coplanar() {
+        let input = Vec::from([
+            Point3::new(1.0, 4.0, 3.0),
+            Point3::new(1.0, 2.0, 3.0),
+            Point3::new(1.0, 2.0, 1.0),
+        ]);
+        assert_eq!(
+            lex_sort(&input),
+            Some(Vec::from([
+                Point3::new(1.0, 2.0, 1.0),
+                Point3::new(1.0, 2.0, 3.0),
+                Point3::new(1.0, 4.0, 3.0)
+            ]))
+        );
     }
 }

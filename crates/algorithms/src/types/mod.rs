@@ -21,13 +21,13 @@
  * SOFTWARE.
  */
 
-mod is_nan;
-mod isometry;
+pub use is_nan::IsNan;
+pub use isometry::{AbstractIsometry, IsometryAbstractor};
 
 use crate::ops::RangeInclusive;
 
-pub use is_nan::IsNan;
-pub use isometry::{AbstractIsometry, IsometryAbstractor};
+mod is_nan;
+mod isometry;
 
 /// A type which is simply an `N` length array of [`RangeInclusive`]s, representing the minimum and maximum coordinates for each dimension.
 pub type PolygonExtents<T, const N: usize> = [RangeInclusive<T>; N];

@@ -26,6 +26,7 @@ log = { version = "0.4.22", default-features = false }
 nalgebra = { version = "0.33.0", default-features = false, features = ["libm", "libm-force"] }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 rand = { version = "0.8", default-features = false, optional = true }
+thiserror = { version = "1.0.63", default-features = false }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
 [build-dependencies]

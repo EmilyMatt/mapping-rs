@@ -21,21 +21,24 @@
  * SOFTWARE.
  */
 
-use crate::{array, Vec};
 use nalgebra::{
     AbstractRotation, ClosedAddAssign, ClosedDivAssign, Isometry, Point, RealField, Scalar,
 };
 use num_traits::{AsPrimitive, Zero};
 
+pub use downsample::downsample_point_cloud_voxel;
+pub use icp::{
+    icp, icp_iteration, ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess,
+};
+pub use lex_sort::{lex_sort, lex_sort_in_place, lex_sort_ref};
+pub use nearest_neighbour::find_nearest_neighbour_naive;
+
+use crate::{array, Vec};
+
 mod downsample;
 mod icp;
 mod lex_sort;
 mod nearest_neighbour;
-
-pub use downsample::downsample_point_cloud_voxel;
-pub use icp::{icp, icp_iteration, ICPConfiguration, ICPConfigurationBuilder, ICPSuccess};
-pub use lex_sort::{lex_sort, lex_sort_in_place};
-pub use nearest_neighbour::find_nearest_neighbour_naive;
 
 #[cfg(feature = "pregenerated")]
 #[doc = "Contains pregenerated functions for single precision point cloud algorithms."]
@@ -149,8 +152,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nalgebra::{Point2, Point3};
+
+    use super::*;
 
     #[test]
     fn test_empty_point_cloud_center() {

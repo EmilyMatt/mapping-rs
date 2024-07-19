@@ -234,9 +234,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{point_clouds::find_nearest_neighbour_naive, Vec};
     use nalgebra::{Point2, Point3};
+
+    use crate::{point_clouds::find_nearest_neighbour_naive, Vec};
+
+    use super::*;
 
     fn generate_tree() -> KDTree<f32, 3> {
         let points = Vec::from([
@@ -350,7 +352,7 @@ mod tests {
             .collect::<Vec<_>>();
         let closest_point_kd = points_a
             .iter()
-            .map(|point_a| kd_tree.nearest(point_a).unwrap())
+            .map(|point_a| kd_tree.nearest(point_a))
             .collect::<Vec<_>>();
         assert_eq!(closest_points_naive, closest_point_kd);
     }

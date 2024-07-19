@@ -21,9 +21,10 @@
  * SOFTWARE.
  */
 
-use crate::utils::distance_squared;
 use nalgebra::{Point, Scalar};
 use num_traits::{Bounded, NumOps};
+
+use crate::utils::distance_squared;
 
 /// Finds the closest matching target point to the passed source point.
 ///
@@ -36,10 +37,7 @@ use num_traits::{Bounded, NumOps};
 /// * `N`: A const usize, representing the number of dimensions in the points.
 ///
 /// # Returns
-/// A [`Point`], representing said closest point.
-///
-/// # Panics
-/// this function will panic if the `target_points` is an empty slice.
+/// An [`Option`] of [`Point`], representing said closest point, empty if no points were provided.
 #[inline]
 #[cfg_attr(
     feature = "tracing",
@@ -48,11 +46,13 @@ use num_traits::{Bounded, NumOps};
 pub fn find_nearest_neighbour_naive<T, const N: usize>(
     point: &Point<T, N>,
     all_points: &[Point<T, N>],
-) -> Point<T, N>
+) -> Option<Point<T, N>>
 where
     T: Bounded + Copy + Default + NumOps + PartialOrd + Scalar,
 {
-    assert!(!all_points.is_empty(), "Point cloud must not be empty");
+    if all_points.is_empty() {
+        return None;
+    }
 
     let mut current_distance = T::max_value();
     let mut current_point = all_points[0]; // Guaranteed to exist
@@ -65,14 +65,16 @@ where
         }
     }
 
-    current_point
+    Some(current_point)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::Vec;
     use nalgebra::{Point, Point2};
+
+    use crate::Vec;
+
+    use super::*;
 
     #[test]
     fn test_find_closest_point() {
@@ -93,11 +95,10 @@ mod tests {
         let closest_point = find_nearest_neighbour_naive(&transformed_point, &target_points);
 
         // Expect the closest point to be (5.0, 5.0)
-        assert_eq!(closest_point, Point2::new(5.0, 5.0));
+        assert_eq!(closest_point, Some(Point2::new(5.0, 5.0)));
     }
 
     #[test]
-    #[should_panic]
     fn test_find_closest_point_with_empty_target() {
         // Given:
         // An empty set of target points
@@ -107,6 +108,9 @@ mod tests {
         let transformed_point = Point2::new(4.0, 4.0);
 
         // This should panic as the target_points array is empty
-        let _ = find_nearest_neighbour_naive(&transformed_point, &target_points);
+        assert_eq!(
+            find_nearest_neighbour_naive(&transformed_point, &target_points),
+            None
+        );
     }
 }

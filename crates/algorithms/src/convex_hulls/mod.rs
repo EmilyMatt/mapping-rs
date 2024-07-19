@@ -22,4 +22,3 @@
  */
 
 mod chans;
-mod graham_scan;

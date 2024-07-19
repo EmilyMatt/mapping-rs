@@ -21,13 +21,15 @@
  * SOFTWARE.
  */
 
-use crate::{array, ops::RangeInclusive, types::PolygonExtents};
 use nalgebra::{Point, RealField};
 use num_traits::Bounded;
 
-mod point_in_polygon;
-
 pub use point_in_polygon::{are_multiple_points_in_polygon, is_single_point_in_polygon};
+
+use crate::{array, ops::RangeInclusive, types::PolygonExtents};
+
+mod graham_scan;
+mod point_in_polygon;
 
 #[cfg(feature = "pregenerated")]
 #[doc = "This module contains polygon algorithms that are pregenerated for single precision floating points."]
@@ -81,9 +83,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::Vec;
     use nalgebra::{Point, Point2};
+
+    use crate::Vec;
+
+    use super::*;
 
     #[test]
     fn test_calculate_polygon_extents() {

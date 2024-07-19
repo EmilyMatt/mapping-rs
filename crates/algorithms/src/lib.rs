@@ -36,6 +36,7 @@ extern crate core;
 #[cfg(feature = "std")]
 use std::{
     array,
+    borrow::ToOwned,
     boxed::Box,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
@@ -48,6 +49,7 @@ use std::{
 #[cfg(not(feature = "std"))]
 use {
     alloc::{
+        borrow::ToOwned,
         boxed::Box,
         collections::{BTreeMap as HashMap, VecDeque},
         vec::Vec,
