@@ -22,20 +22,23 @@
  */
 
 pub use graham_scan::graham_scan;
+pub use jarvis_march::jarvis_march;
 pub use point_in_polygon::{are_multiple_points_in_polygon, is_single_point_in_polygon};
 
-use nalgebra::{Point, RealField};
-use num_traits::Bounded;
+use nalgebra::{ComplexField, Point, Point2, RealField, Scalar};
+use num_traits::{AsPrimitive, Bounded, NumOps};
 
 use crate::{array, ops::RangeInclusive, types::PolygonExtents};
 
 mod graham_scan;
+mod jarvis_march;
 mod point_in_polygon;
 
 #[cfg(feature = "pregenerated")]
 #[doc = "This module contains polygon algorithms that are pregenerated for single precision floating points."]
 pub mod single_precision {
     pub use super::graham_scan::single_precision::*;
+    pub use super::jarvis_march::single_precision::*;
     pub use super::point_in_polygon::single_precision::*;
 }
 
@@ -43,6 +46,7 @@ pub mod single_precision {
 #[doc = "This module contains polygon algorithms that are pregenerated for double precision floating points."]
 pub mod double_precision {
     pub use super::graham_scan::double_precision::*;
+    pub use super::jarvis_march::double_precision::*;
     pub use super::point_in_polygon::double_precision::*;
 }
 
@@ -84,6 +88,17 @@ where
     }
 
     Some(extents_accumulator)
+}
+
+fn calculate_determinant<O: ComplexField + Copy, T: Scalar + NumOps + AsPrimitive<O>>(
+    point_a: &Point2<T>,
+    point_b: &Point2<T>,
+    point_c: &Point2<T>,
+) -> O {
+    T::as_(
+        ((point_b.y - point_a.y) * (point_c.x - point_b.x))
+            - ((point_b.x - point_a.x) * (point_c.y - point_b.y)),
+    )
 }
 
 #[cfg(test)]
