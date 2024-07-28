@@ -23,9 +23,8 @@
 
 use nalgebra::{ComplexField, Point2, Scalar};
 use num_traits::{real::Real, AsPrimitive, NumAssign};
-use std::cmp::Ordering;
 
-use crate::point_clouds::downsample_point_cloud_voxel;
+use crate::{point_clouds::downsample_point_cloud_voxel, Ordering, Vec};
 
 use super::calculate_determinant;
 
