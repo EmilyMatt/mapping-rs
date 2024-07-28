@@ -1,6 +1,6 @@
 [package]
 name = "mapping-suites"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of SLAM suites, based on mapping-algorithms"
 edition = "2021"
@@ -22,7 +22,7 @@ tracing = ["dep:tracing"]
 cuda = ["mapping-algorithms/cuda", "bindgen", "cc"]
 
 [dependencies]
-mapping-algorithms = { path = "../algorithms", version = "0.0.1", default-features = false, features = ["pregenerated"] }
+mapping-algorithms = { path = "../algorithms", version = "0.0.2", default-features = false, features = ["pregenerated"] }
 
 log = { version = "0.4.22", default-features = false }
 nalgebra = { version = "0.33.0", default-features = false, features = ["libm"] }
