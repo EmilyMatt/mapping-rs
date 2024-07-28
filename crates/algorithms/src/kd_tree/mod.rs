@@ -24,7 +24,7 @@
 use nalgebra::{Point, Scalar};
 use num_traits::{NumOps, Zero};
 
-use crate::{utils::distance_squared, Box};
+use crate::{utils::distance_squared, Box, Ordering};
 
 #[derive(Clone, Debug, Default)]
 struct KDNode<T, const N: usize>
@@ -52,22 +52,25 @@ where
         feature = "tracing",
         tracing::instrument("Insert New Point", skip_all, level = "trace")
     )]
-    fn insert(&mut self, data: Point<T, N>, depth: usize) {
+    fn insert(&mut self, data: Point<T, N>, depth: usize) -> bool {
         let dimension_to_check = depth % N;
 
-        let branch_to_use =
+        let (branch_to_use, verify_equals) =
             // Note that this is a &mut Option, not an Option<&mut>!
-            if data.coords[dimension_to_check] < self.internal_data.coords[dimension_to_check] {
-                &mut self.left
-            } else {
-                &mut self.right
+            match data.coords[dimension_to_check].partial_cmp(&self.internal_data.coords[dimension_to_check]).unwrap() {
+                Ordering::Less => (&mut self.left, false),
+                Ordering::Equal => (&mut self.right, true),
+                Ordering::Greater => (&mut self.right, false)
             };
 
         if let Some(branch_exists) = branch_to_use.as_mut() {
-            branch_exists.insert(data, depth + 1);
-        } else {
-            *branch_to_use = Some(Box::new(KDNode::new(data)))
+            return branch_exists.insert(data, depth + 1);
+        } else if verify_equals && self.internal_data == data {
+            return false;
         }
+
+        *branch_to_use = Some(Box::new(KDNode::new(data)));
+        return true;
     }
 
     #[cfg_attr(
@@ -148,6 +151,7 @@ where
     T: Copy + Default + NumOps + PartialOrd + Scalar + Zero,
 {
     root: Option<KDNode<T, N>>,
+    element_count: usize,
 }
 
 impl<T, const N: usize> KDTree<T, N>
@@ -164,10 +168,29 @@ where
     )]
     pub fn insert(&mut self, data: Point<T, N>) {
         if let Some(root) = self.root.as_mut() {
-            root.insert(data, 0);
+            if root.insert(data, 0) {
+                self.element_count += 1;
+            }
         } else {
             self.root = Some(KDNode::new(data));
+            self.element_count = 1;
         }
+    }
+
+    /// Returns the number of elements in the tree.
+    ///
+    /// # Returns
+    /// A [`usize`] representing the number of elements in the tree.
+    pub fn len(&self) -> usize {
+        self.element_count
+    }
+
+    /// Returns whether the tree is empty or not.
+    ///
+    /// # Returns
+    /// A [`bool`] representing whether the tree is empty or not.
+    pub fn is_empty(&self) -> bool {
+        self.element_count == 0
     }
 
     /// Attempts to find the nearest point in the tree for the specified target point.
@@ -294,6 +317,20 @@ mod tests {
     }
 
     #[test]
+    fn test_insert_duplicate() {
+        let mut tree = KDTree::default();
+        assert!(tree.is_empty());
+
+        tree.insert(Point2::new(0.0f32, 0.0f32));
+        assert_eq!(tree.len(), 1);
+        assert!(!tree.is_empty());
+
+        // Insert duplicate
+        tree.insert(Point2::new(0.0f32, 0.0f32));
+        assert_eq!(tree.len(), 1);
+    }
+
+    #[test]
     fn test_nearest() {
         // Test an empty tree
         {
@@ -380,5 +417,25 @@ mod tests {
             assert_eq!(point.y, 1.0);
             assert_eq!(point.z, 1.0);
         });
+    }
+
+    #[test]
+    fn test_multiple_elements_structure() {
+        let mut tree = KDTree::default();
+        let points = Vec::from([
+            Point2::new(3.0, 6.0),
+            Point2::new(17.0, 15.0),
+            Point2::new(13.0, 15.0),
+            Point2::new(6.0, 12.0),
+            Point2::new(9.0, 1.0),
+            Point2::new(2.0, 7.0),
+            Point2::new(10.0, 19.0),
+        ]);
+
+        for point in points.iter() {
+            tree.insert(*point);
+        }
+
+        assert_eq!(tree.len(), 7);
     }
 }
