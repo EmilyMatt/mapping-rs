@@ -21,52 +21,18 @@
  * SOFTWARE.
  */
 
-use core::fmt::Debug;
-use nalgebra::{ComplexField, Point2};
-use num_traits::{AsPrimitive, NumAssign};
+use nalgebra::{ComplexField, Point2, Scalar};
+use num_traits::{real::Real, AsPrimitive, NumAssign};
 
-use crate::{
-    point_clouds::{downsample_point_cloud_voxel, lex_sort},
-    types::IsNan,
-    ToOwned, Vec, VecDeque,
-};
+use crate::{point_clouds::downsample_point_cloud_voxel, Ordering, Vec};
 
 use super::calculate_determinant;
 
-#[cfg_attr(
-    feature = "tracing",
-    tracing::instrument("Build Hull Segment", skip_all)
-)]
-fn build_hull_segment<
-    'a,
-    O: ComplexField + Copy + PartialOrd,
-    T: AsPrimitive<O> + Debug + IsNan + NumAssign + PartialOrd,
->(
-    mut accumulator: VecDeque<&'a Point2<T>>,
-    current_point: &'a Point2<T>,
-) -> VecDeque<&'a Point2<T>> {
-    while accumulator.len() > 1
-        && calculate_determinant(
-            accumulator[accumulator.len() - 2],
-            accumulator[accumulator.len() - 1],
-            current_point,
-        ) <= O::zero()
-    {
-        accumulator.pop_back();
-    }
-
-    accumulator.push_back(current_point);
-    accumulator
-}
-
-/// Computes the convex hull of a set of points using the Graham Scan algorithm.
-/// Specifically the Monotone Chain variant
-/// This version sorts the points lexicographically before computing the convex hull.
-/// A downside of using this algorithm is that it does not handle collinear points well.
+/// Computes the convex hull of a set of points using the Jarvis March algorithm.
+/// This algorithm uses a pivot point to find the next point in the convex hull by selecting for each point, the point which makes the largest outwards turn that is less than 180 degrees.
 ///
 /// # Arguments
 /// * `points` - A slice of points to compute the convex hull of
-/// * `assume_sorted` - A boolean indicating whether the points are already sorted lexicographically, this is critical for correctness so make sure you don't set this to `true` unless you are sure the points are sorted
 /// * `voxel_size` - An optional parameter specifying the voxel size by which to downsample the point cloud before computing the convex hull, useful in reducing errors due to close or identical vertices.
 ///
 /// # Genericsoc -
@@ -77,73 +43,71 @@ fn build_hull_segment<
 /// An [`Option`] of [`Vec<Point2<T>>`] representing the convex hull, or [`None`] if there were not enough points to compute a convex hull, or if all points are collinear
 #[cfg_attr(
     feature = "tracing",
-    tracing::instrument("Construct Convex Hull Using Graham Scan", skip_all)
+    tracing::instrument("Construct Convex Hull Using Jarvis March", skip_all)
 )]
-pub fn graham_scan<O, T>(
-    points: &[Point2<T>],
-    assume_sorted: bool,
-    voxel_size: Option<O>,
-) -> Option<Vec<Point2<T>>>
+pub fn jarvis_march<O, T>(points: &[Point2<T>], voxel_size: Option<O>) -> Option<Vec<Point2<T>>>
 where
-    O: AsPrimitive<isize> + ComplexField + Copy + PartialOrd,
-    T: AsPrimitive<O> + Debug + IsNan + NumAssign + PartialOrd,
+    O: AsPrimitive<isize> + ComplexField + Copy + Real,
+    T: AsPrimitive<O> + NumAssign + PartialOrd + Scalar,
     usize: AsPrimitive<T>,
 {
     if points.len() < 3 {
         return None;
     }
 
-    let points_sorted;
-    let points_sorted_slice = match (assume_sorted, voxel_size) {
-        (true, None) => points,
-        (true, Some(voxel_size)) => {
-            points_sorted = downsample_point_cloud_voxel(points, voxel_size);
-            points_sorted.as_slice()
-        }
-        (false, None) => {
-            points_sorted = lex_sort(points)?;
-            points_sorted.as_slice()
-        }
-        (false, Some(voxel_size)) => {
-            let downsampled_points = downsample_point_cloud_voxel(points, voxel_size);
-            points_sorted = lex_sort(downsampled_points.as_slice())?;
-            points_sorted.as_slice()
-        }
-    };
+    let points_downsampled;
+    let points_downsampled_slice;
+    if let Some(voxel_size) = voxel_size {
+        points_downsampled = downsample_point_cloud_voxel(points, voxel_size);
+        points_downsampled_slice = points_downsampled.as_slice();
+    } else {
+        points_downsampled_slice = points;
+    }
 
-    let upper_hull = points_sorted_slice
-        .iter()
-        .fold(VecDeque::new(), |accumulator, point| {
-            build_hull_segment(accumulator, point)
-        });
-    let upper_hull_len = upper_hull.len();
+    // Get leftest, lowest point as a starting point
+    let mut current_vertex = points_downsampled_slice.iter().min_by(|a, b| {
+        a.coords
+            .iter()
+            .zip(b.coords.iter())
+            .fold(Ordering::Equal, |ord, (a, b)| {
+                ord.then_with(|| a.partial_cmp(b).unwrap())
+            })
+    })?;
 
-    let lower_hull = points_sorted_slice
-        .iter()
-        .rev()
-        .fold(VecDeque::new(), |accumulator, point| {
-            build_hull_segment(accumulator, point)
-        });
-    let lower_hull_len = lower_hull.len();
+    let mut hull = Vec::with_capacity(points_downsampled_slice.len());
+    loop {
+        hull.push(*current_vertex);
+        let mut endpoint = &points_downsampled_slice[0];
+        for point in points_downsampled_slice {
+            if endpoint == current_vertex
+                || calculate_determinant(hull.last().unwrap(), endpoint, point) < O::zero()
+            {
+                endpoint = point;
+            }
+        }
 
-    ((upper_hull_len + lower_hull_len - 2) > 2).then(|| {
-        upper_hull
-            .into_iter()
-            .take(upper_hull_len - 1)
-            .chain(lower_hull.into_iter().take(lower_hull_len - 1))
-            .map(ToOwned::to_owned)
-            .collect::<Vec<_>>()
-    })
+        current_vertex = endpoint;
+
+        if current_vertex == &hull[0] {
+            break;
+        }
+    }
+
+    if hull.len() < 3 {
+        return None;
+    }
+
+    Some(hull)
 }
 
 #[cfg(feature = "pregenerated")]
-macro_rules! impl_graham_scan {
+macro_rules! impl_jarvis_march {
     ($t:expr, $prec:expr, doc $doc:tt) => {
         ::paste::paste! {
 
-            #[doc = "A premade variant of the Graham Scan algorithm function, made for " $doc " precision floating-point arithmetic, using " $t " as the point type."]
-            pub fn [<graham_scan_ $t>](input: &[Point2<$t>], assume_sorted: bool, voxel_size: Option<$prec>) -> Option<Vec<Point2<$t>>> {
-                super::graham_scan::<$prec, $t>(input, assume_sorted, voxel_size)
+            #[doc = "A premade variant of the Jarvis March algorithm function, made for " $doc " precision floating-point arithmetic, using " $t " as the point type."]
+            pub fn [<jarvis_march_ $t>](input: &[Point2<$t>], voxel_size: Option<$prec>) -> Option<Vec<Point2<$t>>> {
+                super::jarvis_march::<$prec, $t>(input, voxel_size)
             }
         }
     };
@@ -153,34 +117,34 @@ macro_rules! impl_graham_scan {
                 use nalgebra::Point2;
                 use crate::Vec;
 
-                impl_graham_scan!(u8, $prec, doc $doc);
-                impl_graham_scan!(u16, $prec, doc $doc);
-                impl_graham_scan!(u32, $prec, doc $doc);
-                impl_graham_scan!(u64, $prec, doc $doc);
-                impl_graham_scan!(usize, $prec, doc $doc);
+                impl_jarvis_march!(u8, $prec, doc $doc);
+                impl_jarvis_march!(u16, $prec, doc $doc);
+                impl_jarvis_march!(u32, $prec, doc $doc);
+                impl_jarvis_march!(u64, $prec, doc $doc);
+                impl_jarvis_march!(usize, $prec, doc $doc);
 
-                impl_graham_scan!(i8, $prec, doc $doc);
-                impl_graham_scan!(i16, $prec, doc $doc);
-                impl_graham_scan!(i32, $prec, doc $doc);
-                impl_graham_scan!(i64, $prec, doc $doc);
-                impl_graham_scan!(isize, $prec, doc $doc);
+                impl_jarvis_march!(i8, $prec, doc $doc);
+                impl_jarvis_march!(i16, $prec, doc $doc);
+                impl_jarvis_march!(i32, $prec, doc $doc);
+                impl_jarvis_march!(i64, $prec, doc $doc);
+                impl_jarvis_march!(isize, $prec, doc $doc);
 
-                impl_graham_scan!(f32, $prec, doc $doc);
-                impl_graham_scan!(f64, $prec, doc $doc);
+                impl_jarvis_march!(f32, $prec, doc $doc);
+                impl_jarvis_march!(f64, $prec, doc $doc);
             }
         }
     };
 }
 
-impl_graham_scan!(f32, doc single);
-impl_graham_scan!(f64, doc double);
+impl_jarvis_march!(f32, doc single);
+impl_jarvis_march!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_graham_scan() {
+    fn test_jarvis_march() {
         let point_cloud = Vec::from([
             Point2::new(-9.792094, 6.501087),
             Point2::new(-9.297297, 1.4398155),
@@ -233,7 +197,7 @@ mod tests {
             Point2::new(-2.1599998, 7.8314323),
             Point2::new(6.1809216, -6.801429),
         ]);
-        let hull = graham_scan::<f32, f32>(&point_cloud, false, None);
+        let hull = jarvis_march::<f32, f32>(&point_cloud, None);
 
         assert!(hull.is_some());
         assert_eq!(
@@ -254,13 +218,13 @@ mod tests {
 
     #[test]
     fn test_not_enough_points() {
-        assert_eq!(graham_scan::<f32, f32>(&[], false, None), None);
+        assert_eq!(jarvis_march::<f32, f32>(&[], None), None);
         assert_eq!(
-            graham_scan::<f32, f32>(&[Point2::new(1.0, 1.0)], false, None),
+            jarvis_march::<f32, f32>(&[Point2::new(1.0, 1.0)], None),
             None
         );
         assert_eq!(
-            graham_scan::<f32, f32>(&[Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)], false, None),
+            jarvis_march::<f32, f32>(&[Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)], None),
             None
         );
     }
@@ -272,7 +236,7 @@ mod tests {
             Point2::new(1.0, 1.0),
             Point2::new(2.0, 2.0),
         ]);
-        assert_eq!(graham_scan::<f32, f32>(&points, false, None), None);
+        assert_eq!(jarvis_march::<f32, f32>(&points, None), None);
     }
 
     #[test]
@@ -290,10 +254,7 @@ mod tests {
             Point2::new(1.0, 1.0),
             Point2::new(1.0, 0.0),
         ]);
-        assert_eq!(
-            graham_scan::<f32, f32>(&points, false, None),
-            Some(expected)
-        );
+        assert_eq!(jarvis_march::<f32, f32>(&points, None), Some(expected));
     }
 
     #[test]
@@ -311,10 +272,7 @@ mod tests {
             Point2::new(2.0, 2.0),
             Point2::new(2.0, 0.0),
         ]);
-        assert_eq!(
-            graham_scan::<f32, f32>(&points, false, None),
-            Some(expected)
-        );
+        assert_eq!(jarvis_march::<f32, f32>(&points, None), Some(expected));
     }
 
     #[test]
@@ -332,10 +290,7 @@ mod tests {
             Point2::new(1.0, 1.0),
             Point2::new(1.0, 0.0),
         ]);
-        assert_eq!(
-            graham_scan::<f32, f32>(&points, false, None),
-            Some(expected)
-        );
+        assert_eq!(jarvis_march::<f32, f32>(&points, None), Some(expected));
     }
 
     #[test]
@@ -353,10 +308,7 @@ mod tests {
             Point2::new(1.0, 1.0),
             Point2::new(1.0, -1.0),
         ]);
-        assert_eq!(
-            graham_scan::<f32, f32>(&points, false, None),
-            Some(expected)
-        );
+        assert_eq!(jarvis_march::<f32, f32>(&points, None), Some(expected));
     }
 
     #[test]
@@ -370,19 +322,14 @@ mod tests {
             Point2::new(1.0, 3.0),
             Point2::new(3.0, 1.0),
         ]);
-
-        // point 2, 2 is not included in the hull, due to it being on the same line as 1, 3
-        // This is the downside of using a Graham Scan algorithm
         let expected = Vec::from([
             Point2::new(0.0, 0.0),
             Point2::new(0.0, 2.0),
             Point2::new(1.0, 3.0),
+            Point2::new(2.0, 2.0),
             Point2::new(3.0, 1.0),
             Point2::new(2.0, 0.0),
         ]);
-        assert_eq!(
-            graham_scan::<f32, f32>(&points, false, None),
-            Some(expected)
-        );
+        assert_eq!(jarvis_march::<f32, f32>(&points, None), Some(expected));
     }
 }
