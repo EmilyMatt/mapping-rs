@@ -32,7 +32,7 @@ thiserror = { version = "1.0.63", default-features = false, optional = true }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes"], optional = true }
 
 [dev-dependencies]
-eframe = { version = "0.28.1", default-features = false, features = ["glow"] }
+eframe = { version = "0.29.0", default-features = false, features = ["glow"] }
 simple_logger = { version = "5.0.0", default-features = false, features = ["timestamps", "threads"] }
 
 [build-dependencies]
