@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check formatting
-        run: cargo fmt --all --check
+        run: cargo fmt --check
 
   build-and-test:
     name: Build and Test
