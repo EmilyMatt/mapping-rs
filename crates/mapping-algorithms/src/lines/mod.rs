@@ -26,13 +26,13 @@ pub use bresenham::plot_bresenham_line;
 mod bresenham;
 
 #[cfg(feature = "pregenerated")]
-#[doc = "A module containing pregenerated functions for single-precision line algorithms."]
+#[doc = "A module containing pregenerated functions for single-precision line mapping-algorithms."]
 pub mod single_precision {
     pub use super::bresenham::single_precision::*;
 }
 
 #[cfg(feature = "pregenerated")]
-#[doc = "A module containing pregenerated functions for double-precision line algorithms."]
+#[doc = "A module containing pregenerated functions for double-precision line mapping-algorithms."]
 pub mod double_precision {
     pub use super::bresenham::double_precision::*;
 }

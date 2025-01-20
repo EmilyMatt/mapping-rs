@@ -88,8 +88,7 @@ where
 /// `T`: Either an [`prim@f32`] or [`prim@f64`]
 ///
 /// # Returns
-/// * A value that representing the initial bearing from `point_a` to `point_b`, in radians.
-/// The result is normalized to a range of 0 to 2 PI radians.
+/// * A value that representing the initial bearing from `point_a` to `point_b`, in radians, The result is normalized to a range of 0 to 2 PI radians.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Calculate Bearing Between Points", skip_all)

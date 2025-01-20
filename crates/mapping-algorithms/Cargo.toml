@@ -1,0 +1,36 @@
+[package]
+name = "mapping-algorithms"
+version = "0.1.0"
+authors = ["Emily Matheys <emilymatt96@gmail.com>"]
+description = "A collection of pure-rust algorithms, for spatial and SLAM purposes"
+edition = "2021"
+license = "MIT"
+categories = ["algorithms", "science", "science::robotics"]
+keywords = ["algorithms", "mathematics", "science"]
+repository = "https://github.com/EmilyMatt/mapping-rs"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+
+[features]
+default = ["std", "pregenerated"]
+std = ["nalgebra/std", "num-traits/std", "rand/std", "rand/std_rng", "thiserror", "tracing?/std"]
+
+pregenerated = ["dep:paste"]
+tracing = ["dep:tracing"]
+cuda = ["bindgen", "cc"]
+
+[dependencies]
+log = { workspace = true }
+nalgebra = { workspace = true }
+num-traits = { workspace = true }
+paste = { workspace = true, optional = true }
+rand = { workspace = true }
+thiserror = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+
+[build-dependencies]
+bindgen = { version = "0.71.1", default-features = false, optional = true }
+cc = { version = "1.2.10", default-features = false, optional = true }

@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check Clippy
-        run: cargo clippy --all
+        run: cargo clippy
 
   doc:
     name: Check Documentation
@@ -62,7 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check Documentation
-        run: cargo doc --all
+        run: cargo doc
 
   deny:
     name: Check Licenses and CVEs

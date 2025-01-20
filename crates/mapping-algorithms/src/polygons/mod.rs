@@ -35,7 +35,7 @@ mod jarvis_march;
 mod point_in_polygon;
 
 #[cfg(feature = "pregenerated")]
-#[doc = "This module contains polygon algorithms that are pregenerated for single precision floating points."]
+#[doc = "This module contains polygon mapping-algorithms that are pregenerated for single precision floating points."]
 pub mod single_precision {
     pub use super::graham_scan::single_precision::*;
     pub use super::jarvis_march::single_precision::*;
@@ -43,7 +43,7 @@ pub mod single_precision {
 }
 
 #[cfg(feature = "pregenerated")]
-#[doc = "This module contains polygon algorithms that are pregenerated for double precision floating points."]
+#[doc = "This module contains polygon mapping-algorithms that are pregenerated for double precision floating points."]
 pub mod double_precision {
     pub use super::graham_scan::double_precision::*;
     pub use super::jarvis_march::double_precision::*;

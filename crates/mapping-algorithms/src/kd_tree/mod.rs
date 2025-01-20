@@ -70,7 +70,7 @@ where
         }
 
         *branch_to_use = Some(Box::new(KDNode::new(data)));
-        return true;
+        true
     }
 
     #[cfg_attr(

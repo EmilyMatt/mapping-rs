@@ -63,17 +63,17 @@ pub mod types;
 /// A K-Dimensional Tree data structure, useful for various geo-spatial computations.
 pub mod kd_tree;
 
-/// A module containing various algorithms for point clouds.
+/// A module containing various mapping-algorithms for point clouds.
 pub mod point_clouds;
 
-/// A module containing various algorithms for polygons.
+/// A module containing various mapping-algorithms for polygons.
 pub mod polygons;
 
-/// A module containing various geospatial algorithms.
+/// A module containing various geospatial mapping-algorithms.
 pub mod geo;
 
-/// A module containing various line algorithms.
+/// A module containing various line mapping-algorithms.
 pub mod lines;
 
-/// Various utility functions that are commonly used by these algorithms.
+/// Various utility functions that are commonly used by these mapping-algorithms.
 pub mod utils;
