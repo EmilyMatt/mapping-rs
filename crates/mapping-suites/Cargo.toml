@@ -18,8 +18,8 @@ all-features = true
 default = ["std"]
 std = ["mapping-algorithms/std", "nalgebra/std", "thiserror", "tracing?/std"]
 
-tracing = ["dep:tracing"]
 cuda = ["mapping-algorithms/cuda", "bindgen", "cc"]
+tracing = ["dep:tracing"]
 
 [dependencies]
 log = { workspace = true }
@@ -31,5 +31,5 @@ tracing = { workspace = true, optional = true }
 mapping-algorithms = { workspace = true }
 
 [build-dependencies]
-bindgen = { version = "0.71.1", default-features = false, optional = true }
-cc = { version = "1.2.10", default-features = false, optional = true }
+bindgen = { workspace = true, optional = true }
+cc = { workspace = true, optional = true }

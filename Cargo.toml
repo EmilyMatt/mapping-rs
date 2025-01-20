@@ -13,6 +13,8 @@ keywords = ["algorithms", "mathematics", "science"]
 repository = "https://github.com/EmilyMatt/mapping-rs"
 
 [workspace.dependencies]
+bindgen = { version = "0.71.1", default-features = false }
+cc = { version = "1.2.10", default-features = false }
 log = { version = "0.4.25", default-features = false }
 nalgebra = { version = "0.33.2", default-features = false, features = ["libm"] }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
