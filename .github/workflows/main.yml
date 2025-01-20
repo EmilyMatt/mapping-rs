@@ -29,10 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: cargo build --all-features
+        run: cargo build --all --all-features
       - uses: taiki-e/install-action@nextest
       - name: Test
-        run: cargo nextest run --all-features
+        run: cargo nextest run --all --all-features
       - name: Upload Cargo.lock
         uses: actions/upload-artifact@v4
         with:
@@ -49,10 +49,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build no_std version
-        run: cargo build --no-default-features --features=pregenerated
+        run: cargo build --all --no-default-features --features=pregenerated
       - uses: taiki-e/install-action@nextest
       - name: Test `no_std` version
-        run: cargo nextest run --no-default-features --features=pregenerated
+        run: cargo nextest run --all --no-default-features --features=pregenerated
       - name: Upload Cargo.lock
         uses: actions/upload-artifact@v4
         with:
@@ -81,4 +81,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v1
+      - uses: EmbarkStudios/cargo-deny-action@v2

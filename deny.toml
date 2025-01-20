@@ -1,21 +1,14 @@
 [advisories]
 
-# The various windows crates should be safe
 [bans]
 multiple-versions = "deny"
-skip = ["windows_x86_64_msvc", "windows_x86_64_gnu", "windows_x86_64_gnullvm",
-    "windows_i686_msvc", "windows_i686_gnu", "windows_i686_gnullvm",
-    "windows_aarch64_msvc", "windows_aarch64_gnullvm",
-    "windows-targets", "windows-sys"]
+skip = []
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 
 [licenses]
-exceptions = [
-    { name = "unicode-ident", allow = ["Unicode-DFS-2016"] }, # unique license
-]
 unused-allowed-license = "allow"
 allow = [
     "Apache-2.0 WITH LLVM-exception",
@@ -23,5 +16,5 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "MIT",
-    "ISC"
+    "Unicode-3.0"
 ]

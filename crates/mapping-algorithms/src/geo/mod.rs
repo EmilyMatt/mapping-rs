@@ -26,13 +26,13 @@ pub use haversine::{calculate_haversine_distance, calculate_sphere_bearing};
 mod haversine;
 
 #[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for single precision geographical algorithms."]
+#[doc = "Contains pregenerated functions for single precision geographical mapping-algorithms."]
 pub mod single_precision {
     pub use super::haversine::single_precision::*;
 }
 
 #[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for double precision geographical algorithms."]
+#[doc = "Contains pregenerated functions for double precision geographical mapping-algorithms."]
 pub mod double_precision {
     pub use super::haversine::double_precision::*;
 }
