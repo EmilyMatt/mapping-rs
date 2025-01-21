@@ -114,12 +114,12 @@ jobs:
 
       - name: Update PR labels
         run: |
-          # Convert the space-separated string `labels` into a JSON array
-          labels_json=$(echo "${labels}" | jq -R 'split(" ")')
-
+          # Ensure `labels` is a valid JSON string
+          labels_json=$(echo "${labels}" | jq -c '.')
+          
           # Debug output (optional)
           echo "Converted labels: ${labels_json}"
-
+          
           # Use the JSON array in the API call
           curl -f -X POST \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
