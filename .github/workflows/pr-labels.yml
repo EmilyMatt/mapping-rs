@@ -92,6 +92,12 @@ jobs:
           if echo "${modified_files}" | grep -q '\.github/workflows'; then
             NEW_LABELS+=("Github Actions")
           fi
+          
+          # Check for modified Cargo.toml files to add the Dependencies label
+          # TODO: Ensure label only if [dependencies] sections is changed
+          if echo "${modified_files}" | grep -Eq '(^|/|\\)Cargo\.toml$'; then
+            NEW_LABELS+=("Dependencies")
+          fi
 
           # Iterate over NEW_LABELS and check against the JSON array of existing labels
           for LABEL in "${NEW_LABELS[@]}"; do
@@ -105,44 +111,6 @@ jobs:
           done
 
           echo "labels=${labels}" >> ${GITHUB_ENV}
-
-      - name: Check Cargo.toml for dependencies changes
-        id: check_cargo_toml
-        run: |
-          # Check if any Cargo.toml files were modified
-          CARGO_TOML_FILES=$(echo "${modified_files}" | grep -E 'Cargo.toml')
-          
-          if [[ -n "${CARGO_TOML_FILES}" ]]; then
-            echo "Cargo.toml files modified: ${CARGO_TOML_FILES}"
-          
-            # Check if the dependencies section of Cargo.toml is modified by comparing before and after content
-            for FILE in ${CARGO_TOML_FILES}; do
-              # Checkout the base branch version of the file to compare
-              git fetch origin ${{ github.event.pull_request.base.ref }}
-              git checkout origin/${{ github.event.pull_request.base.ref }} -- ${FILE}
-          
-              # Now check if the dependencies section has been modified (as an object)
-              if git diff --quiet ${FILE}; then
-                echo "No changes in dependencies section of ${FILE}."
-              else
-                echo "Changes detected in dependencies section of ${FILE}."
-                DEPENDENCY_CHANGED=true
-                break
-              fi
-            done
-          
-            if [[ "${DEPENDENCY_CHANGED}" == true ]]; then
-              # If any Cargo.toml dependency section was modified, add the 'Dependencies' label
-              if echo "${labels}" | jq -e '. | index("Dependencies")' > /dev/null; then
-                echo "Label 'Dependencies' already exists, skipping..."
-              else
-                echo "Adding label: Dependencies"
-                labels="${labels} Dependencies"
-          
-                echo "labels=${labels}" >> ${GITHUB_ENV}
-              fi
-            fi
-          fi
 
       - name: Update PR labels
         run: |
