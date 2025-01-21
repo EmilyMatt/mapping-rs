@@ -41,13 +41,13 @@ mod lex_sort;
 mod nearest_neighbour;
 
 #[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for single precision point cloud mapping-algorithms."]
+#[doc = "Contains pregenerated functions for single precision point cloud algorithms."]
 pub mod single_precision {
     pub use super::icp::single_precision::*;
 }
 
 #[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for double precision point cloud mapping-algorithms."]
+#[doc = "Contains pregenerated functions for double precision point cloud algorithms."]
 pub mod double_precision {
     pub use super::icp::double_precision::*;
 }
