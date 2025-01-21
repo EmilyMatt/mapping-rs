@@ -86,36 +86,37 @@ jobs:
         run: |
           # Initialize the labels array
           NEW_LABELS=()
-          
+
           # Check for .rs files to add the Rust label
           if echo "${modified_files}" | grep -q '\.rs$'; then
             NEW_LABELS+=("Rust")
           fi
-          
+
           # Check for .cu files to add the CUDA label
           if echo "${modified_files}" | grep -q '\.cu$'; then
             NEW_LABELS+=("CUDA")
           fi
-          
+
           # Check for modified .github/workflows files to add the Github Actions label
           if echo "${modified_files}" | grep -q '\.github/workflows'; then
             NEW_LABELS+=("Github Actions")
           fi
-          
-          # If any relevant label to add, check and add it
+
+          # Iterate over NEW_LABELS and check against the JSON array of existing labels
           for LABEL in "${NEW_LABELS[@]}"; do
-            if [[ ! "${labels}" =~ "${LABEL}" ]]; then
+            # Check if the label exists in the JSON array
+            if echo "${labels}" | jq -e --arg label "$LABEL" '. | index($label)' > /dev/null; then
+              echo "Label '${LABEL}' already exists, skipping..."
+            else
               echo "Adding label: ${LABEL}"
               curl -f -X POST \
                 -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                 -H "Accept: application/vnd.github.v3+json" \
                 -d "{\"labels\":[\"${LABEL}\"]}" \
                 "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels"
-            else
-              echo "Label '$LABEL' already exists, skipping..."
             fi
           done
-
+          
       - name: Check Cargo.toml for dependencies changes
         id: check_cargo_toml
         run: |
@@ -143,15 +144,15 @@ jobs:
           
             if [[ "${DEPENDENCY_CHANGED}" == true ]]; then
               # If any Cargo.toml dependency section was modified, add the 'Dependencies' label
-              if [[ ! "${labels}" =~ "Dependencies" ]]; then
+              if echo "${labels}" | jq -e '. | index("Dependencies")' > /dev/null; then
+                echo "Label 'Dependencies' already exists, skipping..."
+              else
                 echo "Adding label: Dependencies"
                 curl -f -X POST \
                   -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   -H "Accept: application/vnd.github.v3+json" \
                   -d "{\"labels\":[\"Dependencies\"]}" \
                   "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels"
-              else
-                echo "Label 'Dependencies' already exists, skipping..."
               fi
             fi
           fi
