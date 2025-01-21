@@ -2,9 +2,9 @@ name: Code Coverage
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,8 +21,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
+      # We don't want to run tests with the pregenerated feature, as that leads to various coverage issues with macros
+      # So enable features here as they are needed
       - name: Generate code coverage
-        run: cargo llvm-cov nextest --no-default-features --features=std --no-cfg-coverage --codecov --output-path codecov.json
+        run: cargo llvm-cov nextest --all --no-default-features --features=std --no-cfg-coverage --codecov --output-path codecov.json
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:

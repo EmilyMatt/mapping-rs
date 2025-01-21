@@ -1,8 +1,10 @@
-name: Main Build
+name: Mandatory Checks
 
 on:
+  pull_request:
+    branches: [ main ]
   push:
-    branches: [ "main" ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -33,12 +35,6 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo nextest run --all --all-features
-      - name: Upload Cargo.lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: cargo-lock-std-${{ matrix.os }}
-          path: Cargo.lock
-          retention-days: 90
 
   build-no-std:
     name: Build `no_std` Version
@@ -53,12 +49,6 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - name: Test `no_std` version
         run: cargo nextest run --all --no-default-features --features=pregenerated
-      - name: Upload Cargo.lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: cargo-lock-nostd-${{ matrix.os }}
-          path: Cargo.lock
-          retention-days: 90
 
   clippy:
     name: Check Clippy
@@ -81,4 +71,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: EmbarkStudios/cargo-deny-action@v1

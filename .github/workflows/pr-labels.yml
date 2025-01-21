@@ -1,0 +1,128 @@
+name: PR Title Check and Add Label
+
+on:
+  pull_request:
+    types: [ opened, edited, synchronize ]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  update-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        id: check_title
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: ${PR_TITLE}"
+          
+          # Check if the PR title matches the required format
+          if [[ ! "${PR_TITLE}" =~ ^(chore|feat|fix):\ [A-Z].* ]]; then
+            echo "PR title is invalid. It should start with 'chore:', 'feat:', or 'fix:' followed by a description starting with a capital letter"
+            exit 1
+          fi
+
+      - name: Get existing labels
+        id: get_labels
+        run: |
+          # Fetch current labels on the PR
+          labels=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+          | jq -c '[.[].name]')
+          
+          echo "Existing Labels: ${labels}"
+          echo "labels=${labels}" >> ${GITHUB_ENV}
+
+      - name: Add label based on PR title
+        if: success()
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          
+          # Determine the label based on the prefix in the PR title
+          if [[ "${PR_TITLE}" =~ ^chore: ]]; then
+            LABEL="Chore"
+          elif [[ "${PR_TITLE}" =~ ^feat: ]]; then
+            LABEL="Feature"
+          elif [[ "${PR_TITLE}" =~ ^fix: ]]; then
+            LABEL="Fix"
+          fi
+          
+          echo "Adding label: ${LABEL}"
+          
+          # Only add the label if it's not already present
+          if [[ ! "${labels}" =~ "${LABEL}" ]]; then
+            labels="${labels} ${LABEL}"
+          else
+            echo "Label '${LABEL}' already exists, skipping..."
+          fi
+          
+          echo "labels=${labels}" >> ${GITHUB_ENV}
+
+      - name: Get modified files in the PR
+        id: get_modified_files
+        run: |
+          # Get list of modified files
+          MODIFIED_FILES=$(curl -f -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+          | jq -c '[.[].filename]')
+
+          echo "Modified Files: ${MODIFIED_FILES}"
+          echo "modified_files=${MODIFIED_FILES}" >> ${GITHUB_ENV}
+
+      - name: Add file-based labels
+        run: |
+          # Initialize the labels array
+          NEW_LABELS=()
+
+          # Check for .rs files to add the Rust label
+          if echo "${modified_files}" | grep -q '\.rs$'; then
+            NEW_LABELS+=("Rust")
+          fi
+
+          # Check for .cu files to add the CUDA label
+          if echo "${modified_files}" | grep -q '\.cu$'; then
+            NEW_LABELS+=("CUDA")
+          fi
+
+          # Check for modified .github/workflows files to add the Github Actions label
+          if echo "${modified_files}" | grep -q '\.github/workflows'; then
+            NEW_LABELS+=("Github Actions")
+          fi
+          
+          # Check for modified Cargo.toml files to add the Dependencies label
+          # TODO: Ensure label only if [dependencies] sections is changed
+          if echo "${modified_files}" | grep -Eq '(^|/|\\)Cargo\.toml$'; then
+            NEW_LABELS+=("Dependencies")
+          fi
+
+          # Iterate over NEW_LABELS and check against the JSON array of existing labels
+          for LABEL in "${NEW_LABELS[@]}"; do
+            # Check if the label exists in the JSON array
+            if echo "${labels}" | jq -e --arg label "${LABEL}" '. | index($label)' > /dev/null; then
+              echo "Label '${LABEL}' already exists, skipping..."
+            else
+              echo "Adding label: ${LABEL}"
+              labels="${labels} ${LABEL}"
+            fi
+          done
+
+          echo "labels=${labels}" >> ${GITHUB_ENV}
+
+      - name: Update PR labels
+        run: |
+          # Ensure `labels` is a valid JSON string
+          labels_json=$(echo "${labels}" | jq -c '.')
+          
+          # Debug output (optional)
+          echo "Converted labels: ${labels_json}"
+          
+          # Use the JSON array in the API call
+          curl -f -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"labels\":${labels_json}}" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels"
