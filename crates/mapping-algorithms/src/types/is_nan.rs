@@ -82,6 +82,7 @@ mod tests {
                         assert!(!<$t as IsNan>::is_nan($t::NEG_INFINITY));
 
                         assert!(<$t as IsNan>::is_nan($t::NAN));
+                        assert!(<$t as IsNan>::is_nan(-$t::NAN));
                     }
                 }
             )*
