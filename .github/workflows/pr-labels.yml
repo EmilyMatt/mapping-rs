@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [ opened, edited, synchronize ]
 
+permissions:
+  pull-requests: write
+
 jobs:
   check-pr-title:
     runs-on: ubuntu-latest
@@ -51,7 +54,7 @@ jobs:
           
           # Only add the label if it's not already present
           if [[ ! "${labels}" =~ "${LABEL}" ]]; then
-            curl -X POST \
+            curl -f -X POST \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
               -d "{\"labels\":[\"${LABEL}\"]}" \
@@ -71,7 +74,7 @@ jobs:
         id: get_modified_files
         run: |
           # Get list of modified files
-          MODIFIED_FILES=$(curl -s \
+          MODIFIED_FILES=$(curl -f -s \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
           | jq -r '.[].filename')
@@ -103,7 +106,7 @@ jobs:
           for LABEL in "${NEW_LABELS[@]}"; do
             if [[ ! "${labels}" =~ "${LABEL}" ]]; then
               echo "Adding label: ${LABEL}"
-              curl -X POST \
+              curl -f -X POST \
                 -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                 -H "Accept: application/vnd.github.v3+json" \
                 -d "{\"labels\":[\"${LABEL}\"]}" \
@@ -142,7 +145,7 @@ jobs:
               # If any Cargo.toml dependency section was modified, add the 'Dependencies' label
               if [[ ! "${labels}" =~ "Dependencies" ]]; then
                 echo "Adding label: Dependencies"
-                curl -X POST \
+                curl -f -X POST \
                   -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   -H "Accept: application/vnd.github.v3+json" \
                   -d "{\"labels\":[\"Dependencies\"]}" \
