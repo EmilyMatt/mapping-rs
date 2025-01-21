@@ -23,8 +23,8 @@ rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 thiserror = { version = "2.0.11", default-features = false }
 tracing = { version = "0.1.41", default-features = false, features = ["attributes"] }
 
-mapping-algorithms = { version = "0.1.0", path = "crates/mapping-algorithms" }
-mapping-suites = { version = "0.1.0", path = "crates/mapping-suites" }
+mapping-algorithms = { version = "0.1.1", path = "crates/mapping-algorithms" }
+mapping-suites = { version = "0.1.1", path = "crates/mapping-suites" }
 
 [profile.mindebug-dev]
 inherits = "dev"

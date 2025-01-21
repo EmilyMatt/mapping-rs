@@ -1,6 +1,6 @@
 [package]
 name = "mapping-algorithms"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of pure-rust algorithms, for spatial and SLAM purposes"
 edition = "2021"

@@ -1,6 +1,6 @@
 [package]
 name = "mapping-suites"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of SLAM suites, based on mapping-algorithms"
 edition = "2021"
