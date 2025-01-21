@@ -96,14 +96,14 @@ jobs:
           # Iterate over NEW_LABELS and check against the JSON array of existing labels
           for LABEL in "${NEW_LABELS[@]}"; do
             # Check if the label exists in the JSON array
-            if echo "${labels}" | jq -e --arg label "${LABEL}" '. | index(${label})' > /dev/null; then
+            if echo "${labels}" | jq -e --arg label "${LABEL}" '. | index($label)' > /dev/null; then
               echo "Label '${LABEL}' already exists, skipping..."
             else
               echo "Adding label: ${LABEL}"
               labels="${labels} ${LABEL}"
             fi
           done
-          
+
           echo "labels=${labels}" >> ${GITHUB_ENV}
 
       - name: Check Cargo.toml for dependencies changes
