@@ -1,0 +1,154 @@
+name: PR Title Check and Add Label
+
+on:
+  pull_request:
+    types: [ opened, edited, synchronize ]
+
+jobs:
+  check-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        id: check_title
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: ${PR_TITLE}"
+          
+          # Check if the PR title matches the required format
+          if [[ ! "${PR_TITLE}" =~ ^(chore|feat|fix):\ [A-Z].* ]]; then
+            echo "PR title is invalid. It should start with 'chore:', 'feat:', or 'fix:' followed by a description starting with a capital letter"
+            exit 1
+          fi
+
+      - name: Get existing labels
+        id: get_labels
+        run: |
+          # Fetch current labels on the PR
+          labels=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels" \
+          | jq -r '.[].name')
+          
+          echo "Existing Labels: ${labels}"
+          echo "labels=${labels}" >> ${GITHUB_ENV}
+
+      - name: Add label based on PR title
+        if: success()
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          
+          # Determine the label based on the prefix in the PR title
+          if [[ "${PR_TITLE}" =~ ^chore: ]]; then
+            LABEL="Chore"
+          elif [[ "${PR_TITLE}" =~ ^feat: ]]; then
+            LABEL="Feature"
+          elif [[ "${PR_TITLE}" =~ ^fix: ]]; then
+            LABEL="Fix"
+          fi
+          
+          echo "Adding label: ${LABEL}"
+          
+          # Only add the label if it's not already present
+          if [[ ! "${labels}" =~ "${LABEL}" ]]; then
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"labels\":[\"${LABEL}\"]}" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels"
+          else
+            echo "Label '${LABEL}' already exists, skipping..."
+          fi
+
+  check-files-and-dependencies:
+    runs-on: ubuntu-latest
+    needs: check-pr-title
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get modified files in the PR
+        id: get_modified_files
+        run: |
+          # Get list of modified files
+          MODIFIED_FILES=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+          | jq -r '.[].filename')
+          
+          echo "Modified Files: ${MODIFIED_FILES}"
+          echo "modified_files=${MODIFIED_FILES}" >> ${GITHUB_ENV}
+
+      - name: Add file-based labels
+        run: |
+          # Initialize the labels array
+          NEW_LABELS=()
+          
+          # Check for .rs files to add the Rust label
+          if echo "${modified_files}" | grep -q '\.rs$'; then
+            NEW_LABELS+=("Rust")
+          fi
+          
+          # Check for .cu files to add the CUDA label
+          if echo "${modified_files}" | grep -q '\.cu$'; then
+            NEW_LABELS+=("CUDA")
+          fi
+          
+          # Check for modified .github/workflows files to add the Github Actions label
+          if echo "${modified_files}" | grep -q '\.github/workflows'; then
+            NEW_LABELS+=("Github Actions")
+          fi
+          
+          # If any relevant label to add, check and add it
+          for LABEL in "${NEW_LABELS[@]}"; do
+            if [[ ! "${labels}" =~ "${LABEL}" ]]; then
+              echo "Adding label: ${LABEL}"
+              curl -X POST \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                -d "{\"labels\":[\"${LABEL}\"]}" \
+                "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels"
+            else
+              echo "Label '$LABEL' already exists, skipping..."
+            fi
+          done
+
+      - name: Check Cargo.toml for dependencies changes
+        id: check_cargo_toml
+        run: |
+          # Check if any Cargo.toml files were modified
+          CARGO_TOML_FILES=$(echo "$modified_files" | grep -E 'Cargo.toml')
+          
+          if [[ -n "${CARGO_TOML_FILES}" ]]; then
+            echo "Cargo.toml files modified: ${CARGO_TOML_FILES}"
+          
+            # Check if the dependencies section of Cargo.toml is modified by comparing before and after content
+            for FILE in ${CARGO_TOML_FILES}; do
+              # Checkout the base branch version of the file to compare
+              git fetch origin ${{ github.event.pull_request.base.ref }}
+              git checkout origin/${{ github.event.pull_request.base.ref }} -- ${FILE}
+          
+              # Now check if the dependencies section has been modified (as an object)
+              if git diff --quiet ${FILE}; then
+                echo "No changes in dependencies section of ${FILE}."
+              else
+                echo "Changes detected in dependencies section of ${FILE}."
+                DEPENDENCY_CHANGED=true
+                break
+              fi
+            done
+          
+            if [[ "${DEPENDENCY_CHANGED}" == true ]]; then
+              # If any Cargo.toml dependency section was modified, add the 'Dependencies' label
+              if [[ ! "${labels}" =~ "Dependencies" ]]; then
+                echo "Adding label: Dependencies"
+                curl -X POST \
+                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  -H "Accept: application/vnd.github.v3+json" \
+                  -d "{\"labels\":[\"Dependencies\"]}" \
+                  "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels"
+              else
+                echo "Label 'Dependencies' already exists, skipping..."
+              fi
+            fi
+          fi
