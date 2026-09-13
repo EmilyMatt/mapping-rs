@@ -114,7 +114,7 @@ where
     /// # Returns
     /// An [`Option`] of [`MapSample`], or [`None`] if `point` is non-finite or outside the map.
     #[inline]
-    pub(crate) fn sample_log_odds(&self, point: &Point<T, 3>) -> Option<MapSample<T, 3>> {
+    fn sample_log_odds(&self, point: &Point<T, 3>) -> Option<MapSample<T, 3>> {
         let (base, [fx, fy, fz]) = self.stencil_base(point)?;
         let (stride_y, stride_z) = (self.strides[1], self.strides[2]);
 
@@ -156,7 +156,7 @@ where
     /// An [`Option`] of [`MapSample`] whose value is a probability in the range `0.0..=1.0`, or
     /// [`None`] if `point` is non-finite or outside the map.
     #[inline]
-    pub(crate) fn sample_probability(&self, point: &Point<T, 3>) -> Option<MapSample<T, 3>> {
+    fn sample_probability(&self, point: &Point<T, 3>) -> Option<MapSample<T, 3>> {
         self.sample_log_odds(point).map(Self::sample_to_probability)
     }
 }
@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_unrolled_matches_generic_reference_2d() {
-        let grid = noisy_map([9usize, 7], 0x5EED_2D);
+        let grid = noisy_map([9usize, 7], 0x005E_ED2D);
         let mut rng = Lcg(0xC0FFEE);
 
         for _ in 0..2000 {
@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_unrolled_matches_generic_reference_3d() {
-        let grid = noisy_map([7usize, 6, 5], 0x5EED_3D);
+        let grid = noisy_map([7usize, 6, 5], 0x005E_ED2D);
         let mut rng = Lcg(0xBADC0DE);
 
         for _ in 0..2000 {

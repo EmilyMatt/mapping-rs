@@ -96,8 +96,7 @@ where
     /// * [`GridMapError::AllocationFailed`]: if the allocator cannot satisfy the request.
     ///
     /// # Warnings
-    /// Storage is `product(dimensions)` cells twice over, so a three-dimensional map grows cubically,
-    /// and every cell is written here, costing roughly 350ms per gigabyte.
+    /// Storage is `product(dimensions)` cells twice over, so a three-dimensional map grows cubically.
     #[cfg_attr(feature = "tracing", tracing::instrument("Create Grid Map", skip_all))]
     pub(crate) fn new(dimensions: [usize; N], config: &GridMapConfig<T>) -> GridMapResult<Self> {
         for (axis, &extent) in dimensions.iter().enumerate() {
@@ -140,35 +139,11 @@ where
         })
     }
 
-    /// The extent of each axis, in cells.
-    ///
-    /// # Returns
-    /// An `[usize; N]`, as given to [`new`](Self::new).
-    pub(crate) fn dimensions(&self) -> [usize; N] {
-        self.dimensions
-    }
-
-    /// The linear-index stride of each axis; `strides[0]` is always `1`.
-    ///
-    /// # Returns
-    /// An `[usize; N]`, the distance in cells between neighbours along each axis.
-    pub(crate) fn strides(&self) -> [usize; N] {
-        self.strides
-    }
-
-    /// The total number of cells, which is always non-zero.
-    ///
-    /// # Returns
-    /// A [`prim@usize`], the product of the [`dimensions`](Self::dimensions).
-    pub(crate) fn cell_count(&self) -> usize {
-        self.odds.len()
-    }
-
     /// The log-odds range at which cells saturate, symmetric about zero.
     ///
     /// # Returns
     /// A [`RangeInclusive`] of `T`, the interval every cell value lies within.
-    pub(crate) fn log_odds_bounds(&self) -> RangeInclusive<T> {
+    fn log_odds_bounds(&self) -> RangeInclusive<T> {
         self.min_log_odds..=self.max_log_odds
     }
 
@@ -176,7 +151,7 @@ where
     ///
     /// # Returns
     /// An [`ExactSizeIterator`] of `T` of length [`cell_count`](Self::cell_count).
-    pub(crate) fn iter_log_odds(&self) -> impl ExactSizeIterator<Item = T> + '_ {
+    fn iter_log_odds(&self) -> impl ExactSizeIterator<Item = T> + '_ {
         self.odds.iter().copied()
     }
 
@@ -188,7 +163,7 @@ where
     /// # Returns
     /// A [`prim@bool`], `true` if every coordinate is in range.
     #[inline]
-    pub(crate) fn contains(&self, index: &CellIndex<N>) -> bool {
+    fn contains(&self, index: &CellIndex<N>) -> bool {
         self.linearize(index).is_some()
     }
 }
@@ -658,8 +633,8 @@ mod tests {
     fn test_new_reports_expected_shape() {
         let grid = map([3usize, 5, 7]);
 
-        assert_eq!(grid.dimensions(), [3, 5, 7]);
-        assert_eq!(grid.cell_count(), 105);
+        assert_eq!(grid.dimensions, [3, 5, 7]);
+        assert_eq!(grid.odds.len(), 105);
         assert_eq!(grid.iter_log_odds().len(), 105);
     }
 
@@ -687,12 +662,12 @@ mod tests {
     #[test]
     fn test_strides_2d_non_square() {
         // Axis 0 is fastest-varying, so its stride is always one.
-        assert_eq!(map([3usize, 5]).strides(), [1, 3]);
+        assert_eq!(map([3usize, 5]).strides, [1, 3]);
     }
 
     #[test]
     fn test_strides_3d_non_cubic() {
-        assert_eq!(map([3usize, 5, 7]).strides(), [1, 3, 15]);
+        assert_eq!(map([3usize, 5, 7]).strides, [1, 3, 15]);
     }
 
     #[test]
@@ -708,8 +683,8 @@ mod tests {
 
         seen.sort_unstable();
         seen.dedup();
-        assert_eq!(seen.len(), grid.cell_count());
-        assert_eq!(*seen.last().unwrap(), grid.cell_count() - 1);
+        assert_eq!(seen.len(), grid.odds.len());
+        assert_eq!(*seen.last().unwrap(), grid.odds.len() - 1);
     }
 
     #[test]
@@ -727,8 +702,8 @@ mod tests {
 
         seen.sort_unstable();
         seen.dedup();
-        assert_eq!(seen.len(), grid.cell_count());
-        assert_eq!(*seen.last().unwrap(), grid.cell_count() - 1);
+        assert_eq!(seen.len(), grid.odds.len());
+        assert_eq!(*seen.last().unwrap(), grid.odds.len() - 1);
     }
 
     /// The load-bearing test of the whole addressing scheme. Summing `coord * stride` and then
@@ -928,7 +903,7 @@ mod tests {
         grid.reset();
 
         assert!(grid.iter_log_odds().all(|odds| odds == 0.0));
-        assert_eq!(grid.dimensions(), [4, 4], "the shape must survive a reset");
+        assert_eq!(grid.dimensions, [4, 4], "the shape must survive a reset");
     }
 
     #[test]
