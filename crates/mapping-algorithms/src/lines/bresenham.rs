@@ -24,10 +24,194 @@
 use nalgebra::{ComplexField, Point, RealField, Scalar};
 use num_traits::AsPrimitive;
 
-use crate::{Vec, array};
+use crate::{FusedIterator, Vec, array, fmt, marker::PhantomData};
+
+/// An error type containing the various errors that might arise when plotting a bresenham line,
+/// when compiling with the `std` feature, it will also derive [`thiserror::Error`].
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+pub enum BresenhamError {
+    /// The line was requested in zero dimensions, meaning no primary axis can be selected.
+    ZeroDimensions,
+    /// At least one of the points' coordinates is NaN or infinite,
+    /// meaning the axes cannot be ordered, and the amount of steps cannot be determined.
+    NonFiniteCoordinate,
+}
+
+// Implemented manually rather than via `thiserror`, so that the message is also available
+// when compiling without the `std` feature.
+impl fmt::Display for BresenhamError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroDimensions => {
+                write!(f, "a bresenham line requires at least one dimension")
+            }
+            Self::NonFiniteCoordinate => {
+                write!(f, "the points' coordinates must all be finite")
+            }
+        }
+    }
+}
+
+/// A lazy iterator over the [`Point`]s of a bresenham line in `N` dimensions.
+///
+/// Each [`Iterator::next`] call advances a single step along the line's primary axis,
+/// meaning no allocation is performed, and the line may be consumed as it is plotted.
+/// See [`plot_bresenham_line`] for a convenience wrapper collecting this into a [`Vec`].
+///
+/// Construct one using [`BresenhamLine::plotter`].
+///
+/// # Generics
+/// * `F`: the floating type of the input points, either [`prim@f32`] or [`prim@f64`]
+/// * `T`: the [`Scalar`] type of the yielded points, typically an integer type
+/// * `N`: a usize, representing the dimension to use
+#[derive(Clone, Debug)]
+pub struct BresenhamLine<F: RealField, T, const N: usize> {
+    current: Point<F, N>,
+    end: Point<F, N>,
+    increments: [F; N],
+    steps: [F; N],
+    errors: [F; N],
+    primary_axis: usize,
+    threshold: F,
+    remaining: usize,
+    // `T` is only ever produced, never stored, so this marker must not
+    // constrain the variance or auto-traits of the iterator itself.
+    _output: PhantomData<fn() -> T>,
+}
+
+impl<F: RealField + Copy + AsPrimitive<usize>, T, const N: usize> BresenhamLine<F, T, N>
+where
+    usize: AsPrimitive<F>,
+{
+    /// Creates an iterator plotting a bresenham line between the two given points.
+    ///
+    /// # Arguments
+    /// * `start_point`: A [`Point`] of floating type `F` and `N` dimensions, representing the starting point of the line.
+    /// * `end_point`: A [`Point`] of floating type `F` and `N` dimensions, representing the ending point of the line.
+    ///
+    /// # Returns
+    /// A [`BresenhamLine`] yielding [`Point`]s with inner type `T`, including the starting point and ending point.
+    ///
+    /// NOTE: The iterator will always go from the starting point to the ending point, regardless of direction in axis,
+    /// and always yields at least one point; should both points fall within the same step,
+    /// that single point is the ending point.
+    ///
+    /// # Errors
+    /// * [`BresenhamError::ZeroDimensions`]: if `N` is 0, as no primary axis can be selected.
+    /// * [`BresenhamError::NonFiniteCoordinate`]: if any of the points' coordinates is NaN or infinite.
+    pub fn plotter(
+        start_point: Point<F, N>,
+        end_point: Point<F, N>,
+    ) -> Result<Self, BresenhamError> {
+        if N == 0 {
+            return Err(BresenhamError::ZeroDimensions);
+        }
+
+        let deltas: [F; N] =
+            array::from_fn(|idx| <F as ComplexField>::abs(end_point[idx] - start_point[idx]));
+
+        // A non-finite delta means a coordinate was NaN or infinite; the former cannot be ordered
+        // against the other axes, and the latter cannot be expressed as an amount of steps.
+        if !deltas.iter().all(<F as ComplexField>::is_finite) {
+            return Err(BresenhamError::NonFiniteCoordinate);
+        }
+
+        let steps: [F; N] = array::from_fn(|idx| {
+            if end_point[idx] > start_point[idx] {
+                F::one()
+            } else {
+                -F::one()
+            }
+        });
+
+        // Deltas are absolute, so zero is a valid starting maximum;
+        // comparing with `>=` lets the last of several equal axes win, as `Iterator::max_by` would.
+        let (primary_axis, primary_delta) = deltas.iter().enumerate().fold(
+            (0, F::zero()),
+            |(primary_axis, primary_delta), (idx, &delta)| {
+                if delta >= primary_delta {
+                    (idx, delta)
+                } else {
+                    (primary_axis, primary_delta)
+                }
+            },
+        );
+
+        let increments: [F; N] = if primary_delta.is_zero() {
+            [F::zero(); N]
+        } else {
+            array::from_fn(|idx| deltas[idx] / primary_delta)
+        };
+
+        Ok(Self {
+            current: start_point,
+            end: end_point,
+            increments,
+            steps,
+            errors: [F::zero(); N],
+            primary_axis,
+            threshold: F::one() - (F::one() / <usize as AsPrimitive<F>>::as_(N + 1)),
+            remaining: <F as AsPrimitive<usize>>::as_(primary_delta + F::one()),
+            _output: PhantomData,
+        })
+    }
+}
+
+impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> Iterator
+    for BresenhamLine<F, T, N>
+{
+    type Item = Point<T, N>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.remaining = self.remaining.checked_sub(1)?;
+
+        if self.remaining == 0 {
+            return Some(self.end.map(|e| e.as_()));
+        }
+
+        let output = self.current.map(|e| e.as_());
+        for axis in 0..N {
+            if axis == self.primary_axis {
+                continue;
+            }
+
+            self.errors[axis] += self.increments[axis];
+            if self.errors[axis] >= self.threshold {
+                self.current[axis] += self.steps[axis];
+                self.errors[axis] -= F::one();
+            }
+        }
+
+        self.current[self.primary_axis] += self.steps[self.primary_axis];
+
+        Some(output)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+// The remaining step count is known upfront, and is decremented exactly once per yielded point.
+impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> ExactSizeIterator
+    for BresenhamLine<F, T, N>
+{
+}
+
+// Once the step count is exhausted, `checked_sub` keeps returning `None`.
+impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> FusedIterator
+    for BresenhamLine<F, T, N>
+{
+}
 
 /// This is a free-form version of the bresenham line-drawing algorithm,
 /// allowing for any input, any output, and N dimensions, under the constraints of the function.
+///
+/// This collects a [`BresenhamLine`] into a [`Vec`];
+/// use [`BresenhamLine::plotter`] directly to plot the line lazily, without allocating.
 ///
 /// # Arguments
 /// * `start_point`: A [`Point`] of floating type `F` and `N` dimensions, representing the starting point of the line.
@@ -41,6 +225,10 @@ use crate::{Vec, array};
 /// A [`Vec`] of [`Point`]s with inner type `T`, representing the drawn line, including the starting point and ending point.
 ///
 /// NOTE: The returned [`Vec`] will always go from the starting point to the ending point, regardless of direction in axis.
+///
+/// # Errors
+/// * [`BresenhamError::ZeroDimensions`]: if `N` is 0, as no primary axis can be selected.
+/// * [`BresenhamError::NonFiniteCoordinate`]: if any of the points' coordinates is NaN or infinite.
 #[cfg_attr(
     feature = "tracing",
     tracing::instrument("Plot Bresenham Line", skip_all)
@@ -48,56 +236,13 @@ use crate::{Vec, array};
 pub fn plot_bresenham_line<F, T, const N: usize>(
     start_point: Point<F, N>,
     end_point: Point<F, N>,
-) -> Vec<Point<T, N>>
+) -> Result<Vec<Point<T, N>>, BresenhamError>
 where
     F: RealField + AsPrimitive<usize> + AsPrimitive<T>,
     usize: AsPrimitive<F>,
     T: Scalar + Copy,
 {
-    let deltas: [F; N] =
-        array::from_fn(|idx| <F as ComplexField>::abs(end_point[idx] - start_point[idx]));
-    let steps: [F; N] = array::from_fn(|idx| {
-        if end_point[idx] > start_point[idx] {
-            F::one()
-        } else {
-            -F::one()
-        }
-    });
-    let primary_axis = deltas
-        .iter()
-        .enumerate()
-        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-        .unwrap()
-        .0;
-
-    let mut current_point = start_point;
-    let mut errors = Vec::from([F::zero(); N]);
-    let mut points = Vec::with_capacity(<F as AsPrimitive<usize>>::as_(
-        deltas[primary_axis] + F::one(),
-    ));
-    while <F as ComplexField>::abs(current_point[primary_axis] - end_point[primary_axis])
-        >= F::one()
-    {
-        points.push(current_point.map(|element| element.as_()));
-
-        for axis in 0..N {
-            if axis == primary_axis {
-                continue;
-            }
-
-            errors[axis] += deltas[axis] / deltas[primary_axis];
-
-            if errors[axis] >= F::one() - (F::one() / (N + 1).as_()) {
-                current_point[axis] += steps[axis];
-                errors[axis] -= F::one();
-            }
-        }
-
-        current_point[primary_axis] += steps[primary_axis];
-    }
-
-    points.push(end_point.map(|element| element.as_()));
-    points
+    Ok(BresenhamLine::plotter(start_point, end_point)?.collect())
 }
 
 #[cfg(test)]
@@ -117,7 +262,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_nonsteep_pos() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(10.0f32, 3.0f32);
-        let res = plot_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end).unwrap();
         assert_eq!(
             res,
             Vec::<Point2<isize>>::from([
@@ -140,7 +285,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_steep_pos() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(3.0f32, 10.0f32);
-        let res = plot_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end).unwrap();
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
@@ -164,7 +309,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_nonsteep_neg() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(-10.0f32, -3.0f32);
-        let res = plot_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end).unwrap();
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
@@ -188,7 +333,7 @@ mod tests {
     fn test_plot_bresenham_line_2d_steep_neg() {
         let start = Point2::new(0.0f32, 0.0f32);
         let end = Point2::new(-3.0f32, -10.0f32);
-        let res = plot_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end).unwrap();
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
@@ -212,7 +357,7 @@ mod tests {
     fn test_plot_bresenham_line_3d_x() {
         let start = Point3::new(0.0f32, 0.0f32, 0.0f32);
         let end = Point3::new(-3.0f32, -10.0f32, 7.0f32);
-        let res = plot_bresenham_line(start, end);
+        let res = plot_bresenham_line(start, end).unwrap();
         assert_eq!(res.len(), calculate_expected_vec_size(start, end));
         assert_eq!(
             res,
@@ -237,7 +382,84 @@ mod tests {
         let start = Point3::new(512.0, 512.0, 512.0);
         let end = Point3::new(512.5, 511.294, 512.1);
 
-        let res: Vec<Point3<usize>> = plot_bresenham_line(start, end);
+        let res: Vec<Point3<usize>> = plot_bresenham_line(start, end).unwrap();
         assert_eq!(res.len(), 1)
+    }
+
+    #[test]
+    fn test_plotter_size_hint_is_exact() {
+        let start = Point3::new(0.0f32, 0.0f32, 0.0f32);
+        let end = Point3::new(-3.0f32, -10.0f32, 7.0f32);
+
+        let mut plotter = BresenhamLine::<f32, isize, 3>::plotter(start, end).unwrap();
+        let mut expected_remaining = calculate_expected_vec_size(start, end);
+        assert_eq!(plotter.len(), expected_remaining);
+
+        while plotter.next().is_some() {
+            expected_remaining -= 1;
+            assert_eq!(
+                plotter.size_hint(),
+                (expected_remaining, Some(expected_remaining))
+            );
+            assert_eq!(plotter.len(), expected_remaining);
+        }
+
+        assert_eq!(expected_remaining, 0);
+    }
+
+    #[test]
+    fn test_plotter_is_fused() {
+        let start = Point2::new(0.0f32, 0.0f32);
+        let end = Point2::new(2.0f32, 2.0f32);
+
+        let mut plotter = BresenhamLine::<f32, isize, 2>::plotter(start, end).unwrap();
+        assert_eq!(plotter.by_ref().count(), 3);
+
+        // Exhausted iterators must keep returning None, rather than wrapping around.
+        assert!(plotter.next().is_none());
+        assert!(plotter.next().is_none());
+        assert_eq!(plotter.len(), 0);
+    }
+
+    #[test]
+    fn test_zero_dimensions_is_an_error() {
+        let point = Point::<f32, 0>::from([]);
+
+        let res = plot_bresenham_line::<f32, isize, 0>(point, point);
+        assert_eq!(res.unwrap_err(), BresenhamError::ZeroDimensions);
+
+        let res = BresenhamLine::<f32, isize, 0>::plotter(point, point);
+        assert_eq!(res.unwrap_err(), BresenhamError::ZeroDimensions);
+    }
+
+    #[test]
+    fn test_non_finite_coordinates_are_an_error() {
+        let start = Point2::new(0.0f32, 0.0f32);
+
+        for end in [
+            Point2::new(f32::NAN, 0.0f32),
+            Point2::new(0.0f32, f32::NAN),
+            Point2::new(f32::INFINITY, 0.0f32),
+            Point2::new(f32::NEG_INFINITY, 0.0f32),
+        ] {
+            let res = plot_bresenham_line::<f32, isize, 2>(start, end);
+            assert_eq!(res.unwrap_err(), BresenhamError::NonFiniteCoordinate);
+
+            // The starting point is checked just the same, as the deltas span both points.
+            let res = plot_bresenham_line::<f32, isize, 2>(end, start);
+            assert_eq!(res.unwrap_err(), BresenhamError::NonFiniteCoordinate);
+        }
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_error_is_a_std_error() {
+        fn assert_error<E: std::error::Error>(_: E) {}
+
+        assert_error(BresenhamError::ZeroDimensions);
+        assert_eq!(
+            BresenhamError::ZeroDimensions.to_string(),
+            "a bresenham line requires at least one dimension"
+        );
     }
 }

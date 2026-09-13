@@ -40,8 +40,8 @@ use std::{
     boxed::Box,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
-    fmt::Debug,
-    iter::Sum,
+    fmt::{self, Debug},
+    iter::{FusedIterator, Sum},
     marker, ops,
     vec::Vec,
 };
@@ -54,7 +54,13 @@ use {
         collections::{BTreeMap as HashMap, VecDeque},
         vec::Vec,
     },
-    core::{array, cmp::Ordering, fmt::Debug, iter::Sum, marker, ops},
+    core::{
+        array,
+        cmp::Ordering,
+        fmt::{self, Debug},
+        iter::{FusedIterator, Sum},
+        marker, ops,
+    },
 };
 
 ///A module containing common and interfacing structs and types.
