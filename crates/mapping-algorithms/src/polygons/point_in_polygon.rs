@@ -46,12 +46,11 @@ where
         && point.y <= vertex1.y.max(vertex2.y)
         && point.x <= vertex1.x.max(vertex2.x)
     {
-        let origin_x = (vertex1.y != vertex2.y)
-            .then(|| {
-                (point.y - vertex1.y) * (vertex2.x - vertex1.x) / (vertex2.y - vertex1.y)
-                    + vertex1.x
-            })
-            .unwrap_or(point.x);
+        let origin_x = if vertex1.y != vertex2.y {
+            (point.y - vertex1.y) * (vertex2.x - vertex1.x) / (vertex2.y - vertex1.y) + vertex1.x
+        } else {
+            point.x
+        };
 
         if vertex1.x == vertex2.x || point.x <= origin_x {
             return true;

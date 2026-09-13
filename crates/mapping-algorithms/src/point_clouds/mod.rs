@@ -28,13 +28,13 @@ pub use icp::{
 pub use lex_sort::{lex_sort, lex_sort_in_place, lex_sort_ref};
 pub use nearest_neighbour::find_nearest_neighbour_naive;
 
+use crate::{array, Vec};
 use nalgebra::{
     AbstractRotation, ClosedAddAssign, ClosedDivAssign, Isometry, Point, RealField, Scalar,
 };
 use num_traits::{AsPrimitive, Zero};
-use rand::{RngExt, SeedableRng};
 use rand::distr::uniform::SampleUniform;
-use crate::{array, Vec};
+use rand::{RngExt, SeedableRng};
 
 mod downsample;
 mod icp;
