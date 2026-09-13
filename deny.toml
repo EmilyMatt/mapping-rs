@@ -1,8 +1,13 @@
+[graph]
+all-features = true
+
 [advisories]
 
 [bans]
 multiple-versions = "deny"
-skip = []
+skip = [
+    { crate = "syn" }
+]
 
 [sources]
 unknown-registry = "deny"

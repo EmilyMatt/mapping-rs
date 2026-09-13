@@ -22,37 +22,28 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
-  build-and-test:
-    name: Build and Test
+  test:
+    name: Test
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@cargo-hack
       - uses: taiki-e/install-action@nextest
-      - name: Test
-        run: cargo nextest run --all --all-features
-
-  build-no-std:
-    name: Build `no_std` Version
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: taiki-e/install-action@nextest
-      - name: Test `no_std` version
-        run: cargo nextest run --all --no-default-features
+      # Runs every combination of features, including none and all
+      - name: Test feature powerset
+        run: cargo hack nextest run --feature-powerset --workspace --no-tests=pass
 
   clippy:
     name: Check Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@cargo-hack
       - name: Check Clippy
-        run: cargo clippy --all
+        run: cargo hack clippy --feature-powerset --workspace
 
   doc:
     name: Check Documentation
