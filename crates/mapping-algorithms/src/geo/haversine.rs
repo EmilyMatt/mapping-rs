@@ -35,7 +35,7 @@ where
 /// Calculates the Haversine distance between two points on a sphere using floating-point arithmetic.
 ///
 /// # Arguments
-/// * `point_a`: A [`Point2'] representing the first geographical point.
+/// * `point_a`: A [`Point2`] representing the first geographical point.
 /// * `point_b`: A [`Point2`] representing the second geographical point.
 /// * `sphere_radius`: A `T` representing the radius of the sphere, typically the Earth's radius in kilometers or miles.
 ///
@@ -110,29 +110,6 @@ where
 
     (<T as Float>::atan2(x, y) + T::two_pi()) % T::two_pi()
 }
-
-#[cfg(feature = "pregenerated")]
-macro_rules! impl_haversine_formula {
-    ($prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-            pub(super) mod [<$doc _precision>] {
-                #[doc = "A premade variant of the haversine distance calculation function, made for " $doc " precision floating-point arithmetic."]
-                pub fn calculate_haversine_distance(point_a: nalgebra::Point2<$prec>, point_b: nalgebra::Point2<$prec>, sphere_radius: $prec) -> $prec {
-                    super::calculate_haversine_distance(point_a,point_b,sphere_radius)
-                }
-
-                #[doc = "A premade variant of the sphere bearing calculation function, made for " $doc " precision floating-point arithmetic."]
-                pub fn calculate_sphere_bearing(point_a: nalgebra::Point2<$prec>, point_b: nalgebra::Point2<$prec>) -> $prec {
-                    super::calculate_sphere_bearing(point_a,point_b)}
-                }
-            }
-        }
-}
-
-#[cfg(feature = "pregenerated")]
-impl_haversine_formula!(f32, doc single);
-#[cfg(feature = "pregenerated")]
-impl_haversine_formula!(f64, doc double);
 
 #[cfg(test)]
 mod tests {

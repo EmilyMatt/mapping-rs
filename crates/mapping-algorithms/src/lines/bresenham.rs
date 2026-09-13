@@ -24,7 +24,7 @@
 use nalgebra::{ComplexField, Point, RealField, Scalar};
 use num_traits::AsPrimitive;
 
-use crate::{array, Vec};
+use crate::{Vec, array};
 
 /// This is a free-form version of the bresenham line-drawing algorithm,
 /// allowing for any input, any output, and N dimensions, under the constraints of the function.
@@ -99,48 +99,6 @@ where
     points.push(end_point.map(|element| element.as_()));
     points
 }
-
-#[cfg(feature = "pregenerated")]
-macro_rules! impl_bresenham_algorithm {
-    ($precision:expr, doc $doc:tt, $nd:expr, $out:expr) => {
-        ::paste::paste! {
-            #[doc = "A premade variant of the bresenham line function for " $doc "-precision floating-point arithmetic, returns a [`Vec`] of [`Point`]s with inner type " $out "."]
-            pub fn [<plot_$nd d_$out _bresenham_line>](start_point: Point<$precision, $nd>, end_point: Point<$precision, $nd>) -> Vec<Point<$out, $nd>> {
-                    super::plot_bresenham_line::<$precision, $out, $nd>(start_point, end_point)
-            }
-        }
-    };
-
-    ($prec:expr, doc $doc:tt, $nd:expr) => {
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, i32);
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, i64);
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, isize);
-
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, u32);
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, u64);
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, usize);
-
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, f32);
-        impl_bresenham_algorithm!($prec, doc $doc, $nd, f64);
-    };
-
-    ($prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-            pub(super) mod [<$doc _precision>] {
-                use nalgebra::Point;
-                use crate::Vec;
-
-                impl_bresenham_algorithm!($prec, doc $doc, 2);
-                impl_bresenham_algorithm!($prec, doc $doc, 3);
-            }
-        }
-    }
-}
-
-#[cfg(feature = "pregenerated")]
-impl_bresenham_algorithm!(f32, doc single);
-#[cfg(feature = "pregenerated")]
-impl_bresenham_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {

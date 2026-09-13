@@ -22,9 +22,9 @@
  */
 
 use nalgebra::{ComplexField, Point2, Scalar};
-use num_traits::{real::Real, AsPrimitive, NumAssign};
+use num_traits::{AsPrimitive, NumAssign, real::Real};
 
-use crate::{point_clouds::downsample_point_cloud_voxel, Ordering, Vec};
+use crate::{Ordering, Vec, point_clouds::downsample_point_cloud_voxel};
 
 use super::calculate_determinant;
 
@@ -99,45 +99,6 @@ where
 
     Some(hull)
 }
-
-#[cfg(feature = "pregenerated")]
-macro_rules! impl_jarvis_march {
-    ($t:expr, $prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-
-            #[doc = "A premade variant of the Jarvis March algorithm function, made for " $doc " precision floating-point arithmetic, using " $t " as the point type."]
-            pub fn [<jarvis_march_ $t>](input: &[Point2<$t>], voxel_size: Option<$prec>) -> Option<Vec<Point2<$t>>> {
-                super::jarvis_march::<$prec, $t>(input, voxel_size)
-            }
-        }
-    };
-    ($prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-            pub(super) mod [<$doc _precision>] {
-                use nalgebra::Point2;
-                use crate::Vec;
-
-                impl_jarvis_march!(u8, $prec, doc $doc);
-                impl_jarvis_march!(u16, $prec, doc $doc);
-                impl_jarvis_march!(u32, $prec, doc $doc);
-                impl_jarvis_march!(u64, $prec, doc $doc);
-                impl_jarvis_march!(usize, $prec, doc $doc);
-
-                impl_jarvis_march!(i8, $prec, doc $doc);
-                impl_jarvis_march!(i16, $prec, doc $doc);
-                impl_jarvis_march!(i32, $prec, doc $doc);
-                impl_jarvis_march!(i64, $prec, doc $doc);
-                impl_jarvis_march!(isize, $prec, doc $doc);
-
-                impl_jarvis_march!(f32, $prec, doc $doc);
-                impl_jarvis_march!(f64, $prec, doc $doc);
-            }
-        }
-    };
-}
-
-impl_jarvis_march!(f32, doc single);
-impl_jarvis_march!(f64, doc double);
 
 #[cfg(test)]
 mod tests {

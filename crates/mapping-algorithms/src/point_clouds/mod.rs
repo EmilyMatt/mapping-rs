@@ -23,34 +23,23 @@
 
 pub use downsample::downsample_point_cloud_voxel;
 pub use icp::{
-    icp, icp_iteration, ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess,
+    ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess, icp, icp_iteration,
 };
 pub use lex_sort::{lex_sort, lex_sort_in_place, lex_sort_ref};
 pub use nearest_neighbour::find_nearest_neighbour_naive;
 
+use crate::{Vec, array};
 use nalgebra::{
     AbstractRotation, ClosedAddAssign, ClosedDivAssign, Isometry, Point, RealField, Scalar,
 };
 use num_traits::{AsPrimitive, Zero};
-
-use crate::{array, Vec};
+use rand::distr::uniform::SampleUniform;
+use rand::{RngExt, SeedableRng};
 
 mod downsample;
 mod icp;
 mod lex_sort;
 mod nearest_neighbour;
-
-#[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for single precision point cloud algorithms."]
-pub mod single_precision {
-    pub use super::icp::single_precision::*;
-}
-
-#[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for double precision point cloud algorithms."]
-pub mod double_precision {
-    pub use super::icp::double_precision::*;
-}
 
 /// Calculates the mean(centroid) of the point cloud.
 ///
@@ -107,13 +96,12 @@ pub fn generate_point_cloud<T, const N: usize>(
     ranges: [crate::ops::RangeInclusive<T>; N],
 ) -> Vec<Point<T, N>>
 where
-    T: PartialOrd + rand::distributions::uniform::SampleUniform + Scalar,
+    T: PartialOrd + SampleUniform + Scalar,
 {
-    use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::SmallRng::seed_from_u64(3765665954583626552);
 
     (0..num_points)
-        .map(|_| Point::from(array::from_fn(|idx| rng.gen_range(ranges[idx].clone()))))
+        .map(|_| Point::from(array::from_fn(|idx| rng.random_range(ranges[idx].clone()))))
         .collect()
 } // Just calls a different function a number of times, no specific test needed
 

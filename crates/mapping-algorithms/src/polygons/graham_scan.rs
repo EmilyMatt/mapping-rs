@@ -26,9 +26,9 @@ use nalgebra::{ComplexField, Point2};
 use num_traits::{AsPrimitive, NumAssign};
 
 use crate::{
+    ToOwned, Vec, VecDeque,
     point_clouds::{downsample_point_cloud_voxel, lex_sort},
     types::IsNan,
-    ToOwned, Vec, VecDeque,
 };
 
 use super::calculate_determinant;
@@ -135,45 +135,6 @@ where
             .collect::<Vec<_>>()
     })
 }
-
-#[cfg(feature = "pregenerated")]
-macro_rules! impl_graham_scan {
-    ($t:expr, $prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-
-            #[doc = "A premade variant of the Graham Scan algorithm function, made for " $doc " precision floating-point arithmetic, using " $t " as the point type."]
-            pub fn [<graham_scan_ $t>](input: &[Point2<$t>], assume_sorted: bool, voxel_size: Option<$prec>) -> Option<Vec<Point2<$t>>> {
-                super::graham_scan::<$prec, $t>(input, assume_sorted, voxel_size)
-            }
-        }
-    };
-    ($prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-            pub(super) mod [<$doc _precision>] {
-                use nalgebra::Point2;
-                use crate::Vec;
-
-                impl_graham_scan!(u8, $prec, doc $doc);
-                impl_graham_scan!(u16, $prec, doc $doc);
-                impl_graham_scan!(u32, $prec, doc $doc);
-                impl_graham_scan!(u64, $prec, doc $doc);
-                impl_graham_scan!(usize, $prec, doc $doc);
-
-                impl_graham_scan!(i8, $prec, doc $doc);
-                impl_graham_scan!(i16, $prec, doc $doc);
-                impl_graham_scan!(i32, $prec, doc $doc);
-                impl_graham_scan!(i64, $prec, doc $doc);
-                impl_graham_scan!(isize, $prec, doc $doc);
-
-                impl_graham_scan!(f32, $prec, doc $doc);
-                impl_graham_scan!(f64, $prec, doc $doc);
-            }
-        }
-    };
-}
-
-impl_graham_scan!(f32, doc single);
-impl_graham_scan!(f64, doc double);
 
 #[cfg(test)]
 mod tests {

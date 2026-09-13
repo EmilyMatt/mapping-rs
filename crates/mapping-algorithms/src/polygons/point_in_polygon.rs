@@ -46,12 +46,11 @@ where
         && point.y <= vertex1.y.max(vertex2.y)
         && point.x <= vertex1.x.max(vertex2.x)
     {
-        let origin_x = (vertex1.y != vertex2.y)
-            .then(|| {
-                (point.y - vertex1.y) * (vertex2.x - vertex1.x) / (vertex2.y - vertex1.y)
-                    + vertex1.x
-            })
-            .unwrap_or(point.x);
+        let origin_x = if vertex1.y != vertex2.y {
+            (point.y - vertex1.y) * (vertex2.x - vertex1.x) / (vertex2.y - vertex1.y) + vertex1.x
+        } else {
+            point.x
+        };
 
         if vertex1.x == vertex2.x || point.x <= origin_x {
             return true;
@@ -143,36 +142,6 @@ where
             .collect(),
     )
 }
-
-#[cfg(feature = "pregenerated")]
-macro_rules! impl_p_i_p_algorithm {
-    ($prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-            pub(super) mod [<$doc _precision>] {
-                use nalgebra::Point2;
-                use crate::Vec;
-
-                #[doc = "A premade variant of the single point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
-                pub fn is_single_point_in_polygon(point: &Point2<$prec>, polygon: &[Point2<$prec>]) -> bool {
-                    super::is_single_point_in_polygon(point, polygon)
-                }
-
-                #[doc = "A premade variant of the multiple point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
-                pub fn are_multiple_points_in_polygon(
-                    points: &[Point2<$prec>],
-                    polygon: &[Point2<$prec>],
-                ) -> Option<Vec<bool>> {
-                    super::are_multiple_points_in_polygon(points, polygon)
-                }
-            }
-        }
-    };
-}
-
-#[cfg(feature = "pregenerated")]
-impl_p_i_p_algorithm!(f32, doc single);
-#[cfg(feature = "pregenerated")]
-impl_p_i_p_algorithm!(f64, doc double);
 
 #[cfg(test)]
 mod tests {
