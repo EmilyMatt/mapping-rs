@@ -29,4 +29,4 @@ thiserror = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
-paste = { version = "1.0.15" }
+pastey = { version = "0.2.3" }

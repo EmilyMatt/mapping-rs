@@ -73,7 +73,7 @@ mod tests {
     macro_rules! impl_test {
         ($(fl $t:expr),*) => {
             $(
-                ::paste::paste! {
+                ::pastey::paste! {
                     #[test]
                     fn [<test_is_nan_ $t>]() {
                         assert!(!<$t as IsNan>::is_nan(0.0));
@@ -89,7 +89,7 @@ mod tests {
         };
         ($($t:expr),*) => {
             $(
-                ::paste::paste! {
+                ::pastey::paste! {
                     #[test]
                     fn [<test_is_nan_ $t>]() {
                         assert!(!<$t as IsNan>::is_nan(0));

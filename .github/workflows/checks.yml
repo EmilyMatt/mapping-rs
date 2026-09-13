@@ -18,7 +18,7 @@ jobs:
     name: Check Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check formatting
         run: cargo fmt --all --check
 
@@ -29,9 +29,6 @@ jobs:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: cargo build --all --all-features
       - uses: taiki-e/install-action@nextest
       - name: Test
         run: cargo nextest run --all --all-features
@@ -43,9 +40,6 @@ jobs:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Build no_std version
-        run: cargo build --all --no-default-features
       - uses: taiki-e/install-action@nextest
       - name: Test `no_std` version
         run: cargo nextest run --all --no-default-features
@@ -54,7 +48,7 @@ jobs:
     name: Check Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check Clippy
         run: cargo clippy --all
 
@@ -62,7 +56,7 @@ jobs:
     name: Check Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check Documentation
         run: cargo doc --all
 
@@ -70,5 +64,5 @@ jobs:
     name: Check Licenses and CVEs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v1
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
