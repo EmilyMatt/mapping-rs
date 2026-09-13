@@ -32,7 +32,8 @@ use nalgebra::{
     AbstractRotation, ClosedAddAssign, ClosedDivAssign, Isometry, Point, RealField, Scalar,
 };
 use num_traits::{AsPrimitive, Zero};
-
+use rand::{RngExt, SeedableRng};
+use rand::distr::uniform::SampleUniform;
 use crate::{array, Vec};
 
 mod downsample;
@@ -107,13 +108,12 @@ pub fn generate_point_cloud<T, const N: usize>(
     ranges: [crate::ops::RangeInclusive<T>; N],
 ) -> Vec<Point<T, N>>
 where
-    T: PartialOrd + rand::distributions::uniform::SampleUniform + Scalar,
+    T: PartialOrd + SampleUniform + Scalar,
 {
-    use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::SmallRng::seed_from_u64(3765665954583626552);
 
     (0..num_points)
-        .map(|_| Point::from(array::from_fn(|idx| rng.gen_range(ranges[idx].clone()))))
+        .map(|_| Point::from(array::from_fn(|idx| rng.random_range(ranges[idx].clone()))))
         .collect()
 } // Just calls a different function a number of times, no specific test needed
 
