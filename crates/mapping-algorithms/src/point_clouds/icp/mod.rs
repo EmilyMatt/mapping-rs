@@ -205,37 +205,6 @@ where
     Err(ICPError::AlrogithmDidNotConverge)
 }
 
-#[cfg(feature = "pregenerated")]
-macro_rules! impl_icp_algorithm {
-    ($precision:expr, $doc:tt, $nd:expr, $rot_type:expr) => {
-        ::paste::paste! {
-            #[doc = "A premade variant of the ICP algorithm function, in " $nd "D space and " $doc "-precision floats."]
-            pub fn [<icp_$nd d>](points_a: &[Point<$precision, $nd>],
-                points_b: &[Point<$precision, $nd>],
-                config: ICPConfiguration<$precision>) -> ICPResult<$precision, $rot_type<$precision>, $nd> {
-                    super::icp(points_a, points_b, config)
-            }
-        }
-    };
-
-    ($precision:expr, doc $doc:tt) => {
-        ::paste::paste! {
-            pub(super) mod [<$doc _precision>] {
-                use nalgebra::{Point, UnitComplex, UnitQuaternion};
-                use super::{ICPConfiguration, ICPResult};
-
-                impl_icp_algorithm!($precision, $doc, 2, UnitComplex);
-                impl_icp_algorithm!($precision, $doc, 3, UnitQuaternion);
-            }
-        }
-    }
-}
-
-#[cfg(feature = "pregenerated")]
-impl_icp_algorithm!(f32, doc single);
-#[cfg(feature = "pregenerated")]
-impl_icp_algorithm!(f64, doc double);
-
 #[cfg(test)]
 mod tests {
     use nalgebra::{Isometry2, Isometry3, UnitComplex, Vector2, Vector3};

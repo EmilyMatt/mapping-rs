@@ -143,36 +143,6 @@ where
     )
 }
 
-#[cfg(feature = "pregenerated")]
-macro_rules! impl_p_i_p_algorithm {
-    ($prec:expr, doc $doc:tt) => {
-        ::paste::paste! {
-            pub(super) mod [<$doc _precision>] {
-                use nalgebra::Point2;
-                use crate::Vec;
-
-                #[doc = "A premade variant of the single point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
-                pub fn is_single_point_in_polygon(point: &Point2<$prec>, polygon: &[Point2<$prec>]) -> bool {
-                    super::is_single_point_in_polygon(point, polygon)
-                }
-
-                #[doc = "A premade variant of the multiple point-in-polygon algorithm function, made for " $doc " precision floating-point arithmetic."]
-                pub fn are_multiple_points_in_polygon(
-                    points: &[Point2<$prec>],
-                    polygon: &[Point2<$prec>],
-                ) -> Option<Vec<bool>> {
-                    super::are_multiple_points_in_polygon(points, polygon)
-                }
-            }
-        }
-    };
-}
-
-#[cfg(feature = "pregenerated")]
-impl_p_i_p_algorithm!(f32, doc single);
-#[cfg(feature = "pregenerated")]
-impl_p_i_p_algorithm!(f64, doc double);
-
 #[cfg(test)]
 mod tests {
     use nalgebra::{Point2, Vector2};

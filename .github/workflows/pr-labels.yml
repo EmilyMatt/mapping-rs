@@ -83,11 +83,6 @@ jobs:
             NEW_LABELS+=("Rust")
           fi
 
-          # Check for .cu files to add the CUDA label
-          if echo "${modified_files}" | grep -q '\.cu$'; then
-            NEW_LABELS+=("CUDA")
-          fi
-
           # Check for modified .github/workflows files to add the Github Actions label
           if echo "${modified_files}" | grep -q '\.github/workflows'; then
             NEW_LABELS+=("Github Actions")

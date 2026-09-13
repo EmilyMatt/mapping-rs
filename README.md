@@ -57,46 +57,6 @@ Note that different functions have different tracing levels.
 
 Since each and every function is instrumented, be sure to remember the overhead for enabling tracing.
 
-## pregenerated
-
-These crates heavily rely on generics, and suffers severe performance penalties in `debug`\
-(We strive to be _very_ fast in `release` though).
-
-For this purpose, a `pregenerated` feature exists, which provides access to public pre-generated functions for most use
-cases and types.\
-This is recommended for most users, and allows bypassing the generics overhead.
-
-Usage:
-
-In your Cargo.toml:
-
-```toml
-# Enables the pregenerated feature (This is enabled by default)
-[dependencies.mapping-algorithms]
-features = ["pregenerated"]
-
-# Compiles these crates with max optimizations
-[profile.dev.package.mapping-algorithms]
-opt-level = 3
-
-[profile.dev.package.mapping-suites]
-opt-level = 3
-```
-
-Code example:
-
-```rust,ignore
-use mapping_algorithms::point_clouds;
-
-// Instead of doing this:
-let res = point_clouds::icp::<f32, 2 > (...); // Uses generics, uses your project's optimization level
-
-// Do this(Runs much faster):
-let res = point_clouds::single_precision::icp_2d(...); // Is a regular function, uses the crate's optimization level
-```
-
-The `pregenerated` macro is enabled by default.
-
 ## Contributing
 
 If you would like to contribute, we welcome your contributions.

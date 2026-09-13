@@ -41,18 +41,6 @@ mod icp;
 mod lex_sort;
 mod nearest_neighbour;
 
-#[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for single precision point cloud algorithms."]
-pub mod single_precision {
-    pub use super::icp::single_precision::*;
-}
-
-#[cfg(feature = "pregenerated")]
-#[doc = "Contains pregenerated functions for double precision point cloud algorithms."]
-pub mod double_precision {
-    pub use super::icp::double_precision::*;
-}
-
 /// Calculates the mean(centroid) of the point cloud.
 ///
 /// # Arguments
