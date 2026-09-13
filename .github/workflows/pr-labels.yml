@@ -23,8 +23,8 @@ jobs:
           echo "PR Title: ${PR_TITLE}"
 
           # Check if the PR title matches the required format
-          if [[ ! "${PR_TITLE}" =~ ^(chore|feat|fix):\ [A-Z].* ]]; then
-            echo "PR title is invalid. It should start with 'chore:', 'feat:', or 'fix:' followed by a description starting with a capital letter"
+          if [[ ! "${PR_TITLE}" =~ ^(chore|ci|feat|fix):\ [A-Z].* ]]; then
+            echo "PR title is invalid. It should start with 'chore:', 'ci:', 'feat:', or 'fix:' followed by a description starting with a capital letter"
             exit 1
           fi
 
@@ -47,6 +47,7 @@ jobs:
             chore:*) new_label="Chore" ;;
             feat:*)  new_label="Feature" ;;
             fix:*)   new_label="Fix" ;;
+            ci:*)    new_label="Github Actions" ;;
             *)       new_label="" ;;
           esac
 
