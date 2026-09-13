@@ -435,14 +435,38 @@ mod tests {
             Point2::new(0.0f32, f32::NAN),
             Point2::new(f32::INFINITY, 0.0f32),
             Point2::new(f32::NEG_INFINITY, 0.0f32),
+            // Both coordinates non-finite, making the delta itself NaN rather than infinite.
+            Point2::new(f32::INFINITY, f32::INFINITY),
         ] {
             let res = plot_bresenham_line::<f32, isize, 2>(start, end);
+            assert_eq!(res.unwrap_err(), BresenhamError::NonFiniteCoordinate);
+
+            let res = BresenhamLine::<f32, isize, 2>::plotter(start, end);
             assert_eq!(res.unwrap_err(), BresenhamError::NonFiniteCoordinate);
 
             // The starting point is checked just the same, as the deltas span both points.
             let res = plot_bresenham_line::<f32, isize, 2>(end, start);
             assert_eq!(res.unwrap_err(), BresenhamError::NonFiniteCoordinate);
+
+            let res = BresenhamLine::<f32, isize, 2>::plotter(end, start);
+            assert_eq!(res.unwrap_err(), BresenhamError::NonFiniteCoordinate);
         }
+    }
+
+    #[test]
+    fn test_zero_delta_line() {
+        let point = Point3::new(512.0f32, 512.0f32, 512.0f32);
+
+        let plotter = BresenhamLine::<f32, isize, 3>::plotter(point, point).unwrap();
+
+        // Identical points make every delta zero; without the `is_zero` guard the increments
+        // would each be computed as `0.0 / 0.0`, leaving the iterator full of NaNs.
+        assert_eq!(plotter.increments, [0.0f32; 3]);
+        assert_eq!(plotter.len(), 1);
+
+        // A zero-length line still yields exactly its single point.
+        let res: Vec<Point3<isize>> = plot_bresenham_line(point, point).unwrap();
+        assert_eq!(res, Vec::from([Point3::new(512, 512, 512)]));
     }
 
     #[cfg(feature = "std")]
