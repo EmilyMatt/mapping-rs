@@ -22,25 +22,3 @@ tracing = { version = "0.1.41", default-features = false, features = ["attribute
 
 mapping-algorithms = { path = "crates/mapping-algorithms" }
 mapping-suites = { path = "crates/mapping-suites" }
-
-[profile.mindebug-dev]
-inherits = "dev"
-debug = "line-tables-only"
-
-[profile.release]
-lto = "thin"
-debug = "line-tables-only"
-
-[profile.nodebug-release]
-inherits = "release"
-debug = false
-
-[profile.debug-release]
-inherits = "release"
-debug = true
-
-[profile.dist-release]
-inherits = "release"
-codegen-units = 1
-debug = false
-lto = "fat"

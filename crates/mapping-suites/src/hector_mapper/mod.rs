@@ -21,26 +21,7 @@
  * SOFTWARE.
  */
 
-#![deny(missing_docs)]
-#![deny(rustdoc::missing_crate_level_docs)]
-#![deny(rustdoc::broken_intra_doc_links)]
-#![deny(rustdoc::private_intra_doc_links)]
-#![cfg_attr(not(feature = "std"), no_std)]
-#![doc = include_str!("../../../README.md")]
+pub use grid_map::{GridMapError, GridMapResult};
 
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-#[cfg(not(feature = "std"))]
-extern crate core;
-
-#[cfg(feature = "std")]
-use std::{array, boxed::Box, fmt, ops, vec::Vec};
-
-#[cfg(not(feature = "std"))]
-use {
-    alloc::{boxed::Box, vec::Vec},
-    core::{array, fmt, ops},
-};
-
-/// A suite implementing the Hector SLAM mapping algorithm and its occupancy grid.
-pub mod hector_mapper;
+#[allow(dead_code)]
+mod grid_map;
