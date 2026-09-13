@@ -29,7 +29,7 @@ use super::{CellIndex, GridMap, GridMapError, GridMapResult, RayTermination};
 
 /// A scan-scoped update session over a [`GridMap`], from [`GridMap::begin_scan`].
 ///
-/// Each cell absorbs at most one update per scan, and an occupied observation beats a free one.
+/// Each cell absorbs one update per scan at most, and an occupied observation beats a free one.
 ///
 /// # Generics
 /// * `T`: Either an [`prim@f32`] or [`prim@f64`].
@@ -53,14 +53,6 @@ where
     /// A [`ScanUpdater`] borrowing `map`.
     pub(super) fn new(map: &'a mut GridMap<T, N>) -> Self {
         Self { map }
-    }
-
-    /// Borrows the map for reading mid-scan.
-    ///
-    /// # Returns
-    /// A shared reference to the [`GridMap`], reflecting the scan so far.
-    pub(crate) fn map(&self) -> &GridMap<T, N> {
-        self.map
     }
 
     /// Records that a beam passed through a cell.
@@ -224,7 +216,6 @@ mod tests {
         for _ in 0..10 {
             scan.mark_free(&cell).unwrap();
         }
-        drop(scan);
 
         assert!((grid.log_odds_at(&cell).unwrap() - free).abs() < 1e-6);
     }
@@ -239,7 +230,6 @@ mod tests {
         for _ in 0..10 {
             scan.mark_occupied(&cell).unwrap();
         }
-        drop(scan);
 
         assert!((grid.log_odds_at(&cell).unwrap() - occupied).abs() < 1e-6);
     }
@@ -253,7 +243,6 @@ mod tests {
         let mut scan = grid.begin_scan();
         scan.mark_occupied(&cell).unwrap();
         scan.mark_free(&cell).unwrap();
-        drop(scan);
 
         assert!((grid.log_odds_at(&cell).unwrap() - occupied).abs() < 1e-6);
     }
@@ -269,7 +258,6 @@ mod tests {
         let mut scan = grid.begin_scan();
         scan.mark_free(&cell).unwrap();
         scan.mark_occupied(&cell).unwrap();
-        drop(scan);
 
         assert!((grid.log_odds_at(&cell).unwrap() - occupied).abs() < 1e-6);
     }
@@ -305,7 +293,6 @@ mod tests {
         grid.force_frame(u32::MAX >> 1);
         let mut scan = grid.begin_scan();
         scan.mark_free(&cell).unwrap();
-        drop(scan);
 
         assert_eq!(grid.frame, 1);
         assert!(
@@ -391,7 +378,7 @@ mod tests {
         scan.mark_occupied(&cell).unwrap();
 
         assert!(
-            scan.map().log_odds_at(&cell).unwrap() > 0.0,
+            scan.map.log_odds_at(&cell).unwrap() > 0.0,
             "a read through the guard must see the scan so far"
         );
     }
@@ -541,7 +528,6 @@ mod tests {
             );
         }
 
-        drop(scan);
         assert!(
             grid.iter_log_odds().all(|odds| odds == 0.0),
             "a rejected beam must not have written anything, least of all to the origin cell"
