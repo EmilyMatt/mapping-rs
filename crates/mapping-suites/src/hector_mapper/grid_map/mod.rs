@@ -1,0 +1,1045 @@
+// SPDX-License-Identifier: MIT
+/*
+ * Copyright (c) [2023 - Present] Emily Matheys <emilymatt96@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+pub(crate) use scan::ScanUpdater;
+pub(crate) use types::{CellIndex, GridMapConfig, MapSample, RayTermination};
+pub use types::{GridMapError, GridMapResult};
+
+use nalgebra::{ComplexField, Point, RealField};
+use num_traits::AsPrimitive;
+
+use crate::{Box, Vec, array, fmt, ops::RangeInclusive};
+
+mod kernels;
+mod scan;
+mod types;
+
+/// A dense, fixed-extent occupancy grid storing per-cell log-odds.
+///
+/// Index-space only: positions are in fractional cell coordinates, where `1.0` is one cell.
+/// Converting metres to cells is the caller's responsibility. Axis `0` varies fastest.
+///
+/// # Generics
+/// * `T`: Either an [`prim@f32`] or [`prim@f64`].
+/// * `N`: a usize, representing the number of dimensions. Sampling requires `2` or `3`.
+#[derive(Clone, PartialEq)]
+pub(crate) struct GridMap<T, const N: usize> {
+    /// Flat log-odds array; the interpolation hot path reads only this.
+    odds: Box<[T]>,
+    /// Per-scan update stamps, encoded as `frame << 1 | marked_occupied`.
+    stamps: Box<[u32]>,
+    dimensions: [usize; N],
+    /// Per-axis linear-index strides.
+    strides: [usize; N],
+    /// `dimensions[i] - 1` as `T`.
+    interp_limits: [T; N],
+    occupied_delta: T,
+    free_delta: T,
+    min_log_odds: T,
+    max_log_odds: T,
+    frame: u32,
+}
+
+impl<T: fmt::Debug, const N: usize> fmt::Debug for GridMap<T, N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GridMap")
+            .field("dimensions", &self.dimensions)
+            .field("cell_count", &self.odds.len())
+            .field("occupied_delta", &self.occupied_delta)
+            .field("free_delta", &self.free_delta)
+            .field("min_log_odds", &self.min_log_odds)
+            .field("max_log_odds", &self.max_log_odds)
+            .field("frame", &self.frame)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<T, const N: usize> GridMap<T, N>
+where
+    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    usize: AsPrimitive<T>,
+{
+    /// Allocates a new, fully unknown occupancy grid.
+    ///
+    /// # Arguments
+    /// * `dimensions`: the extent of each axis in cells; every entry must be at least `2`.
+    /// * `config`: the inverse sensor model and saturation confidence.
+    ///
+    /// # Returns
+    /// A [`GridMap`] with every cell at a probability of one half.
+    ///
+    /// # Errors
+    /// * [`GridMapError::DimensionTooSmall`] or [`GridMapError::CapacityOverflow`]: if `dimensions`
+    ///   is unusable.
+    /// * [`GridMapError::InvalidOccupiedProbability`], [`GridMapError::InvalidFreeProbability`] or
+    ///   [`GridMapError::InvalidMaxConfidence`]: if `config` is inconsistent.
+    /// * [`GridMapError::AllocationFailed`]: if the allocator cannot satisfy the request.
+    ///
+    /// # Warnings
+    /// Storage is `product(dimensions)` cells twice over, so a three-dimensional map grows cubically,
+    /// and every cell is written here, costing roughly 350ms per gigabyte.
+    #[cfg_attr(feature = "tracing", tracing::instrument("Create Grid Map", skip_all))]
+    pub(crate) fn new(dimensions: [usize; N], config: &GridMapConfig<T>) -> GridMapResult<Self> {
+        for (axis, &extent) in dimensions.iter().enumerate() {
+            if extent < 2 {
+                return Err(GridMapError::DimensionTooSmall { axis, extent });
+            }
+        }
+
+        let cells = dimensions
+            .iter()
+            .try_fold(1usize, |acc, &extent| acc.checked_mul(extent))
+            .ok_or(GridMapError::CapacityOverflow)?;
+
+        let (occupied_delta, free_delta, max_log_odds) = config.resolve()?;
+
+        let mut odds = Vec::new();
+        odds.try_reserve_exact(cells)
+            .map_err(|_| GridMapError::AllocationFailed { cells })?;
+        odds.resize(cells, T::zero());
+
+        let mut stamps = Vec::new();
+        stamps
+            .try_reserve_exact(cells)
+            .map_err(|_| GridMapError::AllocationFailed { cells })?;
+        stamps.resize(cells, 0u32);
+
+        Ok(Self {
+            odds: odds.into_boxed_slice(),
+            stamps: stamps.into_boxed_slice(),
+            dimensions,
+            strides: array::from_fn(|idx| dimensions.iter().take(idx).product()),
+            interp_limits: array::from_fn(|idx| (dimensions[idx] - 1).as_()),
+            occupied_delta,
+            free_delta,
+            min_log_odds: -max_log_odds,
+            max_log_odds,
+            // Stamps start at zero, so starting the counter at one means a never-written cell can
+            // never be mistaken for one written during the first scan.
+            frame: 1,
+        })
+    }
+
+    /// The extent of each axis, in cells.
+    ///
+    /// # Returns
+    /// An `[usize; N]`, as given to [`new`](Self::new).
+    pub(crate) fn dimensions(&self) -> [usize; N] {
+        self.dimensions
+    }
+
+    /// The linear-index stride of each axis; `strides[0]` is always `1`.
+    ///
+    /// # Returns
+    /// An `[usize; N]`, the distance in cells between neighbours along each axis.
+    pub(crate) fn strides(&self) -> [usize; N] {
+        self.strides
+    }
+
+    /// The total number of cells, which is always non-zero.
+    ///
+    /// # Returns
+    /// A [`prim@usize`], the product of the [`dimensions`](Self::dimensions).
+    pub(crate) fn cell_count(&self) -> usize {
+        self.odds.len()
+    }
+
+    /// The log-odds range at which cells saturate, symmetric about zero.
+    ///
+    /// # Returns
+    /// A [`RangeInclusive`] of `T`, the interval every cell value lies within.
+    pub(crate) fn log_odds_bounds(&self) -> RangeInclusive<T> {
+        self.min_log_odds..=self.max_log_odds
+    }
+
+    /// Iterates the log-odds of every cell, with axis `0` varying fastest.
+    ///
+    /// # Returns
+    /// An [`ExactSizeIterator`] of `T` of length [`cell_count`](Self::cell_count).
+    pub(crate) fn iter_log_odds(&self) -> impl ExactSizeIterator<Item = T> + '_ {
+        self.odds.iter().copied()
+    }
+
+    /// Whether a cell lies inside the map.
+    ///
+    /// # Arguments
+    /// * `index`: the cell to test, which may be negative.
+    ///
+    /// # Returns
+    /// A [`prim@bool`], `true` if every coordinate is in range.
+    #[inline]
+    pub(crate) fn contains(&self, index: &CellIndex<N>) -> bool {
+        self.linearize(index).is_some()
+    }
+}
+
+// Addressing. Every read and write in the crate funnels through these functions.
+impl<T, const N: usize> GridMap<T, N>
+where
+    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    usize: AsPrimitive<T>,
+{
+    /// Converts a cell index into a flat index into the log-odds array.
+    ///
+    /// Each axis is range-checked individually *before* it contributes to the sum; checking only the
+    /// final sum is unsound, since an overshoot on one axis lands on a valid cell in the next row.
+    ///
+    /// # Arguments
+    /// * `index`: the cell to resolve, which may be negative or out of range.
+    ///
+    /// # Returns
+    /// An [`Option`] of [`prim@usize`], or [`None`] if any axis is out of range.
+    #[inline]
+    fn linearize(&self, index: &CellIndex<N>) -> Option<usize> {
+        let mut linear = 0usize;
+        for axis in 0..N {
+            // Reinterpreting as unsigned folds the negative test into the upper-bound test: any
+            // negative value becomes enormous and fails the very same comparison.
+            let coordinate = index[axis].cast_unsigned();
+            if coordinate >= self.dimensions[axis] {
+                return None;
+            }
+            linear += coordinate * self.strides[axis];
+        }
+        Some(linear)
+    }
+
+    /// As [`linearize`](Self::linearize), but naming the axis that failed.
+    ///
+    /// # Arguments
+    /// * `index`: the cell to resolve, which may be negative or out of range.
+    ///
+    /// # Returns
+    /// A [`prim@usize`], the flat index.
+    ///
+    /// # Errors
+    /// * [`GridMapError::OutOfBounds`]: naming the first failing axis in ascending order.
+    #[inline]
+    fn linearize_checked(&self, index: &CellIndex<N>) -> GridMapResult<usize> {
+        let mut linear = 0usize;
+        for axis in 0..N {
+            let coordinate = index[axis].cast_unsigned();
+            if coordinate >= self.dimensions[axis] {
+                return Err(GridMapError::OutOfBounds {
+                    axis,
+                    index: index[axis],
+                    extent: self.dimensions[axis],
+                });
+            }
+            linear += coordinate * self.strides[axis];
+        }
+        Ok(linear)
+    }
+
+    /// Locates the low corner of the `2^N` interpolation stencil containing a point.
+    ///
+    /// Verifying the stencil once here is what lets the kernels read all `2^N` corners unchecked.
+    ///
+    /// # Arguments
+    /// * `point`: a position in fractional cell coordinates.
+    ///
+    /// # Returns
+    /// An [`Option`] of the stencil's flat base index and the fractional offset within it, or
+    /// [`None`] if `point` is non-finite or outside the map.
+    #[inline]
+    fn stencil_base(&self, point: &Point<T, N>) -> Option<(usize, [T; N])> {
+        let mut base = 0usize;
+        let mut frac = [T::zero(); N];
+        for axis in 0..N {
+            let coordinate = point[axis];
+            // Every comparison against NaN is false, so a NaN coordinate fails this test and no
+            // separate check is needed.
+            if !(T::zero()..=self.interp_limits[axis]).contains(&coordinate) {
+                return None;
+            }
+            // Non-negativity is proven above, so this truncating cast *is* a floor. Going through
+            // `ComplexField::floor` instead would emit a libm call under `--no-default-features`.
+            let mut cell: usize = coordinate.as_();
+            let mut offset = coordinate - cell.as_();
+
+            // The very top of the domain has no cell above it to interpolate against. Folding it
+            // into the last stencil at full weight keeps the domain a closed interval and yields
+            // the same value, and it is what stops the kernels' paired load from running off the
+            // end of the row into the *next* one, which would silently produce a neighbour from
+            // the wrong line and a meaningless gradient.
+            if cell + 1 >= self.dimensions[axis] {
+                cell = self.dimensions[axis] - 2;
+                offset = T::one();
+            }
+
+            frac[axis] = offset;
+            base += cell * self.strides[axis];
+        }
+        Some((base, frac))
+    }
+
+    /// Resolves a fractional coordinate to the cell containing it.
+    ///
+    /// Explicitly fallible, because a float-to-integer cast saturates and maps NaN to zero.
+    ///
+    /// # Arguments
+    /// * `point`: a position in fractional cell coordinates.
+    ///
+    /// # Returns
+    /// The [`CellIndex`] whose cell contains `point`.
+    ///
+    /// # Errors
+    /// * [`GridMapError::NonFiniteCoordinate`]: if any coordinate is NaN or infinite.
+    /// * [`GridMapError::OutOfBounds`]: naming the first axis outside the map.
+    pub(crate) fn cell_containing(&self, point: &Point<T, N>) -> GridMapResult<CellIndex<N>> {
+        let mut index = CellIndex::<N>::origin();
+        for axis in 0..N {
+            let coordinate = point[axis];
+            if !ComplexField::is_finite(&coordinate) {
+                return Err(GridMapError::NonFiniteCoordinate { axis });
+            }
+
+            let extent = self.dimensions[axis];
+            // A coordinate of exactly `extent` is already past the last cell, so the valid
+            // fractional range is half-open.
+            if !(T::zero()..extent.as_()).contains(&coordinate) {
+                return Err(GridMapError::OutOfBounds {
+                    axis,
+                    // Truncating toward zero, saturating at the ends of the range; for the
+                    // in-range-adjacent coordinates a caller is likely to be debugging this is
+                    // the cell they meant.
+                    index: coordinate.as_(),
+                    extent,
+                });
+            }
+
+            // Non-negativity is proven above, so truncation is a floor.
+            index[axis] = coordinate.as_();
+        }
+        Ok(index)
+    }
+}
+
+// Reads, single-cell writes, and the scan entry point.
+impl<T, const N: usize> GridMap<T, N>
+where
+    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    usize: AsPrimitive<T>,
+{
+    /// The occupancy probability corresponding to a log-odds value.
+    ///
+    /// # Arguments
+    /// * `log_odds`: the value to convert.
+    ///
+    /// # Returns
+    /// A `T` in the range `0.0..=1.0`.
+    #[inline]
+    fn logistic(log_odds: T) -> T {
+        T::one() / (T::one() + ComplexField::exp(-log_odds))
+    }
+
+    /// Maps a log-odds sample through the logistic function, carrying its gradient by the chain rule.
+    ///
+    /// # Arguments
+    /// * `sample`: a sample whose value is log-odds.
+    ///
+    /// # Returns
+    /// A sample whose value is a probability, for the cost of one exponential.
+    #[inline]
+    fn sample_to_probability(sample: MapSample<T, N>) -> MapSample<T, N> {
+        let probability = Self::logistic(sample.value);
+        MapSample {
+            value: probability,
+            gradient: sample.gradient * (probability * (T::one() - probability)),
+        }
+    }
+
+    /// Reads the log-odds of a single cell.
+    ///
+    /// # Arguments
+    /// * `index`: the cell to read, which may be negative or out of range.
+    ///
+    /// # Returns
+    /// An [`Option`] of `T`, or [`None`] if `index` lies outside the map.
+    #[inline]
+    pub(crate) fn log_odds_at(&self, index: &CellIndex<N>) -> Option<T> {
+        self.linearize(index).map(|linear| self.odds[linear])
+    }
+
+    /// Reads the occupancy probability of a single cell.
+    ///
+    /// # Arguments
+    /// * `index`: the cell to read, which may be negative or out of range.
+    ///
+    /// # Returns
+    /// An [`Option`] of `T` in the range `0.0..=1.0`, or [`None`] if `index` lies outside the map.
+    /// An unwritten cell reads as exactly one half.
+    #[inline]
+    pub(crate) fn probability_at(&self, index: &CellIndex<N>) -> Option<T> {
+        self.log_odds_at(index).map(Self::logistic)
+    }
+
+    /// Overwrites a cell's log-odds, bypassing the sensor model and per-scan deduplication.
+    ///
+    /// # Arguments
+    /// * `index`: the cell to overwrite.
+    /// * `log_odds`: the value to store, clamped into [`log_odds_bounds`](Self::log_odds_bounds).
+    ///
+    /// # Errors
+    /// * [`GridMapError::OutOfBounds`]: naming the first offending axis.
+    pub(crate) fn set_log_odds(&mut self, index: &CellIndex<N>, log_odds: T) -> GridMapResult<()> {
+        let linear = self.linearize_checked(index)?;
+        self.odds[linear] = log_odds.clamp(self.min_log_odds, self.max_log_odds);
+        Ok(())
+    }
+
+    /// Overwrites a cell's occupancy probability. See [`set_log_odds`](Self::set_log_odds).
+    ///
+    /// # Arguments
+    /// * `index`: the cell to overwrite.
+    /// * `probability`: strictly between `0.0` and `1.0`.
+    ///
+    /// # Errors
+    /// * [`GridMapError::OutOfBounds`]: naming the first offending axis.
+    /// * [`GridMapError::InvalidOccupiedProbability`]: if `probability` is not strictly between zero
+    ///   and one, since either endpoint is infinite in log-odds.
+    pub(crate) fn set_probability(
+        &mut self,
+        index: &CellIndex<N>,
+        probability: T,
+    ) -> GridMapResult<()> {
+        if !(probability > T::zero() && probability < T::one()) {
+            return Err(GridMapError::InvalidOccupiedProbability);
+        }
+        self.set_log_odds(index, types::logit(probability))
+    }
+
+    /// Returns every cell to unknown, preserving the dimensions, configuration and allocation.
+    #[cfg_attr(feature = "tracing", tracing::instrument("Reset Grid Map", skip_all))]
+    pub(crate) fn reset(&mut self) {
+        self.odds.fill(T::zero());
+        self.stamps.fill(0);
+        self.frame = 1;
+    }
+
+    /// Opens a scan-scoped update session.
+    ///
+    /// Each cell absorbs at most one update per scan, however many beams cross it. The returned guard
+    /// borrows the map mutably, so no second scan can begin while it lives.
+    ///
+    /// # Returns
+    /// A [`ScanUpdater`] borrowing this map.
+    #[must_use = "a ScanUpdater performs no work until beams are integrated into it"]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument("Begin Scan", skip_all, level = "debug")
+    )]
+    pub(crate) fn begin_scan(&mut self) -> ScanUpdater<'_, T, N> {
+        // Bit 0 of a stamp records "marked occupied during this scan", so the generation occupies
+        // bits 1 upwards. Exhausting 2^31 scans takes about 248 days at 100Hz; the sweep below is
+        // a correctness backstop rather than an expected path, and without it a stale stamp would
+        // eventually alias the current generation and silently skip that cell's update.
+        if self.frame >= u32::MAX >> 1 {
+            self.stamps.fill(0);
+            self.frame = 1;
+        } else {
+            self.frame += 1;
+        }
+
+        ScanUpdater::new(self)
+    }
+
+    /// Forces the scan generation counter, so the wraparound sweep can be tested directly.
+    ///
+    /// # Arguments
+    /// * `frame`: the generation to set.
+    #[cfg(test)]
+    pub(super) fn force_frame(&mut self, frame: u32) {
+        self.frame = frame;
+    }
+}
+
+// The per-scan update machinery. Public access is through [`ScanUpdater`], which owns the
+// invariant that a generation has been advanced first.
+impl<T, const N: usize> GridMap<T, N>
+where
+    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    usize: AsPrimitive<T>,
+{
+    /// Clips a segment to the map's bounding box using the slab method.
+    ///
+    /// This is what bounds a ray cast: a step count follows from a beam's length, so an absurd but
+    /// finite endpoint would otherwise be walked cell by cell only to be discarded.
+    ///
+    /// # Arguments
+    /// * `origin`: the segment's start, in fractional cell coordinates.
+    /// * `endpoint`: the segment's end, in fractional cell coordinates.
+    ///
+    /// # Returns
+    /// An [`Option`] of the clipped start, the clipped end, and whether `endpoint` itself lay inside
+    /// the map; [`None`] if the segment never enters it.
+    fn clip_segment(
+        &self,
+        origin: &Point<T, N>,
+        endpoint: &Point<T, N>,
+    ) -> Option<(Point<T, N>, Point<T, N>, bool)> {
+        let direction = endpoint - origin;
+        let mut entry_fraction = T::zero();
+        let mut exit_fraction = T::one();
+
+        for axis in 0..N {
+            let extent: T = self.dimensions[axis].as_();
+            let delta = direction[axis];
+
+            if delta.is_zero() {
+                // Parallel to this slab: either wholly inside it, or the segment misses entirely.
+                if origin[axis] < T::zero() || origin[axis] > extent {
+                    return None;
+                }
+                continue;
+            }
+
+            let near = (T::zero() - origin[axis]) / delta;
+            let far = (extent - origin[axis]) / delta;
+            let (near, far) = if near > far { (far, near) } else { (near, far) };
+
+            entry_fraction = entry_fraction.max(near);
+            exit_fraction = exit_fraction.min(far);
+
+            if entry_fraction > exit_fraction {
+                return None;
+            }
+        }
+
+        // Clipping lands the endpoints *on* the bounding faces, and a coordinate of exactly
+        // `extent` belongs to cell `extent`, which is off the map. Worse, the plotter substitutes
+        // the exact endpoint for its final step, so leaving it on the face would drop the last
+        // cell inside the map as well as the one outside it. Pulling each coordinate back to the
+        // centre of the cell it is leaving keeps the beam's final cell addressable, and never
+        // changes which cell an already-interior coordinate falls in.
+        let half = T::one() / (T::one() + T::one());
+        let into_last_cell = |point: Point<T, N>| -> Point<T, N> {
+            let mut point = point;
+            for axis in 0..N {
+                let limit: T = self.dimensions[axis].as_();
+                point[axis] = point[axis].clamp(T::zero(), limit - half);
+            }
+            point
+        };
+
+        Some((
+            into_last_cell(origin + direction * entry_fraction),
+            into_last_cell(origin + direction * exit_fraction),
+            // `exit_fraction` starts at one and only ever shrinks, so it is still exactly one
+            // precisely when the caller's endpoint was never clipped away.
+            exit_fraction >= T::one(),
+        ))
+    }
+
+    /// Records that a beam passed through a cell, applying the free increment.
+    ///
+    /// A cell already touched this scan, in either state, is left alone.
+    ///
+    /// # Arguments
+    /// * `index`: the cell observed as free.
+    ///
+    /// # Returns
+    /// A [`prim@bool`], whether the cell was updated.
+    #[inline]
+    fn mark_free_at(&mut self, index: &CellIndex<N>) -> bool {
+        let Some(linear) = self.linearize(index) else {
+            return false;
+        };
+        if self.stamps[linear] >> 1 == self.frame {
+            return false;
+        }
+
+        self.stamps[linear] = self.frame << 1;
+        self.odds[linear] =
+            (self.odds[linear] + self.free_delta).clamp(self.min_log_odds, self.max_log_odds);
+        true
+    }
+
+    /// Records that a beam terminated in a cell, applying the occupied increment.
+    ///
+    /// Occupancy wins within a scan: an earlier free update on the same cell is retracted first.
+    ///
+    /// # Arguments
+    /// * `index`: the cell observed as occupied.
+    ///
+    /// # Returns
+    /// A [`prim@bool`], whether the cell was updated.
+    #[inline]
+    fn mark_occupied_at(&mut self, index: &CellIndex<N>) -> bool {
+        let Some(linear) = self.linearize(index) else {
+            return false;
+        };
+
+        let current = self.frame << 1;
+        let delta = if self.stamps[linear] == current | 1 {
+            return false;
+        } else if self.stamps[linear] == current {
+            // Marked free earlier in this scan; the free increment is negative, so subtracting it
+            // adds its magnitude back.
+            self.occupied_delta - self.free_delta
+        } else {
+            self.occupied_delta
+        };
+
+        self.stamps[linear] = current | 1;
+        self.odds[linear] = (self.odds[linear] + delta).clamp(self.min_log_odds, self.max_log_odds);
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::{Point2, Point3};
+
+    /// A map with the default sensor model, which every test in this module shares.
+    fn map<const N: usize>(dimensions: [usize; N]) -> GridMap<f32, N> {
+        GridMap::new(dimensions, &GridMapConfig::default()).unwrap()
+    }
+
+    #[test]
+    fn test_new_rejects_dimension_too_small() {
+        // Both a zero extent and a single-cell extent are unusable: neither admits a stencil.
+        for extent in [0, 1] {
+            for axis in 0..3 {
+                let mut dimensions = [4usize; 3];
+                dimensions[axis] = extent;
+
+                assert_eq!(
+                    GridMap::<f32, 3>::new(dimensions, &GridMapConfig::default()).unwrap_err(),
+                    GridMapError::DimensionTooSmall { axis, extent }
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_new_rejects_capacity_overflow() {
+        assert_eq!(
+            GridMap::<f32, 3>::new([usize::MAX, usize::MAX, 2], &GridMapConfig::default())
+                .unwrap_err(),
+            GridMapError::CapacityOverflow
+        );
+    }
+
+    #[test]
+    fn test_new_propagates_config_errors() {
+        let config = GridMapConfig::<f32>::builder()
+            .with_free_probability(0.9)
+            .build();
+
+        assert_eq!(
+            GridMap::<f32, 2>::new([4, 4], &config).unwrap_err(),
+            GridMapError::InvalidFreeProbability
+        );
+    }
+
+    #[test]
+    fn test_new_reports_expected_shape() {
+        let grid = map([3usize, 5, 7]);
+
+        assert_eq!(grid.dimensions(), [3, 5, 7]);
+        assert_eq!(grid.cell_count(), 105);
+        assert_eq!(grid.iter_log_odds().len(), 105);
+    }
+
+    #[test]
+    fn test_new_initialises_every_cell_to_unknown() {
+        let grid = map([3usize, 5]);
+
+        assert!(grid.iter_log_odds().all(|odds| odds == 0.0));
+        assert_eq!(
+            grid.probability_at(&Point2::new(1, 2)),
+            Some(0.5),
+            "a never-written cell must read as exactly one half"
+        );
+    }
+
+    #[test]
+    fn test_log_odds_bounds_are_symmetric() {
+        let grid = map([4usize, 4]);
+        let bounds = grid.log_odds_bounds();
+
+        assert_eq!(*bounds.start(), -*bounds.end());
+        assert!((*bounds.end() - 3.476_098_7).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_strides_2d_non_square() {
+        // Axis 0 is fastest-varying, so its stride is always one.
+        assert_eq!(map([3usize, 5]).strides(), [1, 3]);
+    }
+
+    #[test]
+    fn test_strides_3d_non_cubic() {
+        assert_eq!(map([3usize, 5, 7]).strides(), [1, 3, 15]);
+    }
+
+    #[test]
+    fn test_linearize_is_bijective_2d() {
+        let grid = map([3usize, 5]);
+        let mut seen = Vec::new();
+
+        for y in 0..5 {
+            for x in 0..3 {
+                seen.push(grid.linearize(&Point2::new(x, y)).unwrap());
+            }
+        }
+
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(seen.len(), grid.cell_count());
+        assert_eq!(*seen.last().unwrap(), grid.cell_count() - 1);
+    }
+
+    #[test]
+    fn test_linearize_is_bijective_3d() {
+        let grid = map([3usize, 5, 7]);
+        let mut seen = Vec::new();
+
+        for z in 0..7 {
+            for y in 0..5 {
+                for x in 0..3 {
+                    seen.push(grid.linearize(&Point3::new(x, y, z)).unwrap());
+                }
+            }
+        }
+
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(seen.len(), grid.cell_count());
+        assert_eq!(*seen.last().unwrap(), grid.cell_count() - 1);
+    }
+
+    /// The load-bearing test of the whole addressing scheme. Summing `coord * stride` and then
+    /// bounds-checking the sum is unsound: in a `[4, 4]` map the cell `[4, 0]` sums to `4`, which
+    /// is the perfectly valid cell `[0, 1]`. It is not enough to assert that the call fails —
+    /// the aliased cell must be shown to be untouched.
+    #[test]
+    fn test_row_wrap_is_rejected() {
+        let mut grid = map([4usize, 4]);
+        let aliased = Point2::new(0, 1);
+        assert_eq!(grid.linearize(&aliased), Some(4));
+
+        assert_eq!(grid.linearize(&Point2::new(4, 0)), None);
+        assert_eq!(
+            grid.set_log_odds(&Point2::new(4, 0), 1.0).unwrap_err(),
+            GridMapError::OutOfBounds {
+                axis: 0,
+                index: 4,
+                extent: 4
+            }
+        );
+        assert_eq!(
+            grid.log_odds_at(&aliased),
+            Some(0.0),
+            "the write must not have landed on the cell the bad index aliases"
+        );
+    }
+
+    #[test]
+    fn test_column_wrap_is_rejected_3d() {
+        let mut grid = map([4usize, 4, 4]);
+        let aliased = Point3::new(0, 0, 1);
+        assert_eq!(grid.linearize(&aliased), Some(16));
+
+        // [0, 4, 0] sums to 16, which is the valid cell one slab along.
+        assert_eq!(grid.linearize(&Point3::new(0, 4, 0)), None);
+        assert!(grid.set_log_odds(&Point3::new(0, 4, 0), 1.0).is_err());
+        assert_eq!(grid.log_odds_at(&aliased), Some(0.0));
+    }
+
+    #[test]
+    fn test_negative_index_is_rejected_not_wrapped() {
+        let grid = map([4usize, 4]);
+
+        for index in [Point2::new(-1, 0), Point2::new(0, -1), Point2::new(-1, -1)] {
+            assert_eq!(grid.linearize(&index), None);
+            assert!(!grid.contains(&index));
+            assert_eq!(grid.log_odds_at(&index), None);
+        }
+    }
+
+    #[test]
+    fn test_out_of_bounds_reports_first_failing_axis() {
+        let grid = map([4usize, 5, 6]);
+
+        assert_eq!(
+            grid.linearize_checked(&Point3::new(9, 9, 9)).unwrap_err(),
+            GridMapError::OutOfBounds {
+                axis: 0,
+                index: 9,
+                extent: 4
+            },
+            "axes are checked in ascending order"
+        );
+        assert_eq!(
+            grid.linearize_checked(&Point3::new(0, 9, 9)).unwrap_err(),
+            GridMapError::OutOfBounds {
+                axis: 1,
+                index: 9,
+                extent: 5
+            }
+        );
+        assert_eq!(
+            grid.linearize_checked(&Point3::new(0, 0, -3)).unwrap_err(),
+            GridMapError::OutOfBounds {
+                axis: 2,
+                index: -3,
+                extent: 6
+            }
+        );
+    }
+
+    #[test]
+    fn test_contains_agrees_with_reads() {
+        let grid = map([4usize, 4]);
+
+        for x in -2..6 {
+            for y in -2..6 {
+                let index = Point2::new(x, y);
+                assert_eq!(grid.contains(&index), grid.log_odds_at(&index).is_some());
+            }
+        }
+    }
+
+    #[test]
+    fn test_cell_containing_resolves_interior() {
+        let grid = map([10usize, 10]);
+
+        assert_eq!(
+            grid.cell_containing(&Point2::new(3.0, 4.0)).unwrap(),
+            Point2::new(3, 4)
+        );
+        assert_eq!(
+            grid.cell_containing(&Point2::new(3.9, 4.1)).unwrap(),
+            Point2::new(3, 4),
+            "a fractional coordinate resolves to the cell containing it"
+        );
+        assert_eq!(
+            grid.cell_containing(&Point2::new(0.0, 0.0)).unwrap(),
+            Point2::new(0, 0)
+        );
+    }
+
+    /// A float-to-integer cast in Rust saturates and maps NaN to zero, so an unchecked conversion
+    /// would silently redirect a NaN coordinate to the map origin rather than rejecting it.
+    #[test]
+    fn test_cell_containing_rejects_non_finite() {
+        let grid = map([10usize, 10]);
+
+        for (point, axis) in [
+            (Point2::new(f32::NAN, 1.0), 0),
+            (Point2::new(1.0, f32::NAN), 1),
+            (Point2::new(f32::INFINITY, 1.0), 0),
+            (Point2::new(1.0, f32::NEG_INFINITY), 1),
+        ] {
+            assert_eq!(
+                grid.cell_containing(&point).unwrap_err(),
+                GridMapError::NonFiniteCoordinate { axis }
+            );
+        }
+    }
+
+    #[test]
+    fn test_cell_containing_rejects_out_of_range() {
+        let grid = map([10usize, 10]);
+
+        // A coordinate of exactly the extent is already past the final cell.
+        assert!(grid.cell_containing(&Point2::new(10.0, 1.0)).is_err());
+        assert!(grid.cell_containing(&Point2::new(9.999, 1.0)).is_ok());
+        // Truncation toward zero would fold -0.5 into cell zero; it must be rejected instead.
+        assert!(grid.cell_containing(&Point2::new(-0.5, 1.0)).is_err());
+    }
+
+    #[test]
+    fn test_set_log_odds_clamps_to_bounds() {
+        let mut grid = map([4usize, 4]);
+        let index = Point2::new(1, 1);
+        let bounds = grid.log_odds_bounds();
+
+        grid.set_log_odds(&index, 1000.0).unwrap();
+        assert_eq!(grid.log_odds_at(&index), Some(*bounds.end()));
+
+        grid.set_log_odds(&index, -1000.0).unwrap();
+        assert_eq!(grid.log_odds_at(&index), Some(*bounds.start()));
+    }
+
+    #[test]
+    fn test_set_probability_round_trips_through_log_odds() {
+        let mut grid = map([4usize, 4]);
+        let index = Point2::new(2, 3);
+
+        grid.set_probability(&index, 0.8).unwrap();
+        assert!((grid.probability_at(&index).unwrap() - 0.8).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_set_probability_rejects_zero_and_one() {
+        let mut grid = map([4usize, 4]);
+        let index = Point2::new(0, 0);
+
+        // Either endpoint is infinite in log-odds, so both are refused.
+        for probability in [0.0, 1.0, -0.5, 1.5] {
+            assert_eq!(
+                grid.set_probability(&index, probability).unwrap_err(),
+                GridMapError::InvalidOccupiedProbability
+            );
+        }
+        assert_eq!(grid.log_odds_at(&index), Some(0.0));
+    }
+
+    #[test]
+    fn test_log_odds_and_probability_agree() {
+        let mut grid = map([4usize, 4]);
+        let index = Point2::new(1, 2);
+        grid.set_log_odds(&index, 1.5).unwrap();
+
+        let expected = 1.0 / (1.0 + (-1.5f32).exp());
+        assert!((grid.probability_at(&index).unwrap() - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_reset_returns_every_cell_to_unknown() {
+        let mut grid = map([4usize, 4]);
+        grid.set_log_odds(&Point2::new(1, 1), 2.0).unwrap();
+        grid.set_log_odds(&Point2::new(2, 2), -2.0).unwrap();
+
+        grid.reset();
+
+        assert!(grid.iter_log_odds().all(|odds| odds == 0.0));
+        assert_eq!(grid.dimensions(), [4, 4], "the shape must survive a reset");
+    }
+
+    #[test]
+    fn test_iter_log_odds_order_is_axis_zero_fastest() {
+        let mut grid = map([3usize, 5]);
+        grid.set_log_odds(&Point2::new(1, 0), 1.0).unwrap();
+        grid.set_log_odds(&Point2::new(0, 1), 2.0).unwrap();
+
+        let odds = grid.iter_log_odds().collect::<Vec<_>>();
+        assert_eq!(odds.len(), 15);
+        assert_eq!(odds[1], 1.0, "a step along axis 0 moves one element");
+        assert_eq!(
+            odds[3], 2.0,
+            "a step along axis 1 moves dimensions[0] elements"
+        );
+    }
+
+    #[test]
+    fn test_reads_take_shared_reference() {
+        let grid = map([4usize, 4]);
+
+        // Two live shared borrows, both querying: a scan matcher needs exactly this.
+        let first = &grid;
+        let second = &grid;
+        assert_eq!(
+            first.log_odds_at(&Point2::new(1, 1)),
+            second.log_odds_at(&Point2::new(1, 1))
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_debug_omits_cell_contents() {
+        let rendered = format!("{:?}", map([64usize, 64]));
+
+        assert!(rendered.contains("dimensions"));
+        assert!(rendered.contains("cell_count"));
+        assert!(
+            rendered.len() < 512,
+            "Debug must not render four thousand cells: {rendered}"
+        );
+    }
+
+    #[test]
+    fn test_clip_segment_entirely_inside_is_identity() {
+        let grid = map([10usize, 10]);
+        let (entry, exit, inside) = grid
+            .clip_segment(&Point2::new(1.0, 1.0), &Point2::new(5.0, 5.0))
+            .unwrap();
+
+        assert_eq!(entry, Point2::new(1.0, 1.0));
+        assert_eq!(exit, Point2::new(5.0, 5.0));
+        assert!(inside);
+    }
+
+    #[test]
+    fn test_clip_segment_entirely_outside_is_none() {
+        let grid = map([10usize, 10]);
+
+        assert!(
+            grid.clip_segment(&Point2::new(-5.0, -5.0), &Point2::new(-1.0, -1.0))
+                .is_none()
+        );
+        assert!(
+            grid.clip_segment(&Point2::new(20.0, 1.0), &Point2::new(30.0, 1.0))
+                .is_none()
+        );
+        // Parallel to the slab and outside it: the axis-aligned early exit.
+        assert!(
+            grid.clip_segment(&Point2::new(1.0, -3.0), &Point2::new(8.0, -3.0))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_clip_segment_trims_the_far_end() {
+        let grid = map([10usize, 10]);
+        let (entry, exit, inside) = grid
+            .clip_segment(&Point2::new(5.0, 5.0), &Point2::new(25.0, 5.0))
+            .unwrap();
+
+        assert_eq!(entry, Point2::new(5.0, 5.0));
+        assert_eq!(
+            exit,
+            Point2::new(9.5, 5.0),
+            "the exit is pulled back to the centre of the last cell, since a coordinate of              exactly 10.0 addresses cell 10, which is off the map"
+        );
+        assert!(!inside, "the caller's endpoint was clipped away");
+    }
+
+    #[test]
+    fn test_clip_segment_trims_the_near_end() {
+        let grid = map([10usize, 10]);
+        let (entry, exit, inside) = grid
+            .clip_segment(&Point2::new(-10.0, 5.0), &Point2::new(5.0, 5.0))
+            .unwrap();
+
+        assert_eq!(entry, Point2::new(0.0, 5.0));
+        assert_eq!(exit, Point2::new(5.0, 5.0));
+        assert!(inside, "the caller's endpoint was inside all along");
+    }
+
+    #[test]
+    fn test_clip_segment_passing_clean_through() {
+        let grid = map([10usize, 10, 10]);
+        let (entry, exit, inside) = grid
+            .clip_segment(&Point3::new(-8.0, 5.0, 5.0), &Point3::new(18.0, 5.0, 5.0))
+            .unwrap();
+
+        assert_eq!(entry, Point3::new(0.0, 5.0, 5.0));
+        assert_eq!(exit, Point3::new(9.5, 5.0, 5.0));
+        assert!(!inside);
+    }
+}
