@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Emily Matheys <emilymatt96@gmail.com>"]
 description = "A collection of algorithms and suites for SLAM purposes"
 edition = "2024"
