@@ -24,7 +24,7 @@
 use nalgebra::{ComplexField, Point, RealField, Scalar};
 use num_traits::AsPrimitive;
 
-use crate::{array, Vec};
+use crate::{Vec, array};
 
 /// This is a free-form version of the bresenham line-drawing algorithm,
 /// allowing for any input, any output, and N dimensions, under the constraints of the function.

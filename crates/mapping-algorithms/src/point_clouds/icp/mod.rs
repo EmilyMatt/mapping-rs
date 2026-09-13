@@ -27,10 +27,10 @@ use nalgebra::{ComplexField, Isometry, Point, RealField, SimdRealField};
 use num_traits::{AsPrimitive, Bounded};
 
 use crate::{
+    Sum, Vec,
     kd_tree::KDTree,
     point_clouds::find_nearest_neighbour_naive,
     types::{AbstractIsometry, IsNan, IsometryAbstractor},
-    Sum, Vec,
 };
 
 use helpers::{calculate_mse, get_rotation_matrix_and_centroids};

@@ -24,7 +24,7 @@
 use nalgebra::{ComplexField, Point, Scalar};
 use num_traits::{AsPrimitive, NumAssign};
 
-use crate::{array, HashMap, Vec};
+use crate::{HashMap, Vec, array};
 
 /// Downsample a points cloud, returning a new point cloud, with all points within each voxel combined into their mean.
 ///
@@ -103,8 +103,9 @@ mod tests {
 
         // Moreover, the most negative voxel had two points, (-5.9, -5.0, -4.0) and (-6.0, -5.0, -4.0)
         // Meaning there should be a voxel resulting in the elements' centroid
-        assert!(res
-            .iter()
-            .any(|element| *element == Point3::new(-5.95, -5.0, -3.95)));
+        assert!(
+            res.iter()
+                .any(|element| *element == Point3::new(-5.95, -5.0, -3.95))
+        );
     }
 }

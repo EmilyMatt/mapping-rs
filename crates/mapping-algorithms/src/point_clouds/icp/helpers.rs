@@ -27,7 +27,7 @@ use nalgebra::{
 };
 use num_traits::{AsPrimitive, NumOps, Zero};
 
-use crate::{array, point_clouds::calculate_point_cloud_center, utils::distance_squared, Sum};
+use crate::{Sum, array, point_clouds::calculate_point_cloud_center, utils::distance_squared};
 
 /// Calculates the Mean Squared Error between two point clouds.
 ///

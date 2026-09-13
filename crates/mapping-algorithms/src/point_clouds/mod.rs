@@ -23,12 +23,12 @@
 
 pub use downsample::downsample_point_cloud_voxel;
 pub use icp::{
-    icp, icp_iteration, ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess,
+    ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess, icp, icp_iteration,
 };
 pub use lex_sort::{lex_sort, lex_sort_in_place, lex_sort_ref};
 pub use nearest_neighbour::find_nearest_neighbour_naive;
 
-use crate::{array, Vec};
+use crate::{Vec, array};
 use nalgebra::{
     AbstractRotation, ClosedAddAssign, ClosedDivAssign, Isometry, Point, RealField, Scalar,
 };

@@ -24,7 +24,7 @@
 use nalgebra::{Point, Scalar};
 use num_traits::{NumOps, Zero};
 
-use crate::{utils::distance_squared, Box, Ordering};
+use crate::{Box, Ordering, utils::distance_squared};
 
 #[derive(Clone, Debug, Default)]
 struct KDNode<T, const N: usize>
@@ -98,14 +98,12 @@ where
             best = self.internal_data;
         }
 
-        if (axis_distance * axis_distance) < distance_squared(&best, target) {
-            if let Some(opposite_best) =
+        if (axis_distance * axis_distance) < distance_squared(&best, target)
+            && let Some(opposite_best) =
                 opposite_branch.and_then(|branch| branch.nearest(target, depth + 1))
-            {
-                if distance_squared(&opposite_best, target) < distance_squared(&best, target) {
-                    return Some(opposite_best);
-                }
-            }
+            && distance_squared(&opposite_best, target) < distance_squared(&best, target)
+        {
+            return Some(opposite_best);
         }
 
         Some(best)
@@ -259,7 +257,7 @@ where
 mod tests {
     use nalgebra::{Point2, Point3};
 
-    use crate::{point_clouds::find_nearest_neighbour_naive, Vec};
+    use crate::{Vec, point_clouds::find_nearest_neighbour_naive};
 
     use super::*;
 

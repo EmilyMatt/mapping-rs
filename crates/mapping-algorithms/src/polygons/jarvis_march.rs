@@ -22,9 +22,9 @@
  */
 
 use nalgebra::{ComplexField, Point2, Scalar};
-use num_traits::{real::Real, AsPrimitive, NumAssign};
+use num_traits::{AsPrimitive, NumAssign, real::Real};
 
-use crate::{point_clouds::downsample_point_cloud_voxel, Ordering, Vec};
+use crate::{Ordering, Vec, point_clouds::downsample_point_cloud_voxel};
 
 use super::calculate_determinant;
 

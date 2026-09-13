@@ -26,9 +26,9 @@ use nalgebra::{ComplexField, Point2};
 use num_traits::{AsPrimitive, NumAssign};
 
 use crate::{
+    ToOwned, Vec, VecDeque,
     point_clouds::{downsample_point_cloud_voxel, lex_sort},
     types::IsNan,
-    ToOwned, Vec, VecDeque,
 };
 
 use super::calculate_determinant;
