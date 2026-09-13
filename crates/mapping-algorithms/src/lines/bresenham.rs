@@ -38,8 +38,6 @@ pub enum BresenhamError {
     NonFiniteCoordinate,
 }
 
-// Implemented manually rather than via `thiserror`, so that the message is also available
-// when compiling without the `std` feature.
 impl fmt::Display for BresenhamError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -75,8 +73,6 @@ pub struct BresenhamLine<F: RealField, T, const N: usize> {
     primary_axis: usize,
     threshold: F,
     remaining: usize,
-    // `T` is only ever produced, never stored, so this marker must not
-    // constrain the variance or auto-traits of the iterator itself.
     _output: PhantomData<fn() -> T>,
 }
 
@@ -125,8 +121,8 @@ where
             }
         });
 
-        // Deltas are absolute, so zero is a valid starting maximum;
-        // comparing with `>=` lets the last of several equal axes win, as `Iterator::max_by` would.
+        // Deltas are absolute, so zero is a valid starting maximum.
+        // comparing with `>=` lets the last of several equal axes win.
         let (primary_axis, primary_delta) = deltas.iter().enumerate().fold(
             (0, F::zero()),
             |(primary_axis, primary_delta), (idx, &delta)| {
@@ -195,13 +191,11 @@ impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> Iterator
     }
 }
 
-// The remaining step count is known upfront, and is decremented exactly once per yielded point.
 impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> ExactSizeIterator
     for BresenhamLine<F, T, N>
 {
 }
 
-// Once the step count is exhausted, `checked_sub` keeps returning `None`.
 impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> FusedIterator
     for BresenhamLine<F, T, N>
 {
