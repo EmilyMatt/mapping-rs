@@ -21,6 +21,6 @@
  * SOFTWARE.
  */
 
-pub use bresenham::plot_bresenham_line;
+pub use bresenham::{BresenhamError, BresenhamLine, plot_bresenham_line};
 
 mod bresenham;
