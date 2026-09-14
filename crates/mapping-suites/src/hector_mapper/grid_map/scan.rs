@@ -25,7 +25,7 @@ use mapping_algorithms::lines::{BresenhamError, BresenhamLine};
 use nalgebra::{ComplexField, Point, RealField};
 use num_traits::AsPrimitive;
 
-use super::{CellIndex, GridMap, GridMapError, GridMapResult, RayTermination};
+use super::{GridMap, GridMapError, GridMapResult, RayTermination};
 
 /// A scan-scoped update session over a [`GridMap`], from [`GridMap::begin_scan`].
 ///
@@ -63,9 +63,8 @@ where
     /// # Errors
     /// * [`GridMapError::OutOfBounds`]: naming the first offending axis. Use
     ///   [`update_ray`](Self::update_ray) for geometry expected to leave the map, which clips instead.
-    pub(crate) fn mark_free(&mut self, index: &CellIndex<N>) -> GridMapResult<()> {
-        self.map.linearize_checked(index)?;
-        self.map.mark_free_at(index);
+    pub(crate) fn mark_free(&mut self, index: &Point<isize, N>) -> GridMapResult<()> {
+        self.map.mark_free_at(index)?;
         Ok(())
     }
 
@@ -76,9 +75,8 @@ where
     ///
     /// # Errors
     /// * [`GridMapError::OutOfBounds`]: naming the first offending axis.
-    pub(crate) fn mark_occupied(&mut self, index: &CellIndex<N>) -> GridMapResult<()> {
-        self.map.linearize_checked(index)?;
-        self.map.mark_occupied_at(index);
+    pub(crate) fn mark_occupied(&mut self, index: &Point<isize, N>) -> GridMapResult<()> {
+        self.map.mark_occupied_at(index)?;
         Ok(())
     }
 
@@ -131,16 +129,19 @@ where
 
         let mut updated = 0;
         for cell in line {
-            updated += usize::from(self.map.mark_free_at(&previous));
+            updated += usize::from(self.map.mark_free_at(&previous).unwrap_or(false));
             previous = cell;
         }
 
         // A clipped endpoint is not where the beam really stopped, so it is evidence of free space
         // only; treating it as a return would plant a phantom obstacle on the map boundary.
-        updated += usize::from(match termination {
-            RayTermination::Hit if endpoint_is_inside => self.map.mark_occupied_at(&previous),
-            _ => self.map.mark_free_at(&previous),
-        });
+        updated += usize::from(
+            match termination {
+                RayTermination::Hit if endpoint_is_inside => self.map.mark_occupied_at(&previous),
+                _ => self.map.mark_free_at(&previous),
+            }
+            .unwrap_or(false),
+        );
 
         Ok(updated)
     }
@@ -601,7 +602,7 @@ mod tests {
 
         assert_eq!(updated, 0);
         assert!(
-            grid.iter_log_odds().all(|odds| odds == 0.0),
+            grid.odds.iter().all(|&odds| odds == 0.0),
             "row 7 must not absorb a beam that travelled along row 8"
         );
     }
@@ -641,7 +642,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(updated, 0);
-        assert!(grid.iter_log_odds().all(|odds| odds == 0.0));
+        assert!(grid.odds.iter().all(|&odds| odds == 0.0));
     }
 
     #[test]
@@ -671,7 +672,7 @@ mod tests {
         }
 
         assert!(
-            grid.iter_log_odds().all(|odds| odds == 0.0),
+            grid.odds.iter().all(|&odds| odds == 0.0),
             "a rejected beam must not have written anything, least of all to the origin cell"
         );
     }

@@ -22,7 +22,7 @@
  */
 
 pub(crate) use scan::ScanUpdater;
-pub(crate) use types::{CellIndex, GridMapConfig, MapSample, RayTermination};
+pub(crate) use types::{GridMapConfig, MapSample, RayTermination};
 pub use types::{GridMapError, GridMapResult};
 
 use nalgebra::{ComplexField, Point, RealField, SVector};
@@ -142,14 +142,6 @@ where
     fn log_odds_bounds(&self) -> RangeInclusive<T> {
         self.min_log_odds..=self.max_log_odds
     }
-
-    /// Iterates the log-odds of every cell, with axis `0` varying fastest.
-    ///
-    /// # Returns
-    /// An [`ExactSizeIterator`] of `T` of length [`cell_count`](Self::cell_count).
-    fn iter_log_odds(&self) -> impl ExactSizeIterator<Item = T> + '_ {
-        self.odds.iter().copied()
-    }
 }
 
 // Addressing. Every read and write in the crate funnels through these functions.
@@ -167,36 +159,16 @@ where
     /// * `index`: the cell to resolve, which may be negative or out of range.
     ///
     /// # Returns
-    /// An [`Option`] of [`prim@usize`], or [`None`] if any axis is out of range.
-    #[inline]
-    fn linearize(&self, index: &CellIndex<N>) -> Option<usize> {
-        let mut linear = 0usize;
-        for axis in 0..N {
-            // Reinterpreting as unsigned folds the negative test into the upper-bound test: any
-            // negative value becomes enormous and fails the very same comparison.
-            let coordinate = index[axis].cast_unsigned();
-            if coordinate >= self.dimensions[axis] {
-                return None;
-            }
-            linear += coordinate * self.strides[axis];
-        }
-        Some(linear)
-    }
-
-    /// As [`linearize`](Self::linearize), but naming the axis that failed.
-    ///
-    /// # Arguments
-    /// * `index`: the cell to resolve, which may be negative or out of range.
-    ///
-    /// # Returns
     /// A [`prim@usize`], the flat index.
     ///
     /// # Errors
     /// * [`GridMapError::OutOfBounds`]: naming the first failing axis in ascending order.
     #[inline]
-    fn linearize_checked(&self, index: &CellIndex<N>) -> GridMapResult<usize> {
+    fn translate_to_index(&self, index: &Point<isize, N>) -> GridMapResult<usize> {
         let mut linear = 0usize;
         for axis in 0..N {
+            // Reinterpreting as unsigned folds the negative test into the upper-bound test: any
+            // negative value becomes enormous and fails the very same comparison.
             let coordinate = index[axis].cast_unsigned();
             if coordinate >= self.dimensions[axis] {
                 return Err(GridMapError::OutOfBounds {
@@ -207,6 +179,7 @@ where
             }
             linear += coordinate * self.strides[axis];
         }
+
         Ok(linear)
     }
 
@@ -260,13 +233,13 @@ where
     /// * `point`: a position in fractional cell coordinates.
     ///
     /// # Returns
-    /// The [`CellIndex`] whose cell contains `point`.
+    /// The [`Point<isize, N>`] whose cell contains `point`.
     ///
     /// # Errors
     /// * [`GridMapError::NonFiniteCoordinate`]: if any coordinate is NaN or infinite.
     /// * [`GridMapError::OutOfBounds`]: naming the first axis outside the map.
-    pub(crate) fn cell_containing(&self, point: &Point<T, N>) -> GridMapResult<CellIndex<N>> {
-        let mut index = CellIndex::<N>::origin();
+    pub(crate) fn cell_containing(&self, point: &Point<T, N>) -> GridMapResult<Point<isize, N>> {
+        let mut index = Point::<isize, N>::origin();
         for axis in 0..N {
             let coordinate = point[axis];
             if !ComplexField::is_finite(&coordinate) {
@@ -276,6 +249,7 @@ where
             let extent = self.dimensions[axis];
             // A coordinate of exactly `extent` is already past the last cell, so the valid
             // fractional range is half-open.
+
             if !(T::zero()..extent.as_()).contains(&coordinate) {
                 return Err(GridMapError::OutOfBounds {
                     axis,
@@ -417,8 +391,10 @@ where
     /// # Returns
     /// An [`Option`] of `T`, or [`None`] if `index` lies outside the map.
     #[inline]
-    pub(crate) fn log_odds_at(&self, index: &CellIndex<N>) -> Option<T> {
-        self.linearize(index).map(|linear| self.odds[linear])
+    pub(crate) fn log_odds_at(&self, index: &Point<isize, N>) -> Option<T> {
+        self.translate_to_index(index)
+            .ok()
+            .map(|linear| self.odds[linear])
     }
 
     /// Reads the occupancy probability of a single cell.
@@ -430,7 +406,7 @@ where
     /// An [`Option`] of `T` in the range `0.0..=1.0`, or [`None`] if `index` lies outside the map.
     /// An unwritten cell reads as exactly one half.
     #[inline]
-    pub(crate) fn probability_at(&self, index: &CellIndex<N>) -> Option<T> {
+    pub(crate) fn probability_at(&self, index: &Point<isize, N>) -> Option<T> {
         self.log_odds_at(index).map(Self::logistic)
     }
 
@@ -442,8 +418,12 @@ where
     ///
     /// # Errors
     /// * [`GridMapError::OutOfBounds`]: naming the first offending axis.
-    pub(crate) fn set_log_odds(&mut self, index: &CellIndex<N>, log_odds: T) -> GridMapResult<()> {
-        let linear = self.linearize_checked(index)?;
+    pub(crate) fn set_log_odds(
+        &mut self,
+        index: &Point<isize, N>,
+        log_odds: T,
+    ) -> GridMapResult<()> {
+        let linear = self.translate_to_index(index)?;
         self.odds[linear] = log_odds.clamp(self.min_log_odds, self.max_log_odds);
         Ok(())
     }
@@ -460,7 +440,7 @@ where
     ///   and one, since either endpoint is infinite in log-odds.
     pub(crate) fn set_probability(
         &mut self,
-        index: &CellIndex<N>,
+        index: &Point<isize, N>,
         probability: T,
     ) -> GridMapResult<()> {
         if !(probability > T::zero() && probability < T::one()) {
@@ -626,19 +606,20 @@ where
     ///
     /// # Returns
     /// A [`prim@bool`], whether the cell was updated.
+    ///
+    /// # Errors
+    /// * [`GridMapError::OutOfBounds`]: naming the first offending axis.
     #[inline]
-    fn mark_free_at(&mut self, index: &CellIndex<N>) -> bool {
-        let Some(linear) = self.linearize(index) else {
-            return false;
-        };
+    fn mark_free_at(&mut self, index: &Point<isize, N>) -> GridMapResult<bool> {
+        let linear = self.translate_to_index(index)?;
         if self.last_frame_to_update[linear] >> 1 == self.frame {
-            return false;
+            return Ok(false);
         }
 
         self.last_frame_to_update[linear] = self.frame << 1;
         self.odds[linear] =
             (self.odds[linear] + self.free_delta).clamp(self.min_log_odds, self.max_log_odds);
-        true
+        Ok(true)
     }
 
     /// Records that a beam terminated in a cell, applying the occupied increment.
@@ -652,15 +633,16 @@ where
     ///
     /// # Returns
     /// A [`prim@bool`], whether the cell was updated.
+    ///
+    /// # Errors
+    /// * [`GridMapError::OutOfBounds`]: naming the first offending axis.
     #[inline]
-    fn mark_occupied_at(&mut self, index: &CellIndex<N>) -> bool {
-        let Some(linear) = self.linearize(index) else {
-            return false;
-        };
+    fn mark_occupied_at(&mut self, index: &Point<isize, N>) -> GridMapResult<bool> {
+        let linear = self.translate_to_index(index)?;
 
         let current = self.frame << 1;
         let delta = if self.last_frame_to_update[linear] == current | 1 {
-            return false;
+            return Ok(false);
         } else if self.last_frame_to_update[linear] == current {
             // Marked free earlier in this scan, so retract that first: the free increment is
             // negative, and subtracting it adds its magnitude back.
@@ -682,7 +664,7 @@ where
 
         self.last_frame_to_update[linear] = current | 1;
         self.odds[linear] = (self.odds[linear] + delta).clamp(self.min_log_odds, self.max_log_odds);
-        true
+        Ok(true)
     }
 }
 
@@ -739,14 +721,13 @@ mod tests {
 
         assert_eq!(grid.dimensions, [3, 5, 7]);
         assert_eq!(grid.odds.len(), 105);
-        assert_eq!(grid.iter_log_odds().len(), 105);
     }
 
     #[test]
     fn test_new_initialises_every_cell_to_unknown() {
         let grid = map([3usize, 5]);
 
-        assert!(grid.iter_log_odds().all(|odds| odds == 0.0));
+        assert!(grid.odds.iter().all(|&odds| odds == 0.0));
         assert_eq!(
             grid.probability_at(&Point2::new(1, 2)),
             Some(0.5),
@@ -781,7 +762,7 @@ mod tests {
 
         for y in 0..5 {
             for x in 0..3 {
-                seen.push(grid.linearize(&Point2::new(x, y)).unwrap());
+                seen.push(grid.translate_to_index(&Point2::new(x, y)).unwrap());
             }
         }
 
@@ -799,7 +780,7 @@ mod tests {
         for z in 0..7 {
             for y in 0..5 {
                 for x in 0..3 {
-                    seen.push(grid.linearize(&Point3::new(x, y, z)).unwrap());
+                    seen.push(grid.translate_to_index(&Point3::new(x, y, z)).unwrap());
                 }
             }
         }
@@ -818,17 +799,17 @@ mod tests {
     fn test_row_wrap_is_rejected() {
         let mut grid = map([4usize, 4]);
         let aliased = Point2::new(0, 1);
-        assert_eq!(grid.linearize(&aliased), Some(4));
+        assert_eq!(grid.translate_to_index(&aliased), Ok(4));
 
-        assert_eq!(grid.linearize(&Point2::new(4, 0)), None);
         assert_eq!(
-            grid.set_log_odds(&Point2::new(4, 0), 1.0).unwrap_err(),
+            grid.translate_to_index(&Point2::new(4, 0)).unwrap_err(),
             GridMapError::OutOfBounds {
                 axis: 0,
                 index: 4,
                 extent: 4
             }
         );
+        assert!(grid.set_log_odds(&Point2::new(4, 0), 1.0).is_err());
         assert_eq!(
             grid.log_odds_at(&aliased),
             Some(0.0),
@@ -840,10 +821,17 @@ mod tests {
     fn test_column_wrap_is_rejected_3d() {
         let mut grid = map([4usize, 4, 4]);
         let aliased = Point3::new(0, 0, 1);
-        assert_eq!(grid.linearize(&aliased), Some(16));
+        assert_eq!(grid.translate_to_index(&aliased), Ok(16));
 
         // [0, 4, 0] sums to 16, which is the valid cell one slab along.
-        assert_eq!(grid.linearize(&Point3::new(0, 4, 0)), None);
+        assert_eq!(
+            grid.translate_to_index(&Point3::new(0, 4, 0)).unwrap_err(),
+            GridMapError::OutOfBounds {
+                axis: 1,
+                index: 4,
+                extent: 4
+            }
+        );
         assert!(grid.set_log_odds(&Point3::new(0, 4, 0), 1.0).is_err());
         assert_eq!(grid.log_odds_at(&aliased), Some(0.0));
     }
@@ -852,8 +840,20 @@ mod tests {
     fn test_negative_index_is_rejected_not_wrapped() {
         let grid = map([4usize, 4]);
 
-        for index in [Point2::new(-1, 0), Point2::new(0, -1), Point2::new(-1, -1)] {
-            assert_eq!(grid.linearize(&index), None);
+        for (index, axis) in [
+            (Point2::new(-1, 0), 0),
+            (Point2::new(0, -1), 1),
+            (Point2::new(-1, -1), 0),
+        ] {
+            assert_eq!(
+                grid.translate_to_index(&index).unwrap_err(),
+                GridMapError::OutOfBounds {
+                    axis,
+                    index: index[axis],
+                    extent: 4
+                },
+                "a negative index must fail on its own axis, not wrap onto another"
+            );
             assert_eq!(grid.log_odds_at(&index), None);
         }
     }
@@ -863,7 +863,7 @@ mod tests {
         let grid = map([4usize, 5, 6]);
 
         assert_eq!(
-            grid.linearize_checked(&Point3::new(9, 9, 9)).unwrap_err(),
+            grid.translate_to_index(&Point3::new(9, 9, 9)).unwrap_err(),
             GridMapError::OutOfBounds {
                 axis: 0,
                 index: 9,
@@ -872,7 +872,7 @@ mod tests {
             "axes are checked in ascending order"
         );
         assert_eq!(
-            grid.linearize_checked(&Point3::new(0, 9, 9)).unwrap_err(),
+            grid.translate_to_index(&Point3::new(0, 9, 9)).unwrap_err(),
             GridMapError::OutOfBounds {
                 axis: 1,
                 index: 9,
@@ -880,7 +880,7 @@ mod tests {
             }
         );
         assert_eq!(
-            grid.linearize_checked(&Point3::new(0, 0, -3)).unwrap_err(),
+            grid.translate_to_index(&Point3::new(0, 0, -3)).unwrap_err(),
             GridMapError::OutOfBounds {
                 axis: 2,
                 index: -3,
@@ -993,17 +993,17 @@ mod tests {
 
         grid.reset();
 
-        assert!(grid.iter_log_odds().all(|odds| odds == 0.0));
+        assert!(grid.odds.iter().all(|&odds| odds == 0.0));
         assert_eq!(grid.dimensions, [4, 4], "the shape must survive a reset");
     }
 
     #[test]
-    fn test_iter_log_odds_order_is_axis_zero_fastest() {
+    fn test_cell_layout_is_axis_zero_fastest() {
         let mut grid = map([3usize, 5]);
         grid.set_log_odds(&Point2::new(1, 0), 1.0).unwrap();
         grid.set_log_odds(&Point2::new(0, 1), 2.0).unwrap();
 
-        let odds = grid.iter_log_odds().collect::<Vec<_>>();
+        let odds = grid.odds.to_vec();
         assert_eq!(odds.len(), 15);
         assert_eq!(odds[1], 1.0, "a step along axis 0 moves one element");
         assert_eq!(

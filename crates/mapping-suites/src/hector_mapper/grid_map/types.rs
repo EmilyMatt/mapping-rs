@@ -22,19 +22,10 @@
  */
 
 use mapping_algorithms::lines::BresenhamError;
-use nalgebra::{Point, RealField, SVector};
+use nalgebra::{RealField, SVector};
 use num_traits::AsPrimitive;
 
 use crate::fmt;
-
-/// An index addressing a single cell of a grid map.
-///
-/// Signed, so that cells below the map origin are representable and can therefore be rejected
-/// rather than wrapping.
-///
-/// # Generics
-/// * `N`: a usize, representing the number of dimensions.
-pub(crate) type CellIndex<const N: usize> = Point<isize, N>;
 
 /// An error type containing the various errors that might arise while building or updating an
 /// occupancy grid, when compiling with the `std` feature, it will also derive
@@ -240,9 +231,11 @@ impl<T: Copy + RealField> GridMapConfig<T> {
         if !(self.occupied_probability > half && self.occupied_probability < T::one()) {
             return Err(GridMapError::InvalidOccupiedProbability);
         }
+
         if !(self.free_probability > T::zero() && self.free_probability < half) {
             return Err(GridMapError::InvalidFreeProbability);
         }
+
         if !(self.max_confidence > half && self.max_confidence < T::one()) {
             return Err(GridMapError::InvalidMaxConfidence);
         }
