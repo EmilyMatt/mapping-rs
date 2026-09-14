@@ -25,12 +25,11 @@ pub(crate) use scan::ScanUpdater;
 pub(crate) use types::{CellIndex, GridMapConfig, MapSample, RayTermination};
 pub use types::{GridMapError, GridMapResult};
 
-use nalgebra::{ComplexField, Point, RealField};
+use nalgebra::{ComplexField, Point, RealField, SVector};
 use num_traits::AsPrimitive;
 
 use crate::{Box, Vec, array, fmt, ops::RangeInclusive};
 
-mod kernels;
 mod scan;
 mod types;
 
@@ -41,7 +40,7 @@ mod types;
 ///
 /// # Generics
 /// * `T`: Either an [`prim@f32`] or [`prim@f64`].
-/// * `N`: a usize, representing the number of dimensions. Sampling requires `2` or `3`.
+/// * `N`: a usize, representing the number of dimensions.
 #[derive(Clone, PartialEq)]
 pub(crate) struct GridMap<T, const N: usize> {
     /// Flat log-odds array; the interpolation hot path reads only this.
@@ -228,7 +227,7 @@ where
 
     /// Locates the low corner of the `2^N` interpolation stencil containing a point.
     ///
-    /// Verifying the stencil once here is what lets the kernels read all `2^N` corners unchecked.
+    /// Verifying the stencil once here is what lets the sampler address all `2^N` corners directly.
     ///
     /// # Arguments
     /// * `point`: a position in fractional cell coordinates.
@@ -254,9 +253,9 @@ where
 
             // The very top of the domain has no cell above it to interpolate against. Folding it
             // into the last stencil at full weight keeps the domain a closed interval and yields
-            // the same value, and it is what stops the kernels' paired load from running off the
-            // end of the row into the *next* one, which would silently produce a neighbour from
-            // the wrong line and a meaningless gradient.
+            // the same value, and it is what stops the corner gather from running off the end of
+            // the row into the *next* one, which would silently produce a neighbour from the wrong
+            // line and a meaningless gradient.
             if cell + 1 >= self.dimensions[axis] {
                 cell = self.dimensions[axis] - 2;
                 offset = T::one();
@@ -342,6 +341,87 @@ where
             value: probability,
             gradient: sample.gradient * (probability * (T::one() - probability)),
         }
+    }
+
+    /// Multilinearly interpolates the log-odds field and its analytic gradient.
+    ///
+    /// The value is a weighted sum over the `2^N` corners of the stencil containing `point`, and
+    /// each gradient component is the same sum over the differences across that axis, with the
+    /// axis's own weight left out. Performs no transcendental operations.
+    ///
+    /// # Arguments
+    /// * `point`: a position in fractional cell coordinates.
+    ///
+    /// # Returns
+    /// An [`Option`] of [`MapSample`], or [`None`] if `point` is non-finite or outside the map.
+    ///
+    /// # Warnings
+    /// This interpolates log-odds and sigmoids afterwards, whereas Hector SLAM interpolates
+    /// already-sigmoided probabilities. The fields agree only at cell corners, so gains and
+    /// thresholds taken from such an implementation do not carry over unscaled.
+    pub(crate) fn sample_log_odds(&self, point: &Point<T, N>) -> Option<MapSample<T, N>> {
+        let (base, frac) = self.stencil_base(point)?;
+
+        // A corner is a bit pattern: bit `axis` set means the high side of that axis. The stencil
+        // has been proven in range, so every index built this way addresses a real cell.
+        let corner_odds = |corner: usize| -> T {
+            self.odds[(0..N).fold(base, |acc, axis| {
+                acc + if corner >> axis & 1 == 1 {
+                    self.strides[axis]
+                } else {
+                    0
+                }
+            })]
+        };
+
+        // The product of the per-axis weights, optionally leaving one axis out; omitting axis `k`
+        // is what turns the value's weighted sum into its derivative along `k`.
+        let weight = |corner: usize, skip: Option<usize>| -> T {
+            (0..N)
+                .filter(|axis| Some(*axis) != skip)
+                .fold(T::one(), |acc, axis| {
+                    acc * if corner >> axis & 1 == 1 {
+                        frac[axis]
+                    } else {
+                        T::one() - frac[axis]
+                    }
+                })
+        };
+
+        let corners = 1usize << N;
+        let value = (0..corners).fold(T::zero(), |acc, corner| {
+            acc + weight(corner, None) * corner_odds(corner)
+        });
+
+        let mut gradient = SVector::<T, N>::zeros();
+        for axis in 0..N {
+            // Pair every low corner with its neighbour across `axis`; the difference between the
+            // two is that edge's derivative.
+            gradient[axis] = (0..corners).filter(|corner| corner >> axis & 1 == 0).fold(
+                T::zero(),
+                |acc, corner| {
+                    acc + weight(corner, Some(axis))
+                        * (corner_odds(corner | (1 << axis)) - corner_odds(corner))
+                },
+            );
+        }
+
+        Some(MapSample { value, gradient })
+    }
+
+    /// Multilinearly interpolates the log-odds field, then maps it through the logistic function.
+    ///
+    /// Costs one exponential per query rather than one per corner. See the warning on
+    /// [`sample_log_odds`](Self::sample_log_odds).
+    ///
+    /// # Arguments
+    /// * `point`: a position in fractional cell coordinates.
+    ///
+    /// # Returns
+    /// An [`Option`] of [`MapSample`] whose value is a probability in the range `0.0..=1.0`, or
+    /// [`None`] if `point` is non-finite or outside the map.
+    pub(crate) fn sample_probability(&self, point: &Point<T, N>) -> Option<MapSample<T, N>> {
+        self.sample_log_odds(point).map(Self::sample_to_probability)
     }
 
     /// Reads the log-odds of a single cell.
@@ -1016,5 +1096,372 @@ mod tests {
         assert_eq!(entry, Point3::new(0.0, 5.0, 5.0));
         assert_eq!(exit, Point3::new(9.5, 5.0, 5.0));
         assert!(!inside);
+    }
+
+    /// A small deterministic generator, so the differential tests are reproducible without
+    /// pulling `rand` into this crate.
+    struct Lcg(u64);
+
+    impl Lcg {
+        fn next_unit(&mut self) -> f64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((self.0 >> 11) as f64) / ((1u64 << 53) as f64)
+        }
+    }
+
+    /// Fills a map with pseudo-random log-odds spanning most of the clamp band.
+    fn noisy_map<const N: usize>(dimensions: [usize; N], seed: u64) -> GridMap<f64, N> {
+        let mut grid = GridMap::<f64, N>::new(dimensions, &GridMapConfig::default()).unwrap();
+        let mut rng = Lcg(seed);
+        for cell in grid.odds.iter_mut() {
+            *cell = rng.next_unit() * 6.0 - 3.0;
+        }
+        grid
+    }
+
+    #[test]
+    fn test_bilinear_matches_hand_computed() {
+        let mut grid = GridMap::<f64, 2>::new([2, 2], &GridMapConfig::default()).unwrap();
+        grid.set_log_odds(&Point2::new(0, 0), 0.1).unwrap();
+        grid.set_log_odds(&Point2::new(1, 0), 0.2).unwrap();
+        grid.set_log_odds(&Point2::new(0, 1), 0.3).unwrap();
+        grid.set_log_odds(&Point2::new(1, 1), 0.4).unwrap();
+
+        // lower = 0.1 + 0.1*0.25 = 0.125; upper = 0.3 + 0.1*0.25 = 0.325
+        // value = 0.125 + (0.325 - 0.125)*0.75 = 0.275
+        let sample = grid.sample_log_odds(&Point2::new(0.25, 0.75)).unwrap();
+        assert!((sample.value - 0.275).abs() < 1e-12);
+        assert!((sample.gradient[0] - 0.1).abs() < 1e-12);
+        assert!((sample.gradient[1] - 0.2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_trilinear_matches_hand_computed() {
+        let mut grid = GridMap::<f64, 3>::new([2, 2, 2], &GridMapConfig::default()).unwrap();
+        for z in 0..2 {
+            for y in 0..2 {
+                for x in 0..2 {
+                    let value = 0.1 * f64::from(1 + x + 2 * y + 4 * z);
+                    grid.set_log_odds(&Point3::new(x as isize, y as isize, z as isize), value)
+                        .unwrap();
+                }
+            }
+        }
+
+        // At the stencil centre the value is the mean of all eight corners.
+        let sample = grid.sample_log_odds(&Point3::new(0.5, 0.5, 0.5)).unwrap();
+        assert!((sample.value - 0.45).abs() < 1e-12);
+        assert!((sample.gradient[0] - 0.1).abs() < 1e-12);
+        assert!((sample.gradient[1] - 0.2).abs() < 1e-12);
+        assert!((sample.gradient[2] - 0.4).abs() < 1e-12);
+    }
+
+    /// On a field that is exactly linear, interpolation must be exact and the gradient constant.
+    #[test]
+    fn test_linear_ramp_is_exact_with_constant_gradient() {
+        let mut grid = GridMap::<f64, 2>::new([8, 8], &GridMapConfig::default()).unwrap();
+        let ramp = |x: f64, y: f64| 0.25 * x - 0.125 * y + 0.5;
+
+        for y in 0..8 {
+            for x in 0..8 {
+                grid.set_log_odds(
+                    &Point2::new(x as isize, y as isize),
+                    ramp(f64::from(x), f64::from(y)),
+                )
+                .unwrap();
+            }
+        }
+
+        let mut rng = Lcg(0x1234);
+        for _ in 0..500 {
+            let (x, y) = (rng.next_unit() * 7.0, rng.next_unit() * 7.0);
+            let sample = grid.sample_log_odds(&Point2::new(x, y)).unwrap();
+
+            assert!((sample.value - ramp(x, y)).abs() < 1e-12);
+            assert!((sample.gradient[0] - 0.25).abs() < 1e-12);
+            assert!((sample.gradient[1] - -0.125).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn test_value_is_exact_at_integer_coordinates() {
+        let grid = noisy_map([6usize, 6], 0xABCD);
+
+        for y in 0..5 {
+            for x in 0..5 {
+                let sample = grid
+                    .sample_log_odds(&Point2::new(f64::from(x), f64::from(y)))
+                    .unwrap();
+                let cell = grid
+                    .log_odds_at(&Point2::new(x as isize, y as isize))
+                    .unwrap();
+                assert!((sample.value - cell).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn test_gradient_matches_central_differences_2d() {
+        let grid = noisy_map([9usize, 9], 0x2222);
+        let step = 1e-5;
+        let mut rng = Lcg(0x3333);
+
+        for _ in 0..500 {
+            let point = Point2::new(1.0 + rng.next_unit() * 6.0, 1.0 + rng.next_unit() * 6.0);
+            let sample = grid.sample_log_odds(&point).unwrap();
+
+            for axis in 0..2 {
+                let (mut low, mut high) = (point, point);
+                low[axis] -= step;
+                high[axis] += step;
+                let numeric = (grid.sample_log_odds(&high).unwrap().value
+                    - grid.sample_log_odds(&low).unwrap().value)
+                    / (2.0 * step);
+
+                assert!(
+                    (sample.gradient[axis] - numeric).abs() < 1e-6,
+                    "axis {axis} at {point:?}: {} vs {numeric}",
+                    sample.gradient[axis]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_gradient_matches_central_differences_3d() {
+        let grid = noisy_map([7usize, 7, 7], 0x4444);
+        let step = 1e-5;
+        let mut rng = Lcg(0x5555);
+
+        for _ in 0..500 {
+            let point = Point3::new(
+                1.0 + rng.next_unit() * 4.0,
+                1.0 + rng.next_unit() * 4.0,
+                1.0 + rng.next_unit() * 4.0,
+            );
+            let sample = grid.sample_log_odds(&point).unwrap();
+
+            for axis in 0..3 {
+                let (mut low, mut high) = (point, point);
+                low[axis] -= step;
+                high[axis] += step;
+                let numeric = (grid.sample_log_odds(&high).unwrap().value
+                    - grid.sample_log_odds(&low).unwrap().value)
+                    / (2.0 * step);
+
+                assert!(
+                    (sample.gradient[axis] - numeric).abs() < 1e-6,
+                    "axis {axis}"
+                );
+            }
+        }
+    }
+
+    /// A non-square map whose field varies along x alone. A transposed stride would show up here
+    /// as a gradient pointing the wrong way, which a square map would hide.
+    #[test]
+    fn test_gradient_axis_order_2d() {
+        let mut grid = GridMap::<f64, 2>::new([3, 9], &GridMapConfig::default()).unwrap();
+        for y in 0..9 {
+            for x in 0..3 {
+                grid.set_log_odds(&Point2::new(x, y as isize), 0.5 * x as f64)
+                    .unwrap();
+            }
+        }
+
+        let sample = grid.sample_log_odds(&Point2::new(1.5, 4.5)).unwrap();
+        assert!((sample.gradient[0] - 0.5).abs() < 1e-12);
+        assert!(sample.gradient[1].abs() < 1e-12);
+    }
+
+    /// Interpolation needs a neighbour on the far side, so the usable domain stops at
+    /// `dimensions[axis] - 1`, inclusive. The final row contributes only its low corner.
+    #[test]
+    fn test_sample_at_upper_domain_edge_is_inclusive() {
+        let grid = noisy_map([4usize, 4], 0x6666);
+
+        assert!(grid.sample_log_odds(&Point2::new(3.0, 3.0)).is_some());
+        assert!(grid.sample_log_odds(&Point2::new(3.0001, 3.0)).is_none());
+        assert!(grid.sample_log_odds(&Point2::new(3.0, 3.0001)).is_none());
+        assert!(grid.sample_log_odds(&Point2::new(4.0, 1.0)).is_none());
+    }
+
+    #[test]
+    fn test_sample_at_upper_domain_edge_is_inclusive_3d() {
+        let grid = noisy_map([4usize, 5, 6], 0x7777);
+
+        assert!(grid.sample_log_odds(&Point3::new(3.0, 4.0, 5.0)).is_some());
+        assert!(
+            grid.sample_log_odds(&Point3::new(3.0, 4.0, 5.0001))
+                .is_none()
+        );
+    }
+
+    /// `f64::NAN as usize` is zero, so an unchecked cast would sample the map origin and return a
+    /// plausible number for a meaningless query.
+    #[test]
+    fn test_sample_rejects_non_finite_coordinate() {
+        let grid = noisy_map([8usize, 8], 0x8888);
+
+        for point in [
+            Point2::new(f64::NAN, 2.0),
+            Point2::new(2.0, f64::NAN),
+            Point2::new(f64::INFINITY, 2.0),
+            Point2::new(2.0, f64::NEG_INFINITY),
+        ] {
+            assert!(grid.sample_log_odds(&point).is_none(), "{point:?}");
+            assert!(grid.sample_probability(&point).is_none(), "{point:?}");
+        }
+    }
+
+    #[test]
+    fn test_sample_rejects_non_finite_coordinate_3d() {
+        let grid = noisy_map([6usize, 6, 6], 0x9999);
+        assert!(
+            grid.sample_log_odds(&Point3::new(1.0, f64::NAN, 1.0))
+                .is_none()
+        );
+    }
+
+    /// Truncation toward zero would fold any coordinate in `(-1, 0)` into cell zero, so a point
+    /// just off the low corner must be rejected rather than silently clamped inward.
+    #[test]
+    fn test_sample_rejects_negative_coordinate() {
+        let grid = noisy_map([8usize, 8], 0xAAAA);
+
+        assert!(grid.sample_log_odds(&Point2::new(-0.5, 2.0)).is_none());
+        assert!(grid.sample_log_odds(&Point2::new(2.0, -0.5)).is_none());
+        assert!(grid.sample_log_odds(&Point2::new(-1e-9, 2.0)).is_none());
+        assert!(grid.sample_log_odds(&Point2::new(0.0, 2.0)).is_some());
+    }
+
+    #[test]
+    fn test_sample_probability_applies_the_chain_rule() {
+        let grid = noisy_map([8usize, 8], 0xBBBB);
+        let mut rng = Lcg(0xCCCC);
+
+        for _ in 0..500 {
+            let point = Point2::new(rng.next_unit() * 7.0, rng.next_unit() * 7.0);
+            let log_odds = grid.sample_log_odds(&point).unwrap();
+            let probability = grid.sample_probability(&point).unwrap();
+
+            let expected = 1.0 / (1.0 + (-log_odds.value).exp());
+            assert!((probability.value - expected).abs() < 1e-12);
+
+            // dP/dx = P * (1 - P) * dl/dx
+            let scale = expected * (1.0 - expected);
+            assert!((probability.gradient - log_odds.gradient * scale).norm() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn test_sample_probability_gradient_matches_central_differences() {
+        let grid = noisy_map([9usize, 9], 0xDDDD);
+        let step = 1e-5;
+        let mut rng = Lcg(0xEEEE);
+
+        for _ in 0..300 {
+            let point = Point2::new(1.0 + rng.next_unit() * 6.0, 1.0 + rng.next_unit() * 6.0);
+            let sample = grid.sample_probability(&point).unwrap();
+
+            for axis in 0..2 {
+                let (mut low, mut high) = (point, point);
+                low[axis] -= step;
+                high[axis] += step;
+                let numeric = (grid.sample_probability(&high).unwrap().value
+                    - grid.sample_probability(&low).unwrap().value)
+                    / (2.0 * step);
+
+                assert!(
+                    (sample.gradient[axis] - numeric).abs() < 1e-6,
+                    "axis {axis}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_sample_probability_3d_matches_logistic() {
+        let grid = noisy_map([5usize, 5, 5], 0xF0F0);
+        let point = Point3::new(1.25, 2.5, 3.75);
+
+        let log_odds = grid.sample_log_odds(&point).unwrap();
+        let probability = grid.sample_probability(&point).unwrap();
+
+        let expected = 1.0 / (1.0 + (-log_odds.value).exp());
+        assert!((probability.value - expected).abs() < 1e-12);
+        assert!(probability.value > 0.0 && probability.value < 1.0);
+    }
+
+    /// An unwritten map is uniform, so every gradient must vanish exactly.
+    #[test]
+    fn test_gradient_is_zero_in_a_uniform_field() {
+        let grid = GridMap::<f64, 2>::new([8, 8], &GridMapConfig::default()).unwrap();
+        let sample = grid.sample_log_odds(&Point2::new(3.25, 4.75)).unwrap();
+
+        assert_eq!(sample.value, 0.0);
+        assert_eq!(sample.gradient, SVector::<f64, 2>::zeros());
+        assert_eq!(
+            grid.sample_probability(&Point2::new(3.25, 4.75))
+                .unwrap()
+                .value,
+            0.5
+        );
+    }
+
+    /// A sample sitting exactly on the last column of an *interior* row is the dangerous case:
+    /// the neighbour gather would still succeed, having quietly walked into the next row, and
+    /// return a plausible value with a gradient built from a cell that is nowhere near the query.
+    /// The far corner merely fails; this one lies.
+    #[test]
+    fn test_upper_edge_does_not_borrow_the_next_row() {
+        let mut grid = GridMap::<f64, 2>::new([4, 4], &GridMapConfig::default()).unwrap();
+
+        // A field varying along x alone, so any leakage across a row boundary is unmistakable.
+        for y in 0..4 {
+            for x in 0..4 {
+                grid.set_log_odds(&Point2::new(x, y), f64::from(x as i32))
+                    .unwrap();
+            }
+        }
+
+        let sample = grid.sample_log_odds(&Point2::new(3.0, 1.0)).unwrap();
+
+        assert_eq!(
+            sample.value, 3.0,
+            "the value must be the cell itself, not a blend with the next row"
+        );
+        assert!(
+            (sample.gradient[0] - 1.0).abs() < 1e-12,
+            "the x gradient must come from cells (2,1) and (3,1); borrowing (0,2) would give -3"
+        );
+        assert!(sample.gradient[1].abs() < 1e-12);
+
+        // The same must hold along the other axis, and at the far corner of the map.
+        let corner = grid.sample_log_odds(&Point2::new(3.0, 3.0)).unwrap();
+        assert_eq!(corner.value, 3.0);
+        assert!((corner.gradient[0] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_upper_edge_does_not_borrow_the_next_slab_3d() {
+        let mut grid = GridMap::<f64, 3>::new([3, 3, 3], &GridMapConfig::default()).unwrap();
+        for z in 0..3 {
+            for y in 0..3 {
+                for x in 0..3 {
+                    grid.set_log_odds(&Point3::new(x, y, z), f64::from(y as i32))
+                        .unwrap();
+                }
+            }
+        }
+
+        let sample = grid.sample_log_odds(&Point3::new(1.0, 2.0, 1.0)).unwrap();
+        assert_eq!(sample.value, 2.0);
+        assert!(sample.gradient[0].abs() < 1e-12);
+        assert!((sample.gradient[1] - 1.0).abs() < 1e-12);
+        assert!(sample.gradient[2].abs() < 1e-12);
     }
 }
