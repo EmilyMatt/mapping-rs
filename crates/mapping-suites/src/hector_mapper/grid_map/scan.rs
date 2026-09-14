@@ -262,6 +262,105 @@ mod tests {
         assert!((grid.log_odds_at(&cell).unwrap() - occupied).abs() < 1e-6);
     }
 
+    /// The stamps exist so that a scan's outcome does not depend on the order its beams happened
+    /// to arrive in. A saturated cell is where that guarantee used to fail: the free update is
+    /// clamped away entirely, and retracting the full increment afterwards credited back evidence
+    /// the cell never absorbed, leaving `free`-then-`occupied` a whole `free_delta` above
+    /// `occupied`-then-`free`.
+    #[test]
+    fn test_occupied_after_free_at_the_floor_is_order_independent() {
+        let cell = Point2::new(1, 1);
+        let floor = *map([4, 4]).log_odds_bounds().start();
+
+        let saturated = || {
+            let mut grid = map([4, 4]);
+            grid.set_log_odds(&cell, floor).unwrap();
+            grid
+        };
+
+        let mut free_then_occupied = saturated();
+        {
+            let mut scan = free_then_occupied.begin_scan();
+            scan.mark_free(&cell).unwrap();
+            scan.mark_occupied(&cell).unwrap();
+        }
+
+        let mut occupied_then_free = saturated();
+        {
+            let mut scan = occupied_then_free.begin_scan();
+            scan.mark_occupied(&cell).unwrap();
+            scan.mark_free(&cell).unwrap();
+        }
+
+        let mut occupied_alone = saturated();
+        occupied_alone.begin_scan().mark_occupied(&cell).unwrap();
+
+        let (first, second, alone) = (
+            free_then_occupied.log_odds_at(&cell).unwrap(),
+            occupied_then_free.log_odds_at(&cell).unwrap(),
+            occupied_alone.log_odds_at(&cell).unwrap(),
+        );
+
+        assert!(
+            (first - second).abs() < 1e-6,
+            "beam order changed the result: {first} against {second}"
+        );
+        assert!(
+            (first - alone).abs() < 1e-6,
+            "a cell passed through and then terminated in must read as though only the return \
+             had been seen: {first} against {alone}"
+        );
+    }
+
+    /// What is recoverable off the floor. Within one `free_delta` of it the clamp has eaten an
+    /// unknown part of the free update, so the retraction cannot be exact; it must still never
+    /// credit back more than the cell absorbed, and never lose more than the increment itself.
+    #[test]
+    fn test_retraction_never_over_credits_a_clamped_free_update() {
+        let cell = Point2::new(1, 1);
+        let grid = map([4, 4]);
+        let (_, free) = increments(&grid);
+        let floor = *grid.log_odds_bounds().start();
+
+        for step in 0..=40u8 {
+            let pre = floor + (f32::from(step) / 40.0) * -floor;
+
+            let mut free_then_occupied = map([4, 4]);
+            free_then_occupied.set_log_odds(&cell, pre).unwrap();
+            {
+                let mut scan = free_then_occupied.begin_scan();
+                scan.mark_free(&cell).unwrap();
+                scan.mark_occupied(&cell).unwrap();
+            }
+
+            let mut occupied_alone = map([4, 4]);
+            occupied_alone.set_log_odds(&cell, pre).unwrap();
+            occupied_alone.begin_scan().mark_occupied(&cell).unwrap();
+
+            let (both, alone) = (
+                free_then_occupied.log_odds_at(&cell).unwrap(),
+                occupied_alone.log_odds_at(&cell).unwrap(),
+            );
+
+            assert!(
+                both <= alone + 1e-6,
+                "pre {pre}: a retracted free update must never leave the cell more occupied \
+                 than a lone return would: {both} against {alone}"
+            );
+            assert!(
+                both >= alone + free - 1e-6,
+                "pre {pre}: nor lose more than the free increment itself: {both} against {alone}"
+            );
+            // Clear of the floor by a full increment, nothing was clamped and it is exact.
+            if pre >= floor - free {
+                assert!(
+                    (both - alone).abs() < 1e-6,
+                    "pre {pre}: nothing was clamped here, so the retraction must be exact"
+                );
+            }
+        }
+    }
+
     #[test]
     fn test_same_cell_in_two_scans_applies_twice() {
         let mut grid = map([8, 8]);
@@ -287,7 +386,7 @@ mod tests {
         grid.force_frame(1);
         grid.begin_scan().mark_free(&cell).unwrap();
         let after_first = grid.log_odds_at(&cell).unwrap();
-        assert!(grid.stamps.iter().any(|&stamp| stamp != 0));
+        assert!(grid.last_frame_to_update.iter().any(|&stamp| stamp != 0));
 
         // Wrap: the counter returns to 1, so every stale stamp must be cleared.
         grid.force_frame(u32::MAX >> 1);
@@ -341,7 +440,7 @@ mod tests {
     }
 
     /// The regression test for an unbounded free cell. Without a lower clamp, ten thousand free
-    /// observations leave a cell at around -4000, needing thousands of contrary hits to recover —
+    /// observations leave a cell at around -4000, needing thousands of contrary hits to recover -
     /// a permanently blind cell, which defeats the point of a probabilistic grid.
     #[test]
     fn test_saturated_cell_recovers_under_opposite_updates() {
@@ -464,7 +563,7 @@ mod tests {
     }
 
     /// The endpoint of a clipped beam is not where the beam really stopped, so it carries no
-    /// evidence of occupancy — the same phantom-obstacle failure as a max-range return.
+    /// evidence of occupancy - the same phantom-obstacle failure as a max-range return.
     #[test]
     fn test_clipped_hit_endpoint_is_marked_free_not_occupied() {
         let mut grid = map([8, 8]);
@@ -483,6 +582,49 @@ mod tests {
                 "cell {x} is on the clipped run and must read free, obstacle-free"
             );
         }
+    }
+
+    /// A beam lying along the upper face is off the map, and the projection that keeps clipped
+    /// beams addressable must not be allowed to drag it back on.
+    #[test]
+    fn test_beam_on_the_upper_face_writes_nothing() {
+        let mut grid = map([8, 8]);
+
+        let updated = grid
+            .begin_scan()
+            .update_ray(
+                &Point2::new(2.0, 8.0),
+                &Point2::new(5.0, 8.0),
+                RayTermination::MaxRange,
+            )
+            .unwrap();
+
+        assert_eq!(updated, 0);
+        assert!(
+            grid.iter_log_odds().all(|odds| odds == 0.0),
+            "row 7 must not absorb a beam that travelled along row 8"
+        );
+    }
+
+    /// The phantom obstacle again, reached by the one route the clipped-endpoint rule missed: an
+    /// endpoint of exactly `extent` is never clipped, so it used to be reported as a genuine
+    /// return and marked the boundary cell occupied.
+    #[test]
+    fn test_hit_endpoint_on_the_upper_face_is_marked_free_not_occupied() {
+        let mut grid = map([8, 8]);
+
+        grid.begin_scan()
+            .update_ray(
+                &Point2::new(4.5, 4.5),
+                &Point2::new(8.0, 4.5),
+                RayTermination::Hit,
+            )
+            .unwrap();
+
+        assert!(
+            grid.log_odds_at(&Point2::new(7, 4)).unwrap() < 0.0,
+            "the beam stopped in cell 8, off the map; cell 7 saw it pass through and nothing more"
+        );
     }
 
     #[test]

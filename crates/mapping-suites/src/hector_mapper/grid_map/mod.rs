@@ -43,14 +43,12 @@ mod types;
 /// * `N`: a usize, representing the number of dimensions.
 #[derive(Clone, PartialEq)]
 pub(crate) struct GridMap<T, const N: usize> {
-    /// Flat log-odds array; the interpolation hot path reads only this.
+    /// Flat log-odds array - the interpolation hot path reads only this.
     odds: Box<[T]>,
-    /// Per-scan update stamps, encoded as `frame << 1 | marked_occupied`.
-    stamps: Box<[u32]>,
+    /// Encoded as `frame << 1 | marked_occupied`.
+    last_frame_to_update: Box<[u32]>,
     dimensions: [usize; N],
-    /// Per-axis linear-index strides.
     strides: [usize; N],
-    /// `dimensions[i] - 1` as `T`.
     interp_limits: [T; N],
     occupied_delta: T,
     free_delta: T,
@@ -124,7 +122,7 @@ where
 
         Ok(Self {
             odds: odds.into_boxed_slice(),
-            stamps: stamps.into_boxed_slice(),
+            last_frame_to_update: stamps.into_boxed_slice(),
             dimensions,
             strides: array::from_fn(|idx| dimensions.iter().take(idx).product()),
             interp_limits: array::from_fn(|idx| (dimensions[idx] - 1).as_()),
@@ -132,8 +130,7 @@ where
             free_delta,
             min_log_odds: -max_log_odds,
             max_log_odds,
-            // Stamps start at zero, so starting the counter at one means a never-written cell can
-            // never be mistaken for one written during the first scan.
+            // last_frame_to_update is zeroized, so we set this to 1 to immediately start updating.
             frame: 1,
         })
     }
@@ -152,18 +149,6 @@ where
     /// An [`ExactSizeIterator`] of `T` of length [`cell_count`](Self::cell_count).
     fn iter_log_odds(&self) -> impl ExactSizeIterator<Item = T> + '_ {
         self.odds.iter().copied()
-    }
-
-    /// Whether a cell lies inside the map.
-    ///
-    /// # Arguments
-    /// * `index`: the cell to test, which may be negative.
-    ///
-    /// # Returns
-    /// A [`prim@bool`], `true` if every coordinate is in range.
-    #[inline]
-    fn contains(&self, index: &CellIndex<N>) -> bool {
-        self.linearize(index).is_some()
     }
 }
 
@@ -488,7 +473,7 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument("Reset Grid Map", skip_all))]
     pub(crate) fn reset(&mut self) {
         self.odds.fill(T::zero());
-        self.stamps.fill(0);
+        self.last_frame_to_update.fill(0);
         self.frame = 1;
     }
 
@@ -510,7 +495,7 @@ where
         // a correctness backstop rather than an expected path, and without it a stale stamp would
         // eventually alias the current generation and silently skip that cell's update.
         if self.frame >= u32::MAX >> 1 {
-            self.stamps.fill(0);
+            self.last_frame_to_update.fill(0);
             self.frame = 1;
         } else {
             self.frame += 1;
@@ -563,7 +548,9 @@ where
 
             if delta.is_zero() {
                 // Parallel to this slab: either wholly inside it, or the segment misses entirely.
-                if origin[axis] < T::zero() || origin[axis] > extent {
+                // The upper bound is exclusive, matching `cell_containing`: a coordinate of
+                // exactly `extent` already lies in cell `extent`, which is off the map.
+                if origin[axis] < T::zero() || origin[axis] >= extent {
                     return None;
                 }
                 continue;
@@ -577,6 +564,21 @@ where
             exit_fraction = exit_fraction.min(far);
 
             if entry_fraction > exit_fraction {
+                return None;
+            }
+        }
+
+        let entry = origin + direction * entry_fraction;
+        let exit = origin + direction * exit_fraction;
+
+        // The slab test above intersects the *closed* box, whereas the addressable domain is
+        // half-open on every axis. A segment can therefore survive the clip while lying wholly
+        // within an upper face, addressing only cells off the map; the projection below would
+        // then slide it onto a row of real cells it never crossed. Both clipped endpoints being
+        // on the face is exactly that case, the segment between them being linear.
+        for axis in 0..N {
+            let extent: T = self.dimensions[axis].as_();
+            if entry[axis] >= extent && exit[axis] >= extent {
                 return None;
             }
         }
@@ -598,11 +600,20 @@ where
         };
 
         Some((
-            into_last_cell(origin + direction * entry_fraction),
-            into_last_cell(origin + direction * exit_fraction),
+            into_last_cell(entry),
+            into_last_cell(exit),
             // `exit_fraction` starts at one and only ever shrinks, so it is still exactly one
             // precisely when the caller's endpoint was never clipped away.
-            exit_fraction >= T::one(),
+            // An endpoint resting on an upper face escaped clipping too,
+            // but it addresses a cell off the map, so it is no more evidence of a return
+            // than a clipped endpoint is:
+            // reporting it as inside would plant a phantom obstacle in the boundary
+            // cell the projection lands it in.
+            exit_fraction >= T::one()
+                && (0..N).all(|axis| {
+                    let extent: T = self.dimensions[axis].as_();
+                    (T::zero()..extent).contains(&exit[axis])
+                }),
         ))
     }
 
@@ -620,11 +631,11 @@ where
         let Some(linear) = self.linearize(index) else {
             return false;
         };
-        if self.stamps[linear] >> 1 == self.frame {
+        if self.last_frame_to_update[linear] >> 1 == self.frame {
             return false;
         }
 
-        self.stamps[linear] = self.frame << 1;
+        self.last_frame_to_update[linear] = self.frame << 1;
         self.odds[linear] =
             (self.odds[linear] + self.free_delta).clamp(self.min_log_odds, self.max_log_odds);
         true
@@ -632,7 +643,9 @@ where
 
     /// Records that a beam terminated in a cell, applying the occupied increment.
     ///
-    /// Occupancy wins within a scan: an earlier free update on the same cell is retracted first.
+    /// Occupancy wins within a scan: an earlier free update on the same cell is retracted first,
+    /// exactly, unless the cell has saturated free - there what that update contributed is no
+    /// longer recoverable, and nothing is retracted.
     ///
     /// # Arguments
     /// * `index`: the cell observed as occupied.
@@ -646,17 +659,28 @@ where
         };
 
         let current = self.frame << 1;
-        let delta = if self.stamps[linear] == current | 1 {
+        let delta = if self.last_frame_to_update[linear] == current | 1 {
             return false;
-        } else if self.stamps[linear] == current {
-            // Marked free earlier in this scan; the free increment is negative, so subtracting it
-            // adds its magnitude back.
-            self.occupied_delta - self.free_delta
+        } else if self.last_frame_to_update[linear] == current {
+            // Marked free earlier in this scan, so retract that first: the free increment is
+            // negative, and subtracting it adds its magnitude back.
+            //
+            // Except on the floor, where the free update was clamped and how much of it survived
+            // is gone. Crediting the full increment back there leaves the cell above where a lone
+            // return would have put it, which makes a scan's outcome depend on the order its beams
+            // happened to arrive in - the one thing the stamps exist to prevent.
+            // A cell resting on the floor was almost certainly already there,
+            // so retract nothing: exact in that case, and never optimistic in the narrow band above it.
+            if self.odds[linear] <= self.min_log_odds {
+                self.occupied_delta
+            } else {
+                self.occupied_delta - self.free_delta
+            }
         } else {
             self.occupied_delta
         };
 
-        self.stamps[linear] = current | 1;
+        self.last_frame_to_update[linear] = current | 1;
         self.odds[linear] = (self.odds[linear] + delta).clamp(self.min_log_odds, self.max_log_odds);
         true
     }
@@ -788,7 +812,7 @@ mod tests {
 
     /// The load-bearing test of the whole addressing scheme. Summing `coord * stride` and then
     /// bounds-checking the sum is unsound: in a `[4, 4]` map the cell `[4, 0]` sums to `4`, which
-    /// is the perfectly valid cell `[0, 1]`. It is not enough to assert that the call fails —
+    /// is the perfectly valid cell `[0, 1]`. It is not enough to assert that the call fails -
     /// the aliased cell must be shown to be untouched.
     #[test]
     fn test_row_wrap_is_rejected() {
@@ -830,7 +854,6 @@ mod tests {
 
         for index in [Point2::new(-1, 0), Point2::new(0, -1), Point2::new(-1, -1)] {
             assert_eq!(grid.linearize(&index), None);
-            assert!(!grid.contains(&index));
             assert_eq!(grid.log_odds_at(&index), None);
         }
     }
@@ -864,18 +887,6 @@ mod tests {
                 extent: 6
             }
         );
-    }
-
-    #[test]
-    fn test_contains_agrees_with_reads() {
-        let grid = map([4usize, 4]);
-
-        for x in -2..6 {
-            for y in -2..6 {
-                let index = Point2::new(x, y);
-                assert_eq!(grid.contains(&index), grid.log_odds_at(&index).is_some());
-            }
-        }
     }
 
     #[test]
@@ -1096,6 +1107,66 @@ mod tests {
         assert_eq!(entry, Point3::new(0.0, 5.0, 5.0));
         assert_eq!(exit, Point3::new(9.5, 5.0, 5.0));
         assert!(!inside);
+    }
+
+    /// The addressable domain is half-open, so a beam lying along `y == extent` is in row 8 of an
+    /// eight-row map: off it. Accepting the segment and then projecting it into the last cell
+    /// would write free space across a row the beam never crossed, and the acceptance turned on
+    /// an exact float equality - one ulp further out the same beam was rejected outright.
+    #[test]
+    fn test_clip_segment_rejects_a_segment_lying_on_the_upper_face() {
+        let grid = map([8usize, 8]);
+
+        assert!(
+            grid.clip_segment(&Point2::new(2.0, 8.0), &Point2::new(5.0, 8.0))
+                .is_none()
+        );
+        // The same beam a hair inside is still a row-7 beam and must survive.
+        let (entry, exit, _) = grid
+            .clip_segment(&Point2::new(2.0, 7.9999), &Point2::new(5.0, 7.9999))
+            .unwrap();
+        assert_eq!(entry, Point2::new(2.0, 7.5));
+        assert_eq!(exit, Point2::new(5.0, 7.5));
+    }
+
+    /// The non-parallel counterpart, which the slab test lets through: `entry_fraction` and
+    /// `exit_fraction` both collapse to zero, leaving a degenerate segment sitting on the face.
+    #[test]
+    fn test_clip_segment_rejects_a_segment_leaving_from_the_upper_face() {
+        let grid = map([8usize, 8]);
+
+        assert!(
+            grid.clip_segment(&Point2::new(8.0, 3.0), &Point2::new(9.0, 3.0))
+                .is_none()
+        );
+        // Starting on the same face but aiming *inward* genuinely enters the map.
+        let (entry, exit, _) = grid
+            .clip_segment(&Point2::new(8.0, 3.0), &Point2::new(7.0, 3.0))
+            .unwrap();
+        assert_eq!(entry, Point2::new(7.5, 3.0));
+        assert_eq!(exit, Point2::new(7.0, 3.0));
+    }
+
+    /// An endpoint on an upper face escapes clipping, so `exit_fraction` is still exactly one -
+    /// but the cell it addresses is off the map, and the caller reads "inside" as "the beam really
+    /// stopped here". It must read as clipped, exactly as the endpoint one ulp beyond it does.
+    #[test]
+    fn test_clip_segment_endpoint_on_the_upper_face_is_not_inside() {
+        let grid = map([8usize, 8]);
+
+        let (_, on_face, inside) = grid
+            .clip_segment(&Point2::new(4.5, 4.5), &Point2::new(8.0, 4.5))
+            .unwrap();
+        assert!(!inside);
+
+        let (_, past_face, still_outside) = grid
+            .clip_segment(&Point2::new(4.5, 4.5), &Point2::new(8.0001, 4.5))
+            .unwrap();
+        assert!(!still_outside);
+        assert_eq!(
+            on_face, past_face,
+            "the cells covered must not turn on an exact float equality either"
+        );
     }
 
     /// A small deterministic generator, so the differential tests are reproducible without
