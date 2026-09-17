@@ -183,7 +183,7 @@ where
         Ok(linear)
     }
 
-    /// Locates the low corner of the `2^N` interpolation stencil containing a point.
+    /// Locates the `2^N` interpolation stencil containing a point, and where in it the point lies.
     ///
     /// Verifying the stencil once here is what lets the sampler address all `2^N` corners directly.
     ///
@@ -191,10 +191,12 @@ where
     /// * `point`: a position in fractional cell coordinates.
     ///
     /// # Returns
-    /// An [`Option`] of the stencil's flat base index and the fractional offset within it, or
-    /// [`None`] if `point` is non-finite or outside the map.
+    /// An [`Option`] of the flat index of the stencil's low corner, and the point's fractional
+    /// offset along each axis - the per-axis interpolation weights. [`None`] if `point` is
+    /// non-finite or outside the map. A point on an axis's upper limit belongs to the last
+    /// stencil on that axis, at full weight.
     #[inline]
-    fn stencil_base(&self, point: &Point<T, N>) -> Option<(usize, [T; N])> {
+    fn stencil_containing(&self, point: &Point<T, N>) -> Option<(usize, [T; N])> {
         let mut base = 0usize;
         let mut frac = [T::ZERO; N];
         for axis in 0..N {
@@ -278,7 +280,7 @@ where
     /// # Returns
     /// A `T` in the range `0.0..=1.0`.
     #[inline]
-    fn logistic(log_odds: T) -> T {
+    fn log_odds_to_probability(log_odds: T) -> T {
         T::ONE / (T::ONE + ComplexField::exp(-log_odds))
     }
 
@@ -291,7 +293,7 @@ where
     /// A sample whose value is a probability, for the cost of one exponential.
     #[inline]
     fn sample_to_probability(sample: MapSample<T, N>) -> MapSample<T, N> {
-        let probability = Self::logistic(sample.value);
+        let probability = Self::log_odds_to_probability(sample.value);
         MapSample {
             value: probability,
             gradient: sample.gradient * (probability * (T::ONE - probability)),
@@ -315,7 +317,7 @@ where
     /// already-sigmoided probabilities. The fields agree only at cell corners, so gains and
     /// thresholds taken from such an implementation do not carry over unscaled.
     pub(crate) fn sample_log_odds(&self, point: &Point<T, N>) -> Option<MapSample<T, N>> {
-        let (base, frac) = self.stencil_base(point)?;
+        let (base, frac) = self.stencil_containing(point)?;
 
         // A corner is a bit pattern: bit `axis` set means the high side of that axis. The stencil
         // has been proven in range, so every index built this way addresses a real cell.
@@ -403,7 +405,7 @@ where
     /// An unwritten cell reads as exactly one half.
     #[inline]
     pub(crate) fn probability_at(&self, index: &Point<isize, N>) -> Option<T> {
-        self.log_odds_at(index).map(Self::logistic)
+        self.log_odds_at(index).map(Self::log_odds_to_probability)
     }
 
     /// Overwrites a cell's log-odds, bypassing the sensor model and per-scan deduplication.
