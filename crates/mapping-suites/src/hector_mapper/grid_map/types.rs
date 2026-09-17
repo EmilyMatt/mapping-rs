@@ -23,7 +23,7 @@
 
 use mapping_algorithms::lines::BresenhamError;
 use nalgebra::{RealField, SVector};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, ConstOne, ConstZero};
 
 use crate::fmt;
 
@@ -141,14 +141,14 @@ pub(crate) struct MapSample<T, const N: usize> {
     pub gradient: SVector<T, N>,
 }
 
-impl<T: Copy + RealField, const N: usize> MapSample<T, N> {
+impl<T: ConstOne + ConstZero + Copy + RealField, const N: usize> MapSample<T, N> {
     /// The log-odds sample of an unobserved region.
     ///
     /// # Returns
     /// A [`MapSample`] whose value and gradient are both zero.
     pub(crate) fn unknown_log_odds() -> Self {
         Self {
-            value: T::zero(),
+            value: T::ZERO,
             gradient: SVector::zeros(),
         }
     }
@@ -159,7 +159,7 @@ impl<T: Copy + RealField, const N: usize> MapSample<T, N> {
     /// A [`MapSample`] carrying a value of `0.5` and a zero gradient.
     pub(crate) fn unknown_probability() -> Self {
         Self {
-            value: T::one() / (T::one() + T::one()),
+            value: T::ONE / (T::ONE + T::ONE),
             gradient: SVector::zeros(),
         }
     }
@@ -211,7 +211,7 @@ where
     }
 }
 
-impl<T: Copy + RealField> GridMapConfig<T> {
+impl<T: ConstOne + ConstZero + Copy + RealField> GridMapConfig<T> {
     /// Converts the sensor model into the log-odds increments a map stores.
     ///
     /// Taking an uninformative prior, each Bayesian update reduces to adding the inverse sensor
@@ -225,17 +225,17 @@ impl<T: Copy + RealField> GridMapConfig<T> {
     ///   [`GridMapError::InvalidMaxConfidence`]: if that value lies outside its open interval.
     ///   The intervals are open because zero and one are infinite in log-odds.
     pub(crate) fn resolve(&self) -> GridMapResult<(T, T, T)> {
-        let half = T::one() / (T::one() + T::one());
+        let half = T::ONE / (T::ONE + T::ONE);
 
-        if !(self.occupied_probability > half && self.occupied_probability < T::one()) {
+        if !(self.occupied_probability > half && self.occupied_probability < T::ONE) {
             return Err(GridMapError::InvalidOccupiedProbability);
         }
 
-        if !(self.free_probability > T::zero() && self.free_probability < half) {
+        if !(self.free_probability > T::ZERO && self.free_probability < half) {
             return Err(GridMapError::InvalidFreeProbability);
         }
 
-        if !(self.max_confidence > half && self.max_confidence < T::one()) {
+        if !(self.max_confidence > half && self.max_confidence < T::ONE) {
             return Err(GridMapError::InvalidMaxConfidence);
         }
 
@@ -258,8 +258,8 @@ impl<T: Copy + RealField> GridMapConfig<T> {
 /// # Returns
 /// The log-odds, positive above one half and negative below it.
 #[inline]
-pub(crate) fn logit<T: Copy + RealField>(probability: T) -> T {
-    nalgebra::ComplexField::ln(probability / (T::one() - probability))
+pub(crate) fn logit<T: ConstOne + Copy + RealField>(probability: T) -> T {
+    nalgebra::ComplexField::ln(probability / (T::ONE - probability))
 }
 
 /// A builder for [`GridMapConfig`].

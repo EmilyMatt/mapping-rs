@@ -26,7 +26,7 @@ pub(crate) use types::{GridMapConfig, MapSample, RayTermination};
 pub use types::{GridMapError, GridMapResult};
 
 use nalgebra::{ComplexField, Point, RealField, SVector};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, ConstOne, ConstZero};
 
 use crate::{Box, Vec, array, fmt, ops::RangeInclusive};
 
@@ -73,7 +73,7 @@ impl<T: fmt::Debug, const N: usize> fmt::Debug for GridMap<T, N> {
 
 impl<T, const N: usize> GridMap<T, N>
 where
-    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    T: AsPrimitive<isize> + AsPrimitive<usize> + ConstOne + ConstZero + Copy + RealField,
     usize: AsPrimitive<T>,
 {
     /// Allocates a new, fully unknown occupancy grid.
@@ -112,7 +112,7 @@ where
         let mut odds = Vec::new();
         odds.try_reserve_exact(cells)
             .map_err(|_| GridMapError::AllocationFailed { cells })?;
-        odds.resize(cells, T::zero());
+        odds.resize(cells, T::ZERO);
 
         let mut stamps = Vec::new();
         stamps
@@ -147,7 +147,7 @@ where
 // Addressing. Every read and write in the crate funnels through these functions.
 impl<T, const N: usize> GridMap<T, N>
 where
-    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    T: AsPrimitive<isize> + AsPrimitive<usize> + ConstOne + ConstZero + Copy + RealField,
     usize: AsPrimitive<T>,
 {
     /// Converts a cell index into a flat index into the log-odds array.
@@ -196,12 +196,12 @@ where
     #[inline]
     fn stencil_base(&self, point: &Point<T, N>) -> Option<(usize, [T; N])> {
         let mut base = 0usize;
-        let mut frac = [T::zero(); N];
+        let mut frac = [T::ZERO; N];
         for axis in 0..N {
             let coordinate = point[axis];
             // Every comparison against NaN is false, so a NaN coordinate fails this test and no
             // separate check is needed.
-            if !(T::zero()..=self.interp_limits[axis]).contains(&coordinate) {
+            if !(T::ZERO..=self.interp_limits[axis]).contains(&coordinate) {
                 return None;
             }
             // Non-negativity is proven above, so this truncating cast *is* a floor. Going through
@@ -214,7 +214,7 @@ where
             // of the row into the *next* one, whose cells are nowhere near the query.
             if cell + 1 >= self.dimensions[axis] {
                 cell = self.dimensions[axis] - 2;
-                offset = T::one();
+                offset = T::ONE;
             }
 
             frac[axis] = offset;
@@ -247,7 +247,7 @@ where
             let extent = self.dimensions[axis];
             // A coordinate of exactly `extent` is already past the last cell, so the valid
             // fractional range is half-open.
-            if !(T::zero()..extent.as_()).contains(&coordinate) {
+            if !(T::ZERO..extent.as_()).contains(&coordinate) {
                 return Err(GridMapError::OutOfBounds {
                     axis,
                     // Truncating and saturating; for the just-out-of-range coordinates a
@@ -267,7 +267,7 @@ where
 // Reads, single-cell writes, and the scan entry point.
 impl<T, const N: usize> GridMap<T, N>
 where
-    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    T: AsPrimitive<isize> + AsPrimitive<usize> + ConstOne + ConstZero + Copy + RealField,
     usize: AsPrimitive<T>,
 {
     /// The occupancy probability corresponding to a log-odds value.
@@ -279,7 +279,7 @@ where
     /// A `T` in the range `0.0..=1.0`.
     #[inline]
     fn logistic(log_odds: T) -> T {
-        T::one() / (T::one() + ComplexField::exp(-log_odds))
+        T::ONE / (T::ONE + ComplexField::exp(-log_odds))
     }
 
     /// Maps a log-odds sample through the logistic function, carrying its gradient by the chain rule.
@@ -294,7 +294,7 @@ where
         let probability = Self::logistic(sample.value);
         MapSample {
             value: probability,
-            gradient: sample.gradient * (probability * (T::one() - probability)),
+            gradient: sample.gradient * (probability * (T::ONE - probability)),
         }
     }
 
@@ -334,17 +334,17 @@ where
         let weight = |corner: usize, skip: Option<usize>| -> T {
             (0..N)
                 .filter(|axis| Some(*axis) != skip)
-                .fold(T::one(), |acc, axis| {
+                .fold(T::ONE, |acc, axis| {
                     acc * if corner >> axis & 1 == 1 {
                         frac[axis]
                     } else {
-                        T::one() - frac[axis]
+                        T::ONE - frac[axis]
                     }
                 })
         };
 
         let corners = 1usize << N;
-        let value = (0..corners).fold(T::zero(), |acc, corner| {
+        let value = (0..corners).fold(T::ZERO, |acc, corner| {
             acc + weight(corner, None) * corner_odds(corner)
         });
 
@@ -353,7 +353,7 @@ where
             // Pair every low corner with its neighbour across `axis`; the difference between the
             // two is that edge's derivative.
             gradient[axis] = (0..corners).filter(|corner| corner >> axis & 1 == 0).fold(
-                T::zero(),
+                T::ZERO,
                 |acc, corner| {
                     acc + weight(corner, Some(axis))
                         * (corner_odds(corner | (1 << axis)) - corner_odds(corner))
@@ -439,7 +439,7 @@ where
         index: &Point<isize, N>,
         probability: T,
     ) -> GridMapResult<()> {
-        if !(probability > T::zero() && probability < T::one()) {
+        if !(probability > T::ZERO && probability < T::ONE) {
             return Err(GridMapError::InvalidOccupiedProbability);
         }
         self.set_log_odds(index, types::logit(probability))
@@ -448,7 +448,7 @@ where
     /// Returns every cell to unknown, preserving the dimensions, configuration and allocation.
     #[cfg_attr(feature = "tracing", tracing::instrument("Reset Grid Map", skip_all))]
     pub(crate) fn reset(&mut self) {
-        self.odds.fill(T::zero());
+        self.odds.fill(T::ZERO);
         self.last_frame_to_update.fill(0);
         self.frame = 1;
     }
@@ -493,7 +493,7 @@ where
 // invariant that a generation has been advanced first.
 impl<T, const N: usize> GridMap<T, N>
 where
-    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    T: AsPrimitive<isize> + AsPrimitive<usize> + ConstOne + ConstZero + Copy + RealField,
     usize: AsPrimitive<T>,
 {
     /// Pulls a clipped endpoint back to the last cell it addresses.
@@ -507,12 +507,12 @@ where
         // Clipping lands endpoints *on* the bounding faces, where the coordinate `extent`
         // addresses cell `extent`, off the map. The plotter substitutes the exact endpoint for its
         // final step, so leaving it there would drop the last cell inside the map too.
-        let half = T::one() / (T::one() + T::one());
+        let half = T::ONE / (T::ONE + T::ONE);
 
         let mut point = point;
         for axis in 0..N {
             let limit: T = self.dimensions[axis].as_();
-            point[axis] = point[axis].clamp(T::zero(), limit - half);
+            point[axis] = point[axis].clamp(T::ZERO, limit - half);
         }
         point
     }
@@ -535,8 +535,8 @@ where
         endpoint: &Point<T, N>,
     ) -> Option<(Point<T, N>, Point<T, N>, bool)> {
         let direction = endpoint - origin;
-        let mut entry_fraction = T::zero();
-        let mut exit_fraction = T::one();
+        let mut entry_fraction = T::ZERO;
+        let mut exit_fraction = T::ONE;
 
         for axis in 0..N {
             let extent: T = self.dimensions[axis].as_();
@@ -546,13 +546,13 @@ where
                 // Parallel to this slab: either wholly inside it, or the segment misses entirely.
                 // The upper bound is exclusive, matching `cell_containing`: a coordinate of
                 // exactly `extent` already lies in cell `extent`, which is off the map.
-                if origin[axis] < T::zero() || origin[axis] >= extent {
+                if origin[axis] < T::ZERO || origin[axis] >= extent {
                     return None;
                 }
                 continue;
             }
 
-            let near = (T::zero() - origin[axis]) / delta;
+            let near = (T::ZERO - origin[axis]) / delta;
             let far = (extent - origin[axis]) / delta;
             let (near, far) = if near > far { (far, near) } else { (near, far) };
 
@@ -584,10 +584,10 @@ where
             // `exit_fraction` only ever shrinks from one, so it is still one precisely when the
             // endpoint was never clipped. An endpoint on an upper face escapes clipping too, but
             // addresses a cell off the map, so the range check rejects it as well.
-            exit_fraction >= T::one()
+            exit_fraction >= T::ONE
                 && (0..N).all(|axis| {
                     let extent: T = self.dimensions[axis].as_();
-                    (T::zero()..extent).contains(&exit[axis])
+                    (T::ZERO..extent).contains(&exit[axis])
                 }),
         ))
     }

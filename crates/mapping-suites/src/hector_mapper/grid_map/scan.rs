@@ -23,7 +23,7 @@
 
 use mapping_algorithms::lines::{BresenhamError, BresenhamLine};
 use nalgebra::{ComplexField, Point, RealField};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, ConstOne, ConstZero};
 
 use super::{GridMap, GridMapError, GridMapResult, RayTermination};
 
@@ -41,7 +41,7 @@ pub(crate) struct ScanUpdater<'a, T, const N: usize> {
 
 impl<'a, T, const N: usize> ScanUpdater<'a, T, N>
 where
-    T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
+    T: AsPrimitive<isize> + AsPrimitive<usize> + ConstOne + ConstZero + Copy + RealField,
     usize: AsPrimitive<T>,
 {
     /// Wraps a map whose generation counter has already been advanced.
