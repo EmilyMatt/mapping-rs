@@ -25,7 +25,7 @@ use nalgebra::{
     ArrayStorage, ClosedAddAssign, ClosedDivAssign, ClosedSubAssign, Const, Matrix, Point, SMatrix,
     Scalar, Vector,
 };
-use num_traits::{AsPrimitive, NumOps, Zero};
+use num_traits::{AsPrimitive, ConstZero, NumOps};
 
 use crate::{Sum, array, point_clouds::calculate_point_cloud_center, utils::distance_squared};
 
@@ -119,7 +119,7 @@ pub(crate) fn get_rotation_matrix_and_centroids<T, const N: usize>(
     closest_points: &[Point<T, N>],
 ) -> (SMatrix<T, N, N>, Point<T, N>, Point<T, N>)
 where
-    T: ClosedAddAssign + ClosedDivAssign + ClosedSubAssign + Copy + NumOps + Scalar + Zero,
+    T: ClosedAddAssign + ClosedDivAssign + ClosedSubAssign + ConstZero + Copy + NumOps + Scalar,
     usize: AsPrimitive<T>,
 {
     let (mean_transformed_a, mean_closest) = (
@@ -128,7 +128,7 @@ where
     );
 
     let rot_mat = transformed_points_a.iter().zip(closest_points.iter()).fold(
-        Matrix::from_array_storage(ArrayStorage([[T::zero(); N]; N])),
+        Matrix::from_array_storage(ArrayStorage([[T::ZERO; N]; N])),
         |rot_mat, (transformed_point_a, closest_point)| {
             let a_distance_from_centroid = transformed_point_a - mean_transformed_a;
             let closest_point_distance_from_centroid = closest_point - mean_closest;

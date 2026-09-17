@@ -22,7 +22,7 @@
  */
 
 use nalgebra::{ComplexField, Point, RealField, Scalar};
-use num_traits::{AsPrimitive, ConstOne};
+use num_traits::{AsPrimitive, ConstOne, ConstZero};
 
 use crate::{FusedIterator, Vec, array, fmt, marker::PhantomData};
 
@@ -76,7 +76,8 @@ pub struct BresenhamLine<F: RealField, T, const N: usize> {
     _output: PhantomData<fn() -> T>,
 }
 
-impl<F: ConstOne + RealField + Copy + AsPrimitive<usize>, T, const N: usize> BresenhamLine<F, T, N>
+impl<F: ConstOne + ConstZero + RealField + Copy + AsPrimitive<usize>, T, const N: usize>
+    BresenhamLine<F, T, N>
 where
     usize: AsPrimitive<F>,
 {
@@ -124,7 +125,7 @@ where
         // Deltas are absolute, so zero is a valid starting maximum.
         // comparing with `>=` lets the last of several equal axes win.
         let (primary_axis, primary_delta) = deltas.iter().enumerate().fold(
-            (0, F::zero()),
+            (0, F::ZERO),
             |(primary_axis, primary_delta), (idx, &delta)| {
                 if delta >= primary_delta {
                     (idx, delta)
@@ -135,7 +136,7 @@ where
         );
 
         let increments: [F; N] = if primary_delta.is_zero() {
-            [F::zero(); N]
+            [F::ZERO; N]
         } else {
             array::from_fn(|idx| deltas[idx] / primary_delta)
         };
@@ -145,7 +146,7 @@ where
             end: end_point,
             increments,
             steps,
-            errors: [F::zero(); N],
+            errors: [F::ZERO; N],
             primary_axis,
             threshold: F::ONE - (F::ONE / <usize as AsPrimitive<F>>::as_(N + 1)),
             remaining: <F as AsPrimitive<usize>>::as_(primary_delta + F::ONE),
@@ -232,7 +233,7 @@ pub fn plot_bresenham_line<F, T, const N: usize>(
     end_point: Point<F, N>,
 ) -> Result<Vec<Point<T, N>>, BresenhamError>
 where
-    F: ConstOne + RealField + AsPrimitive<usize> + AsPrimitive<T>,
+    F: ConstOne + ConstZero + RealField + AsPrimitive<usize> + AsPrimitive<T>,
     usize: AsPrimitive<F>,
     T: Scalar + Copy,
 {

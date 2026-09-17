@@ -24,7 +24,7 @@
 pub use types::{ICPConfiguration, ICPConfigurationBuilder, ICPError, ICPResult, ICPSuccess};
 
 use nalgebra::{ComplexField, Isometry, Point, RealField, SimdRealField};
-use num_traits::{AsPrimitive, Bounded};
+use num_traits::{AsPrimitive, Bounded, ConstZero};
 
 use crate::{
     Sum, Vec,
@@ -76,7 +76,7 @@ pub fn icp_iteration<T, const N: usize>(
     config: &ICPConfiguration<T>,
 ) -> Result<T, ICPError<T, N>>
 where
-    T: Bounded + Copy + Default + RealField + Sum + SimdRealField,
+    T: Bounded + ConstZero + Copy + Default + RealField + Sum + SimdRealField,
     usize: AsPrimitive<T>,
     IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {
@@ -146,7 +146,7 @@ pub fn icp<T, const N: usize>(
     config: ICPConfiguration<T>,
 ) -> ICPResult<T, <IsometryAbstractor<T, N> as AbstractIsometry<T, N>>::RotType, N>
 where
-    T: Bounded + Copy + Default + IsNan + RealField + Sum,
+    T: Bounded + ConstZero + Copy + Default + IsNan + RealField + Sum,
     usize: AsPrimitive<T>,
     IsometryAbstractor<T, N>: AbstractIsometry<T, N>,
 {

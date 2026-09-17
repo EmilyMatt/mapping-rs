@@ -22,7 +22,7 @@
  */
 
 use nalgebra::{ComplexField, Point2, Scalar};
-use num_traits::{AsPrimitive, NumAssign, real::Real};
+use num_traits::{AsPrimitive, ConstZero, NumAssign, real::Real};
 
 use crate::{Ordering, Vec, point_clouds::downsample_point_cloud_voxel};
 
@@ -47,7 +47,7 @@ use super::calculate_determinant;
 )]
 pub fn jarvis_march<O, T>(points: &[Point2<T>], voxel_size: Option<O>) -> Option<Vec<Point2<T>>>
 where
-    O: AsPrimitive<isize> + ComplexField + Copy + Real,
+    O: AsPrimitive<isize> + ComplexField + ConstZero + Copy + Real,
     T: AsPrimitive<O> + NumAssign + PartialOrd + Scalar,
     usize: AsPrimitive<T>,
 {
@@ -80,7 +80,7 @@ where
         let mut endpoint = &points_downsampled_slice[0];
         for point in points_downsampled_slice {
             if endpoint == current_vertex
-                || calculate_determinant(hull.last().unwrap(), endpoint, point) < O::zero()
+                || calculate_determinant(hull.last().unwrap(), endpoint, point) < O::ZERO
             {
                 endpoint = point;
             }
