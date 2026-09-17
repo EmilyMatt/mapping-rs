@@ -22,7 +22,7 @@
  */
 
 pub(crate) use scan::ScanUpdater;
-pub(crate) use types::{GridMapConfig, MapSample, RayTermination};
+pub(crate) use types::{GridMapConfig, MapSample, RayTermination, ScanBeam};
 pub use types::{GridMapError, GridMapResult};
 
 use nalgebra::{ComplexField, Point, RealField, SVector};

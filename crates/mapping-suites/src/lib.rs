@@ -34,12 +34,12 @@ extern crate alloc;
 extern crate core;
 
 #[cfg(feature = "std")]
-use std::{array, boxed::Box, fmt, ops, vec::Vec};
+use std::{array, borrow::Borrow, boxed::Box, fmt, ops, vec::Vec};
 
 #[cfg(not(feature = "std"))]
 use {
     alloc::{boxed::Box, vec::Vec},
-    core::{array, fmt, ops},
+    core::{array, borrow::Borrow, fmt, ops},
 };
 
 /// A suite implementing the Hector SLAM mapping algorithm and its occupancy grid.

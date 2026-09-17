@@ -25,7 +25,8 @@ use mapping_algorithms::lines::{BresenhamError, BresenhamLine};
 use nalgebra::{ComplexField, Point, RealField};
 use num_traits::{AsPrimitive, ConstOne, ConstZero};
 
-use super::{GridMap, GridMapError, GridMapResult, RayTermination};
+use super::{GridMap, GridMapError, GridMapResult, RayTermination, ScanBeam};
+use crate::Borrow;
 
 /// A scan-scoped update session over a [`GridMap`], from [`GridMap::begin_scan`].
 ///
@@ -80,16 +81,17 @@ where
         Ok(())
     }
 
-    /// Integrates one range measurement, marking the cells it crosses free and applying
-    /// `termination` to the cell it stops in.
+    /// Integrates one range measurement, marking the cells it crosses free and applying the beam's
+    /// termination to the cell it stops in.
     ///
     /// The segment is clipped to the map first, so a beam aimed far outside costs no more than one
     /// crossing it. Allocates nothing.
     ///
     /// # Arguments
-    /// * `origin`: the sensor position, in fractional cell coordinates.
-    /// * `endpoint`: where the beam stopped, in fractional cell coordinates.
-    /// * `termination`: whether the beam stopped on a return or at its maximum range.
+    /// * `beam`: the measurement to integrate, by value or by reference.
+    ///
+    /// # Generics
+    /// * `B`: any [`Borrow<ScanBeam<T, N>>`](Borrow).
     ///
     /// # Returns
     /// A [`prim@usize`], the number of cells updated; zero if the beam missed the map.
@@ -100,12 +102,16 @@ where
         feature = "tracing",
         tracing::instrument("Update Ray", skip_all, level = "trace")
     )]
-    pub(crate) fn update_ray(
+    pub(crate) fn update_ray<B: Borrow<ScanBeam<T, N>>>(
         &mut self,
-        origin: &Point<T, N>,
-        endpoint: &Point<T, N>,
-        termination: RayTermination,
+        beam: B,
     ) -> GridMapResult<usize> {
+        let ScanBeam {
+            origin,
+            endpoint,
+            termination,
+        } = beam.borrow();
+
         // Checked up front rather than left to the plotter: clipping an infinite endpoint would
         // silently collapse the beam to zero length instead of reporting the bad input.
         for axis in 0..N {
@@ -146,14 +152,17 @@ where
         Ok(updated)
     }
 
-    /// Integrates a whole scan sharing one origin, as [`update_ray`](Self::update_ray) does for each.
+    /// Integrates a whole scan, as [`update_ray`](Self::update_ray) does for each beam.
+    ///
+    /// The beams need not share an origin. Taking each by [`Borrow`] lets a stored scan be
+    /// integrated without being consumed.
     ///
     /// # Arguments
-    /// * `origin`: the sensor position shared by every beam, in fractional cell coordinates.
-    /// * `beams`: each beam's endpoint and termination.
+    /// * `beams`: the measurements to integrate.
     ///
     /// # Generics
-    /// * `I`: any [`IntoIterator`] over endpoint and termination pairs.
+    /// * `B`: any [`Borrow<ScanBeam<T, N>>`](Borrow).
+    /// * `I`: any [`IntoIterator`] over those beams.
     ///
     /// # Returns
     /// A [`prim@usize`], the total number of cells updated.
@@ -165,15 +174,14 @@ where
         feature = "tracing",
         tracing::instrument("Update Scan", skip_all, level = "debug")
     )]
-    pub(crate) fn update_scan<I>(&mut self, origin: &Point<T, N>, beams: I) -> GridMapResult<usize>
+    pub(crate) fn update_scan<B, I>(&mut self, beams: I) -> GridMapResult<usize>
     where
-        I: IntoIterator<Item = (Point<T, N>, RayTermination)>,
+        B: Borrow<ScanBeam<T, N>>,
+        I: IntoIterator<Item = B>,
     {
         beams
             .into_iter()
-            .try_fold(0usize, |updated, (endpoint, termination)| {
-                Ok(updated + self.update_ray(origin, &endpoint, termination)?)
-            })
+            .try_fold(0usize, |updated, beam| Ok(updated + self.update_ray(beam)?))
     }
 }
 
@@ -191,6 +199,18 @@ mod tests {
     /// The log-odds increments the default sensor model produces.
     fn increments(grid: &GridMap<f32, 2>) -> (f32, f32) {
         (grid.occupied_delta, grid.free_delta)
+    }
+
+    fn beam(
+        origin: Point2<f32>,
+        endpoint: Point2<f32>,
+        termination: RayTermination,
+    ) -> ScanBeam<f32, 2> {
+        ScanBeam {
+            origin,
+            endpoint,
+            termination,
+        }
     }
 
     #[test]
@@ -489,11 +509,11 @@ mod tests {
 
         let updated = grid
             .begin_scan()
-            .update_ray(
-                &Point2::new(0.5, 0.5),
-                &Point2::new(5.5, 0.5),
+            .update_ray(beam(
+                Point2::new(0.5, 0.5),
+                Point2::new(5.5, 0.5),
                 RayTermination::Hit,
-            )
+            ))
             .unwrap();
 
         assert_eq!(updated, 6);
@@ -516,11 +536,11 @@ mod tests {
         let mut grid = map([16, 16]);
 
         grid.begin_scan()
-            .update_ray(
-                &Point2::new(0.5, 0.5),
-                &Point2::new(5.5, 0.5),
+            .update_ray(beam(
+                Point2::new(0.5, 0.5),
+                Point2::new(5.5, 0.5),
                 RayTermination::MaxRange,
-            )
+            ))
             .unwrap();
 
         assert!(
@@ -536,7 +556,7 @@ mod tests {
 
         let updated = grid
             .begin_scan()
-            .update_ray(&point, &point, RayTermination::Hit)
+            .update_ray(beam(point, point, RayTermination::Hit))
             .unwrap();
 
         assert_eq!(updated, 1);
@@ -549,11 +569,11 @@ mod tests {
 
         let updated = grid
             .begin_scan()
-            .update_ray(
-                &Point2::new(0.5, 0.5),
-                &Point2::new(40.5, 0.5),
+            .update_ray(beam(
+                Point2::new(0.5, 0.5),
+                Point2::new(40.5, 0.5),
                 RayTermination::Hit,
-            )
+            ))
             .unwrap();
 
         assert!(
@@ -570,11 +590,11 @@ mod tests {
         let mut grid = map([8, 8]);
 
         grid.begin_scan()
-            .update_ray(
-                &Point2::new(0.5, 4.5),
-                &Point2::new(40.5, 4.5),
+            .update_ray(beam(
+                Point2::new(0.5, 4.5),
+                Point2::new(40.5, 4.5),
                 RayTermination::Hit,
-            )
+            ))
             .unwrap();
 
         for x in 0..8 {
@@ -593,11 +613,11 @@ mod tests {
 
         let updated = grid
             .begin_scan()
-            .update_ray(
-                &Point2::new(2.0, 8.0),
-                &Point2::new(5.0, 8.0),
+            .update_ray(beam(
+                Point2::new(2.0, 8.0),
+                Point2::new(5.0, 8.0),
                 RayTermination::MaxRange,
-            )
+            ))
             .unwrap();
 
         assert_eq!(updated, 0);
@@ -615,11 +635,11 @@ mod tests {
         let mut grid = map([8, 8]);
 
         grid.begin_scan()
-            .update_ray(
-                &Point2::new(4.5, 4.5),
-                &Point2::new(8.0, 4.5),
+            .update_ray(beam(
+                Point2::new(4.5, 4.5),
+                Point2::new(8.0, 4.5),
                 RayTermination::Hit,
-            )
+            ))
             .unwrap();
 
         assert!(
@@ -634,11 +654,11 @@ mod tests {
 
         let updated = grid
             .begin_scan()
-            .update_ray(
-                &Point2::new(-50.0, -50.0),
-                &Point2::new(-40.0, -40.0),
+            .update_ray(beam(
+                Point2::new(-50.0, -50.0),
+                Point2::new(-40.0, -40.0),
                 RayTermination::Hit,
-            )
+            ))
             .unwrap();
 
         assert_eq!(updated, 0);
@@ -658,13 +678,13 @@ mod tests {
             Point2::new(1.0, f32::NEG_INFINITY),
         ] {
             assert_eq!(
-                scan.update_ray(&good, &bad, RayTermination::Hit)
+                scan.update_ray(beam(good, bad, RayTermination::Hit))
                     .unwrap_err(),
                 GridMapError::Ray(BresenhamError::NonFiniteCoordinate),
                 "endpoint {bad:?}"
             );
             assert_eq!(
-                scan.update_ray(&bad, &good, RayTermination::Hit)
+                scan.update_ray(beam(bad, good, RayTermination::Hit))
                     .unwrap_err(),
                 GridMapError::Ray(BresenhamError::NonFiniteCoordinate),
                 "origin {bad:?}"
@@ -686,11 +706,11 @@ mod tests {
 
         let updated = grid
             .begin_scan()
-            .update_ray(
-                &Point2::new(8.5, 8.5),
-                &Point2::new(1.0e9, 8.5),
+            .update_ray(beam(
+                Point2::new(8.5, 8.5),
+                Point2::new(1.0e9, 8.5),
                 RayTermination::Hit,
-            )
+            ))
             .unwrap();
 
         assert!(
@@ -699,18 +719,34 @@ mod tests {
         );
     }
 
+    /// Both entry points take the beam by [`Borrow`], so a stored scan is integrated without
+    /// being consumed. `update_scan(&beams)` also drives `update_ray` with a `&ScanBeam`.
+    #[test]
+    fn test_beams_are_accepted_by_value_and_by_reference() {
+        let mut grid = map([16, 16]);
+        let beams = Vec::from([beam(
+            Point2::new(0.5, 0.5),
+            Point2::new(5.5, 0.5),
+            RayTermination::Hit,
+        )]);
+
+        assert_eq!(grid.begin_scan().update_scan(&beams).unwrap(), 6);
+        assert_eq!(grid.begin_scan().update_ray(beams[0]).unwrap(), 6);
+        // Consuming the scan is still allowed; each fresh scan rewrites the same six cells.
+        assert_eq!(grid.begin_scan().update_scan(beams).unwrap(), 6);
+    }
+
     #[test]
     fn test_update_scan_sums_updated_cells() {
         let mut grid = map([16, 16]);
+        let origin = Point2::new(0.5, 0.5);
+        // One origin borrowed across every beam; only the endpoints are owned.
         let beams = Vec::from([
-            (Point2::new(5.5, 0.5), RayTermination::Hit),
-            (Point2::new(0.5, 5.5), RayTermination::Hit),
+            beam(origin, Point2::new(5.5, 0.5), RayTermination::Hit),
+            beam(origin, Point2::new(0.5, 5.5), RayTermination::Hit),
         ]);
 
-        let updated = grid
-            .begin_scan()
-            .update_scan(&Point2::new(0.5, 0.5), beams)
-            .unwrap();
+        let updated = grid.begin_scan().update_scan(beams).unwrap();
 
         // Six cells each, less the shared origin cell, which is deduplicated across the scan.
         assert_eq!(updated, 11);
@@ -724,10 +760,10 @@ mod tests {
 
         // Two collinear beams of different lengths, so the shorter one's cells are all revisited.
         let beams = Vec::from([
-            (Point2::new(4.5, 0.5), RayTermination::MaxRange),
-            (Point2::new(8.5, 0.5), RayTermination::MaxRange),
+            beam(origin, Point2::new(4.5, 0.5), RayTermination::MaxRange),
+            beam(origin, Point2::new(8.5, 0.5), RayTermination::MaxRange),
         ]);
-        grid.begin_scan().update_scan(&origin, beams).unwrap();
+        grid.begin_scan().update_scan(beams).unwrap();
 
         for x in 0..4 {
             assert!(
@@ -740,16 +776,15 @@ mod tests {
     #[test]
     fn test_update_scan_reports_the_first_non_finite_beam() {
         let mut grid = map([16, 16]);
+        let origin = Point2::new(0.5, 0.5);
         let beams = Vec::from([
-            (Point2::new(5.5, 0.5), RayTermination::Hit),
-            (Point2::new(f32::NAN, 0.5), RayTermination::Hit),
-            (Point2::new(0.5, 5.5), RayTermination::Hit),
+            beam(origin, Point2::new(5.5, 0.5), RayTermination::Hit),
+            beam(origin, Point2::new(f32::NAN, 0.5), RayTermination::Hit),
+            beam(origin, Point2::new(0.5, 5.5), RayTermination::Hit),
         ]);
 
         assert_eq!(
-            grid.begin_scan()
-                .update_scan(&Point2::new(0.5, 0.5), beams)
-                .unwrap_err(),
+            grid.begin_scan().update_scan(beams).unwrap_err(),
             GridMapError::Ray(BresenhamError::NonFiniteCoordinate)
         );
         assert!(
@@ -763,11 +798,11 @@ mod tests {
         let mut grid = map([8, 8]);
 
         grid.begin_scan()
-            .update_ray(
-                &Point2::new(0.5, 2.5),
-                &Point2::new(99.5, 2.5),
+            .update_ray(beam(
+                Point2::new(0.5, 2.5),
+                Point2::new(99.5, 2.5),
                 RayTermination::MaxRange,
-            )
+            ))
             .unwrap();
 
         // Every cell of the row, including the last, must have been visited: pulling the clipped
@@ -788,12 +823,20 @@ mod tests {
         let origin = Point2::new(128.5, 128.5);
         let wall_x = 200.5;
 
-        // Ten sweeps of a flat wall, so the cells there saturate well clear of one half.
+        let beams = (118..=138)
+            .map(|y| {
+                beam(
+                    origin,
+                    Point2::new(wall_x, y as f32 + 0.5),
+                    RayTermination::Hit,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // Ten sweeps of a flat wall, so the cells there saturate well clear of one half. The scan
+        // is integrated by reference, so it is built once rather than per sweep.
         for _ in 0..10 {
-            let beams = (118..=138)
-                .map(|y| (Point2::new(wall_x, y as f32 + 0.5), RayTermination::Hit))
-                .collect::<Vec<_>>();
-            grid.begin_scan().update_scan(&origin, beams).unwrap();
+            grid.begin_scan().update_scan(&beams).unwrap();
         }
 
         // The wall reads as occupied.

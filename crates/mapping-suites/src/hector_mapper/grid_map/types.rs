@@ -22,7 +22,7 @@
  */
 
 use mapping_algorithms::lines::BresenhamError;
-use nalgebra::{RealField, SVector};
+use nalgebra::{Point, RealField, SVector, Scalar};
 use num_traits::{AsPrimitive, ConstOne, ConstZero};
 
 use crate::fmt;
@@ -126,6 +126,21 @@ pub(crate) enum RayTermination {
     Hit,
     /// The beam reached its maximum range, so the final cell is evidence of free space.
     MaxRange,
+}
+
+/// One range measurement: where the beam started, where it stopped, and why.
+///
+/// # Generics
+/// * `T`: Either an [`prim@f32`] or [`prim@f64`]. Bounded by [`Scalar`], as [`Point`] itself is.
+/// * `N`: a usize, representing the number of dimensions.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) struct ScanBeam<T: Scalar, const N: usize> {
+    /// The sensor position, in fractional cell coordinates.
+    pub origin: Point<T, N>,
+    /// Where the beam stopped, in fractional cell coordinates.
+    pub endpoint: Point<T, N>,
+    /// Whether the beam stopped on a return or at its maximum range.
+    pub termination: RayTermination,
 }
 
 /// An interpolated value and its analytic spatial gradient, both from one `2^N`-corner gather.
