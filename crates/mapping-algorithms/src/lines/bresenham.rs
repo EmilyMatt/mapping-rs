@@ -22,7 +22,7 @@
  */
 
 use nalgebra::{ComplexField, Point, RealField, Scalar};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, ConstOne};
 
 use crate::{FusedIterator, Vec, array, fmt, marker::PhantomData};
 
@@ -76,7 +76,7 @@ pub struct BresenhamLine<F: RealField, T, const N: usize> {
     _output: PhantomData<fn() -> T>,
 }
 
-impl<F: RealField + Copy + AsPrimitive<usize>, T, const N: usize> BresenhamLine<F, T, N>
+impl<F: ConstOne + RealField + Copy + AsPrimitive<usize>, T, const N: usize> BresenhamLine<F, T, N>
 where
     usize: AsPrimitive<F>,
 {
@@ -115,9 +115,9 @@ where
 
         let steps: [F; N] = array::from_fn(|idx| {
             if end_point[idx] > start_point[idx] {
-                F::one()
+                F::ONE
             } else {
-                -F::one()
+                -F::ONE
             }
         });
 
@@ -147,14 +147,14 @@ where
             steps,
             errors: [F::zero(); N],
             primary_axis,
-            threshold: F::one() - (F::one() / <usize as AsPrimitive<F>>::as_(N + 1)),
-            remaining: <F as AsPrimitive<usize>>::as_(primary_delta + F::one()),
+            threshold: F::ONE - (F::ONE / <usize as AsPrimitive<F>>::as_(N + 1)),
+            remaining: <F as AsPrimitive<usize>>::as_(primary_delta + F::ONE),
             _output: PhantomData,
         })
     }
 }
 
-impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> Iterator
+impl<F: ConstOne + RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> Iterator
     for BresenhamLine<F, T, N>
 {
     type Item = Point<T, N>;
@@ -176,7 +176,7 @@ impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> Iterator
             self.errors[axis] += self.increments[axis];
             if self.errors[axis] >= self.threshold {
                 self.current[axis] += self.steps[axis];
-                self.errors[axis] -= F::one();
+                self.errors[axis] -= F::ONE;
             }
         }
 
@@ -191,12 +191,12 @@ impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> Iterator
     }
 }
 
-impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> ExactSizeIterator
+impl<F: ConstOne + RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> ExactSizeIterator
     for BresenhamLine<F, T, N>
 {
 }
 
-impl<F: RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> FusedIterator
+impl<F: ConstOne + RealField + AsPrimitive<T>, T: Scalar + Copy, const N: usize> FusedIterator
     for BresenhamLine<F, T, N>
 {
 }
@@ -232,7 +232,7 @@ pub fn plot_bresenham_line<F, T, const N: usize>(
     end_point: Point<F, N>,
 ) -> Result<Vec<Point<T, N>>, BresenhamError>
 where
-    F: RealField + AsPrimitive<usize> + AsPrimitive<T>,
+    F: ConstOne + RealField + AsPrimitive<usize> + AsPrimitive<T>,
     usize: AsPrimitive<F>,
     T: Scalar + Copy,
 {

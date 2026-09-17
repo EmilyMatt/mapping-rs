@@ -22,14 +22,14 @@
  */
 
 use nalgebra::{Point2, RealField, Scalar};
-use num_traits::Float;
+use num_traits::{ConstOne, Float};
 
 #[inline]
 fn half_angle_sine_squared<T>(input: T) -> T
 where
-    T: Float,
+    T: ConstOne + Float,
 {
-    (input.to_radians() / (T::one() + T::one())).sin().powi(2)
+    (input.to_radians() / (T::ONE + T::ONE)).sin().powi(2)
 }
 
 /// Calculates the Haversine distance between two points on a sphere using floating-point arithmetic.
@@ -54,7 +54,7 @@ pub fn calculate_haversine_distance<T>(
     sphere_radius: T,
 ) -> T
 where
-    T: Scalar + Float,
+    T: ConstOne + Scalar + Float,
 {
     let delta_lat = point_b.x - point_a.x;
     let delta_lon = point_b.y - point_a.y;
@@ -65,10 +65,10 @@ where
     let basic_haversine = half_angle_sine_squared(delta_lat)
         + half_angle_sine_squared(delta_lon) * lat1_radians.cos() * lat2_radians.cos();
 
-    let inverse_haversine = (T::one() + T::one())
+    let inverse_haversine = (T::ONE + T::ONE)
         * basic_haversine
             .sqrt()
-            .atan2((T::one() - basic_haversine).sqrt());
+            .atan2((T::ONE - basic_haversine).sqrt());
 
     sphere_radius * inverse_haversine
 }

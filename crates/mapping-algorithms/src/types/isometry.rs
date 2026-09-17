@@ -24,6 +24,7 @@
 use nalgebra::{
     AbstractRotation, Isometry, Point, RealField, SMatrix, UnitComplex, UnitQuaternion,
 };
+use num_traits::ConstOne;
 
 use crate::{marker::PhantomData, utils::verify_rotation_matrix_determinant};
 
@@ -52,7 +53,7 @@ pub trait AbstractIsometry<T: RealField, const N: usize> {
 
 impl<T> AbstractIsometry<T, 2> for IsometryAbstractor<T, 2>
 where
-    T: Copy + RealField,
+    T: ConstOne + Copy + RealField,
 {
     type RotType = UnitComplex<T>;
 
@@ -77,7 +78,7 @@ where
 
 impl<T> AbstractIsometry<T, 3> for IsometryAbstractor<T, 3>
 where
-    T: Copy + RealField,
+    T: ConstOne + Copy + RealField,
 {
     type RotType = UnitQuaternion<T>;
 

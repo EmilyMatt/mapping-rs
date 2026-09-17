@@ -22,7 +22,7 @@
  */
 
 use nalgebra::{Const, DimMin, Point, RealField, SMatrix, Scalar};
-use num_traits::NumOps;
+use num_traits::{ConstOne, NumOps};
 
 #[cfg_attr(
     feature = "tracing",
@@ -51,13 +51,13 @@ pub(crate) fn verify_rotation_matrix_determinant<T, const N: usize>(
     v_t: SMatrix<T, N, N>,
 ) -> SMatrix<T, N, N>
 where
-    T: Copy + RealField,
+    T: ConstOne + Copy + RealField,
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
     if (u * v_t).determinant() < T::zero() {
         u.column_mut(N - 1)
             .iter_mut()
-            .for_each(|element| *element *= T::one().neg()); // Reverse the last column
+            .for_each(|element| *element *= T::ONE.neg()); // Reverse the last column
     }
     u * v_t
 }
