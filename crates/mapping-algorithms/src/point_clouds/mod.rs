@@ -32,7 +32,7 @@ use crate::{Vec, array};
 use nalgebra::{
     AbstractRotation, ClosedAddAssign, ClosedDivAssign, Isometry, Point, RealField, Scalar,
 };
-use num_traits::{AsPrimitive, Zero};
+use num_traits::{AsPrimitive, ConstZero};
 use rand::distr::uniform::SampleUniform;
 use rand::{RngExt, SeedableRng};
 
@@ -60,7 +60,7 @@ mod nearest_neighbour;
 )]
 pub fn calculate_point_cloud_center<T, const N: usize>(points: &[Point<T, N>]) -> Point<T, N>
 where
-    T: ClosedAddAssign + ClosedDivAssign + Copy + Scalar + Zero,
+    T: ClosedAddAssign + ClosedDivAssign + ConstZero + Copy + Scalar,
     usize: AsPrimitive<T>,
 {
     if points.is_empty() {
@@ -69,7 +69,7 @@ where
 
     points
         .iter()
-        .fold(Point::<T, N>::from([T::zero(); N]), |acc, it| {
+        .fold(Point::<T, N>::from([T::ZERO; N]), |acc, it| {
             Point::from(acc.coords + it.coords)
         })
         / points.len().as_()

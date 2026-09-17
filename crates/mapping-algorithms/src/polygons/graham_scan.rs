@@ -23,7 +23,7 @@
 
 use core::fmt::Debug;
 use nalgebra::{ComplexField, Point2};
-use num_traits::{AsPrimitive, NumAssign};
+use num_traits::{AsPrimitive, ConstZero, NumAssign};
 
 use crate::{
     ToOwned, Vec, VecDeque,
@@ -39,7 +39,7 @@ use super::calculate_determinant;
 )]
 fn build_hull_segment<
     'a,
-    O: ComplexField + Copy + PartialOrd,
+    O: ComplexField + ConstZero + Copy + PartialOrd,
     T: AsPrimitive<O> + Debug + IsNan + NumAssign + PartialOrd,
 >(
     mut accumulator: VecDeque<&'a Point2<T>>,
@@ -50,7 +50,7 @@ fn build_hull_segment<
             accumulator[accumulator.len() - 2],
             accumulator[accumulator.len() - 1],
             current_point,
-        ) <= O::zero()
+        ) <= O::ZERO
     {
         accumulator.pop_back();
     }
@@ -85,7 +85,7 @@ pub fn graham_scan<O, T>(
     voxel_size: Option<O>,
 ) -> Option<Vec<Point2<T>>>
 where
-    O: AsPrimitive<isize> + ComplexField + Copy + PartialOrd,
+    O: AsPrimitive<isize> + ComplexField + ConstZero + Copy + PartialOrd,
     T: AsPrimitive<O> + Debug + IsNan + NumAssign + PartialOrd,
     usize: AsPrimitive<T>,
 {
