@@ -27,9 +27,9 @@ use num_traits::AsPrimitive;
 
 use crate::fmt;
 
-/// An error type containing the various errors that might arise while building or updating an
-/// occupancy grid, when compiling with the `std` feature, it will also derive
-/// [`thiserror::Error`].
+/// The errors that can arise while building or updating an occupancy grid.
+///
+/// Also derives [`thiserror::Error`] under the `std` feature.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum GridMapError {
@@ -116,8 +116,7 @@ impl From<BresenhamError> for GridMapError {
     }
 }
 
-/// A type alias for the result of a fallible grid map operation, containing either the successful
-/// result or a [`GridMapError`].
+/// The result of a fallible grid map operation, carrying a [`GridMapError`] on failure.
 pub type GridMapResult<T> = Result<T, GridMapError>;
 
 /// Why a beam stopped where it did.
@@ -263,7 +262,7 @@ pub(crate) fn logit<T: Copy + RealField>(probability: T) -> T {
     nalgebra::ComplexField::ln(probability / (T::one() - probability))
 }
 
-/// A Builder-pattern struct for constructing a [`GridMapConfig`] struct.
+/// A builder for [`GridMapConfig`].
 ///
 /// # Generics
 /// * `T`: Either an [`prim@f32`] or [`prim@f64`].
@@ -279,7 +278,7 @@ impl<T: Copy> GridMapConfigBuilder<T> {
     /// * `occupied_probability`: strictly between `0.5` and `1.0`.
     ///
     /// # Returns
-    /// A copy of self, with the updated parameters
+    /// A copy of self, with that value replaced.
     pub(crate) fn with_occupied_probability(&self, occupied_probability: T) -> Self {
         Self {
             _internal: GridMapConfig {
@@ -295,7 +294,7 @@ impl<T: Copy> GridMapConfigBuilder<T> {
     /// * `free_probability`: strictly between `0.0` and `0.5`.
     ///
     /// # Returns
-    /// A copy of self, with the updated parameters
+    /// A copy of self, with that value replaced.
     pub(crate) fn with_free_probability(&self, free_probability: T) -> Self {
         Self {
             _internal: GridMapConfig {
@@ -311,7 +310,7 @@ impl<T: Copy> GridMapConfigBuilder<T> {
     /// * `max_confidence`: strictly between `0.5` and `1.0`.
     ///
     /// # Returns
-    /// A copy of self, with the updated parameters
+    /// A copy of self, with that value replaced.
     pub(crate) fn with_max_confidence(&self, max_confidence: T) -> Self {
         Self {
             _internal: GridMapConfig {
@@ -321,11 +320,10 @@ impl<T: Copy> GridMapConfigBuilder<T> {
         }
     }
 
-    /// Generates a [`GridMapConfig`] from the struct currently contained by the builder
+    /// Generates a [`GridMapConfig`] from the builder's current contents.
     ///
     /// # Returns
-    /// A [`GridMapConfig`], note that this does not consume the builder, leaving it intact for
-    /// another use.
+    /// A [`GridMapConfig`]. Takes `&self`, so the builder stays intact for another use.
     pub(crate) fn build(&self) -> GridMapConfig<T> {
         self._internal
     }

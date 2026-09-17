@@ -209,11 +209,9 @@ where
             let mut cell: usize = coordinate.as_();
             let mut offset = coordinate - cell.as_();
 
-            // The very top of the domain has no cell above it to interpolate against. Folding it
-            // into the last stencil at full weight keeps the domain a closed interval and yields
-            // the same value, and it is what stops the corner gather from running off the end of
-            // the row into the *next* one, which would silently produce a neighbour from the wrong
-            // line and a meaningless gradient.
+            // The top of the domain has no cell above it. Folding it into the last stencil at
+            // full weight yields the same value, and stops the corner gather running off the end
+            // of the row into the *next* one, whose cells are nowhere near the query.
             if cell + 1 >= self.dimensions[axis] {
                 cell = self.dimensions[axis] - 2;
                 offset = T::one();
@@ -249,13 +247,11 @@ where
             let extent = self.dimensions[axis];
             // A coordinate of exactly `extent` is already past the last cell, so the valid
             // fractional range is half-open.
-
             if !(T::zero()..extent.as_()).contains(&coordinate) {
                 return Err(GridMapError::OutOfBounds {
                     axis,
-                    // Truncating toward zero, saturating at the ends of the range; for the
-                    // in-range-adjacent coordinates a caller is likely to be debugging this is
-                    // the cell they meant.
+                    // Truncating and saturating; for the just-out-of-range coordinates a
+                    // caller is likely debugging, this is the cell they meant.
                     index: coordinate.as_(),
                     extent,
                 });
@@ -470,10 +466,9 @@ where
         tracing::instrument("Begin Scan", skip_all, level = "debug")
     )]
     pub(crate) fn begin_scan(&mut self) -> ScanUpdater<'_, T, N> {
-        // Bit 0 of a stamp records "marked occupied during this scan", so the generation occupies
-        // bits 1 upwards. Exhausting 2^31 scans takes about 248 days at 100Hz; the sweep below is
-        // a correctness backstop rather than an expected path, and without it a stale stamp would
-        // eventually alias the current generation and silently skip that cell's update.
+        // Bit 0 of a stamp records "marked occupied during this scan", so the generation takes
+        // bits 1 upwards. A stale stamp would eventually alias the reused counter and silently stop
+        // that cell updating; at 100Hz that is about 248 days away, so this is a backstop.
         if self.frame >= u32::MAX >> 1 {
             self.last_frame_to_update.fill(0);
             self.frame = 1;
@@ -501,6 +496,27 @@ where
     T: AsPrimitive<isize> + AsPrimitive<usize> + Copy + RealField,
     usize: AsPrimitive<T>,
 {
+    /// Pulls a clipped endpoint back to the last cell it addresses.
+    ///
+    /// # Arguments
+    /// * `point`: a position in fractional cell coordinates, possibly resting on a bounding face.
+    ///
+    /// # Returns
+    /// A [`Point`] inside the addressable domain, in the cell an interior `point` already lay in.
+    fn point_to_last_cell(&self, point: Point<T, N>) -> Point<T, N> {
+        // Clipping lands endpoints *on* the bounding faces, where the coordinate `extent`
+        // addresses cell `extent`, off the map. The plotter substitutes the exact endpoint for its
+        // final step, so leaving it there would drop the last cell inside the map too.
+        let half = T::one() / (T::one() + T::one());
+
+        let mut point = point;
+        for axis in 0..N {
+            let limit: T = self.dimensions[axis].as_();
+            point[axis] = point[axis].clamp(T::zero(), limit - half);
+        }
+        point
+    }
+
     /// Clips a segment to the map's bounding box using the slab method.
     ///
     /// This is what bounds a ray cast: a step count follows from a beam's length, so an absurd but
@@ -551,11 +567,10 @@ where
         let entry = origin + direction * entry_fraction;
         let exit = origin + direction * exit_fraction;
 
-        // The slab test above intersects the *closed* box, whereas the addressable domain is
-        // half-open on every axis. A segment can therefore survive the clip while lying wholly
-        // within an upper face, addressing only cells off the map; the projection below would
-        // then slide it onto a row of real cells it never crossed. Both clipped endpoints being
-        // on the face is exactly that case, the segment between them being linear.
+        // The slab test intersects the *closed* box, but the addressable domain is half-open, so
+        // a segment can survive it lying wholly within an upper face - which the projection below
+        // would slide onto a row of real cells it never crossed. Both ends on the face is that
+        // case.
         for axis in 0..N {
             let extent: T = self.dimensions[axis].as_();
             if entry[axis] >= extent && exit[axis] >= extent {
@@ -563,32 +578,12 @@ where
             }
         }
 
-        // Clipping lands the endpoints *on* the bounding faces, and a coordinate of exactly
-        // `extent` belongs to cell `extent`, which is off the map. Worse, the plotter substitutes
-        // the exact endpoint for its final step, so leaving it on the face would drop the last
-        // cell inside the map as well as the one outside it. Pulling each coordinate back to the
-        // centre of the cell it is leaving keeps the beam's final cell addressable, and never
-        // changes which cell an already-interior coordinate falls in.
-        let half = T::one() / (T::one() + T::one());
-        let into_last_cell = |point: Point<T, N>| -> Point<T, N> {
-            let mut point = point;
-            for axis in 0..N {
-                let limit: T = self.dimensions[axis].as_();
-                point[axis] = point[axis].clamp(T::zero(), limit - half);
-            }
-            point
-        };
-
         Some((
-            into_last_cell(entry),
-            into_last_cell(exit),
-            // `exit_fraction` starts at one and only ever shrinks, so it is still exactly one
-            // precisely when the caller's endpoint was never clipped away.
-            // An endpoint resting on an upper face escaped clipping too,
-            // but it addresses a cell off the map, so it is no more evidence of a return
-            // than a clipped endpoint is:
-            // reporting it as inside would plant a phantom obstacle in the boundary
-            // cell the projection lands it in.
+            self.point_to_last_cell(entry),
+            self.point_to_last_cell(exit),
+            // `exit_fraction` only ever shrinks from one, so it is still one precisely when the
+            // endpoint was never clipped. An endpoint on an upper face escapes clipping too, but
+            // addresses a cell off the map, so the range check rejects it as well.
             exit_fraction >= T::one()
                 && (0..N).all(|axis| {
                     let extent: T = self.dimensions[axis].as_();
@@ -599,7 +594,7 @@ where
 
     /// Records that a beam passed through a cell, applying the free increment.
     ///
-    /// A cell already touched this scan, in either state, is left alone.
+    /// A cell already touched by this scan, in either state, is left alone.
     ///
     /// # Arguments
     /// * `index`: the cell observed as free.
@@ -645,14 +640,10 @@ where
             return Ok(false);
         } else if self.last_frame_to_update[linear] == current {
             // Marked free earlier in this scan, so retract that first: the free increment is
-            // negative, and subtracting it adds its magnitude back.
-            //
-            // Except on the floor, where the free update was clamped and how much of it survived
-            // is gone. Crediting the full increment back there leaves the cell above where a lone
-            // return would have put it, which makes a scan's outcome depend on the order its beams
-            // happened to arrive in - the one thing the stamps exist to prevent.
-            // A cell resting on the floor was almost certainly already there,
-            // so retract nothing: exact in that case, and never optimistic in the narrow band above it.
+            // negative, and subtracting it adds its magnitude back. On the floor the clamp ate an
+            // unknown part of that update, so crediting it back would put the cell above where a
+            // lone return does, making the scan's outcome depend on beam order. Retract nothing
+            // there: exact for a cell that was already on the floor, never optimistic just above.
             if self.odds[linear] <= self.min_log_odds {
                 self.occupied_delta
             } else {
