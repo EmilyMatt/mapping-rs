@@ -496,14 +496,14 @@ where
     T: AsPrimitive<isize> + AsPrimitive<usize> + ConstOne + ConstZero + Copy + RealField,
     usize: AsPrimitive<T>,
 {
-    /// Pulls a clipped endpoint back to the last cell it addresses.
+    /// Clamps a point so that every coordinate addresses a cell of the map.
     ///
     /// # Arguments
     /// * `point`: a position in fractional cell coordinates, possibly resting on a bounding face.
     ///
     /// # Returns
     /// A [`Point`] inside the addressable domain, in the cell an interior `point` already lay in.
-    fn point_to_last_cell(&self, point: Point<T, N>) -> Point<T, N> {
+    fn clamp_to_addressable_cell(&self, point: Point<T, N>) -> Point<T, N> {
         // Clipping lands endpoints *on* the bounding faces, where the coordinate `extent`
         // addresses cell `extent`, off the map. The plotter substitutes the exact endpoint for its
         // final step, so leaving it there would drop the last cell inside the map too.
@@ -579,8 +579,8 @@ where
         }
 
         Some((
-            self.point_to_last_cell(entry),
-            self.point_to_last_cell(exit),
+            self.clamp_to_addressable_cell(entry),
+            self.clamp_to_addressable_cell(exit),
             // `exit_fraction` only ever shrinks from one, so it is still one precisely when the
             // endpoint was never clipped. An endpoint on an upper face escapes clipping too, but
             // addresses a cell off the map, so the range check rejects it as well.
