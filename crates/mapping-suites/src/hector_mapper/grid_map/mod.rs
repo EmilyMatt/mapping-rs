@@ -463,10 +463,6 @@ where
     /// # Returns
     /// A [`ScanUpdater`] borrowing this map.
     #[must_use = "a ScanUpdater performs no work until beams are integrated into it"]
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument("Begin Scan", skip_all, level = "debug")
-    )]
     pub(crate) fn begin_scan(&mut self) -> ScanUpdater<'_, T, N> {
         // Bit 0 of a stamp records "marked occupied during this scan", so the generation takes
         // bits 1 upwards. A stale stamp would eventually alias the reused counter and silently stop

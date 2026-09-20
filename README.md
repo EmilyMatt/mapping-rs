@@ -23,8 +23,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mapping-algorithms = { "0.0.1", .. }
-mapping-suites = { version = "0.0.1", .. }
+mapping-algorithms = { version = "*" }
+mapping-suites = { version = "*" }
 ```
 
 # Features
